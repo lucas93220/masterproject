@@ -6,6 +6,22 @@ const admin = require('../middlewares/admin')
 
 router.get('/me', auth, utilisateurController.getMe);
 router.put('/me', auth, utilisateurController.updateMe);
+/**
+ * @swagger
+ * /api/utilisateur/me:
+ *   delete:
+ *     summary: Supprimer son propre compte utilisateur
+ *     tags: [Utilisateur]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Compte supprimé avec succès
+ *       401:
+ *         description: Non authentifié ou accès refusé
+ *       404:
+ *         description: Utilisateur non trouvé
+ */
 router.delete('/me', auth, utilisateurController.deleteMe);
 
 // Administration

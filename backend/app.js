@@ -3,6 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./config/db');
 const errorHandler = require('./utils/errorHandler');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger/swaggerConfig');
+
 
 const app = express();
 const PORT = process.env.PORT;
@@ -29,9 +32,13 @@ app.use('/api/evaluation', evaluationRoutes);
 app.use('/api/dressing', dressingRoutes);
 app.use('/api/photo', photoRoutes);
 app.use('/api/meteo', meteoRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Serveur lancé sur le port ${PORT}`);
 });
+
+module.exports = app;
