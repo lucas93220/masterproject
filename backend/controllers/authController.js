@@ -3,9 +3,17 @@ const Utilisateur = require('../models/utilisateur');
 const Dressing = require('../models/dressing');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { validationResult } = require('express-validator');
+
 
 // Inscription
 exports.register = async (req, res, next) => {
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   try {
     const { nom, prenom, ville, email, password, role } = req.body;
 
@@ -43,6 +51,7 @@ exports.login = async (req, res, next) => {
         action: "login_failed",
         details: { email, reason: "not_found", ip: req.ip }
       });
+    
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
 

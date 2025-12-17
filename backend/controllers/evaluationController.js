@@ -4,7 +4,6 @@ const Evaluation = require('../models/evaluation');
 exports.create = async (req, res, next) => {
   try {
     const { id_tenue, is_liked } = req.body;
-    // On peut update si déjà évaluée
     const [evaluation, created] = await Evaluation.upsert({
       id_utilisateur: req.user.id,
       id_tenue,

@@ -5,7 +5,6 @@ const Contenir = require('../models/contenir');
 // Créer un vêtement
 exports.create = async (req, res, next) => {
   try {
-    // Récupérer le dressing du user
     const dressing = await Dressing.findOne({ where: { id_utilisateur: req.user.id } });
     if (!dressing) return res.status(404).json({ message: "Dressing non trouvé" });
 
@@ -32,8 +31,7 @@ exports.create = async (req, res, next) => {
   }
 };
 
-
-// Lire tous les vêtements de l'utilisateur connecté
+// Lire tous ces vêtements de l'utilisateur
 exports.getAllMine = async (req, res, next) => {
   try {
     const dressing = await Dressing.findOne({ where: { id_utilisateur: req.user.id } });
@@ -50,14 +48,20 @@ exports.getAllMine = async (req, res, next) => {
   }
 };
 
-
-// Lire un vêtement précis
+// Lire un vêtement 
 exports.getById = async (req, res, next) => {
   try {
-    const vetement = await Vetement.findOne({
-      where: { id_vetement: req.params.id, id_utilisateur: req.user.id }
+    const dressing = await Dressing.findOne({ where: { id_utilisateur: req.user.id } });
+    if (!dressing) return res.status(404).json({ message: "Dressing non trouvé" });
+
+    const contient = await Contenir.findOne({
+      where: { id_dressing: dressing.id_dressing, id_vetement: req.params.id }
     });
+    if (!contient) return res.status(404).json({ message: "Ce vêtement ne vous appartient pas." });
+
+    const vetement = await Vetement.findByPk(req.params.id);
     if (!vetement) return res.status(404).json({ message: "Vêtement non trouvé" });
+
     res.json(vetement);
   } catch (error) {
     next(error);
@@ -67,9 +71,15 @@ exports.getById = async (req, res, next) => {
 // Modifier un vêtement
 exports.update = async (req, res, next) => {
   try {
-    const vetement = await Vetement.findOne({
-      where: { id_vetement: req.params.id, id_utilisateur: req.user.id }
+    const dressing = await Dressing.findOne({ where: { id_utilisateur: req.user.id } });
+    if (!dressing) return res.status(404).json({ message: "Dressing non trouvé" });
+
+    const contient = await Contenir.findOne({
+      where: { id_dressing: dressing.id_dressing, id_vetement: req.params.id }
     });
+    if (!contient) return res.status(404).json({ message: "Ce vêtement ne vous appartient pas." });
+
+    const vetement = await Vetement.findByPk(req.params.id);
     if (!vetement) return res.status(404).json({ message: "Vêtement non trouvé" });
 
     Object.assign(vetement, req.body);
@@ -83,19 +93,23 @@ exports.update = async (req, res, next) => {
 // Supprimer un vêtement
 exports.delete = async (req, res, next) => {
   try {
-    const vetement = await Vetement.findOne({
-      where: { id_vetement: req.params.id, id_utilisateur: req.user.id }
-    });
-    if (!vetement) return res.status(404).json({ message: "Vêtement non trouvé" });
+    const dressing = await Dressing.findOne({ where: { id_utilisateur: req.user.id } });
+    if (!dressing) return res.status(404).json({ message: "Dressing introuvable" });
 
-    await vetement.destroy();
+    const relation = await Contenir.findOne({
+      where: { id_dressing: dressing.id_dressing, id_vetement: req.params.id }
+    });
+    if (!relation) return res.status(404).json({ message: "Ce vêtement ne vous appartient pas." });
+
+    await relation.destroy();
+
     res.json({ message: "Vêtement supprimé avec succès." });
   } catch (error) {
     next(error);
   }
 };
 
-// Voir tout les vetements (admin)
+// Voir tous les vêtements (admin)
 exports.getAll = async (req, res, next) => {
   try {
     const vetements = await Vetement.findAll();
@@ -105,7 +119,7 @@ exports.getAll = async (req, res, next) => {
   }
 };
 
-// modifier un vêtement (admin)
+// Modifier un vêtement (admin)
 exports.updateById = async (req, res, next) => {
   try {
     const vetement = await Vetement.findByPk(req.params.id);
@@ -119,7 +133,7 @@ exports.updateById = async (req, res, next) => {
   }
 };
 
-// supprimer un vêtement (admin)
+// Supprimer un vêtement (admin)
 exports.deleteById = async (req, res, next) => {
   try {
     const vetement = await Vetement.findByPk(req.params.id);
@@ -131,5 +145,3 @@ exports.deleteById = async (req, res, next) => {
     next(error);
   }
 };
-
-

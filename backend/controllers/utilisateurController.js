@@ -59,7 +59,7 @@ exports.deleteById = async (req, res, next) => {
   }
 };
 
-// Dans controllers/utilisateurController.js
+// Recuperer tout les utilisateurs (admin seulement)
 exports.getAll = async (req, res, next) => {
   try {
     const users = await Utilisateur.findAll({
@@ -71,7 +71,7 @@ exports.getAll = async (req, res, next) => {
   }
 };
 
-// Dans controllers/utilisateurController.js
+// Recuperer un utilisateur (admin seulement)
 exports.getById = async (req, res, next) => {
   try {
     const user = await Utilisateur.findByPk(req.params.id, {
@@ -84,7 +84,7 @@ exports.getById = async (req, res, next) => {
   }
 };
 
-// Dans controllers/utilisateurController.js
+// Modifier un utilisateur (admin seulement)
 exports.updateById = async (req, res, next) => {
   try {
     const { nom, prenom, ville, email } = req.body;
@@ -104,7 +104,7 @@ exports.updateById = async (req, res, next) => {
   }
 };
 
-// Dans controllers/utilisateurController.js
+// Modifier le role (admin seulement)
 exports.updateRole = async (req, res, next) => {
   try {
     const { role } = req.body;

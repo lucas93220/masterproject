@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 
 /**
@@ -33,7 +34,16 @@ const authController = require('../controllers/authController');
  *       409:
  *         description: Email déjà utilisé
  */
-router.post('/register', authController.register);
+router.post(
+  '/register',
+  [
+    body('email').isEmail().withMessage('Email invalide'),
+    // body('password').isLength({ min: 6 }).withMessage('Mot de passe trop court'),
+    body('nom').notEmpty().withMessage('Le nom est requis'),
+    body('prenom').notEmpty().withMessage('Le prénom est requis')
+  ],
+  authController.register
+);
 
 /**
  * @swagger

@@ -1,8 +1,8 @@
-const Log = require('../models/log');
+const log = require('../models/log');
 
 exports.logAction = async ({ userId, action, details }) => {
   try {
-    await Log.create({
+    await log.create({
       userId: userId?.toString(), 
       action,
       details
