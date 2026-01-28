@@ -8,16 +8,20 @@ const sequelize = new Sequelize(
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     dialect: 'postgres',
     logging: false,
   }
 );
 
+// Vérification connexion PostgreSQL
+sequelize.authenticate()
+  .then(() => console.log("Connecté à PostgreSQL"))
+  .catch(err => console.error("Erreur PostgreSQL :", err));
+
+
 // MONGOOSE
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Connecté à MongoDB"))
   .catch(err => console.error("Erreur MongoDB :", err));
 
