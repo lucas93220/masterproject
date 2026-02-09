@@ -15,3 +15,38 @@ export async function loginUser(email, password) {
 
   return response.json(); // { token, user }
 }
+
+export async function registerUser(userData) {
+  const response = await fetch("http://localhost:3002/api/auth/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(userData)
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Erreur inscription");
+  }
+
+  return response.json();
+}
+
+export async function getProfile() {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch("http://localhost:3002/api/utilisateur/me", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Impossible de récupérer le profil");
+  }
+
+  return response.json();
+}
+
+
