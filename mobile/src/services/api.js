@@ -50,6 +50,27 @@ export async function getProfile() {
   return response.json();
 }
 
+export async function updateProfile(profileData) {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch("http://localhost:3002/api/utilisateur/me", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(profileData)
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Erreur mise à jour profil");
+  }
+
+  return response.json();
+}
+
+
 export async function getWeatherForMe() {
   const token = await AsyncStorage.getItem("token");
 
