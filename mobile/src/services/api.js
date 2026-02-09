@@ -50,4 +50,19 @@ export async function getProfile() {
   return response.json();
 }
 
+export async function getWeatherForMe() {
+  const token = await AsyncStorage.getItem("token");
 
+  const response = await fetch("http://localhost:3002/api/meteo/me", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Erreur météo");
+  }
+
+  return response.json();
+}
