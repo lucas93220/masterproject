@@ -14,7 +14,7 @@ export async function loginUser(email, password) {
     throw new Error("Erreur de connexion");
   }
 
-  return response.json(); // { token, user }
+  return response.json();
 }
 
 export async function registerUser(userData) {

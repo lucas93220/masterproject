@@ -16,13 +16,16 @@ exports.getMe = async (req, res, next) => {
 // Modifier son profil
 exports.updateMe = async (req, res, next) => {
   try {
-    const { nom, prenom, ville } = req.body;
+    const { nom, prenom, ville, telephone, code_postal } = req.body;
     const user = await Utilisateur.findByPk(req.user.id);
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
     user.nom = nom ?? user.nom;
     user.prenom = prenom ?? user.prenom;
     user.ville = ville ?? user.ville;
+    user.telephone = telephone ?? user.telephone;
+    user.code_postal = code_postal ?? user.code_postal;
+
 
     await user.save();
 
@@ -87,7 +90,7 @@ exports.getById = async (req, res, next) => {
 // Modifier un utilisateur (admin seulement)
 exports.updateById = async (req, res, next) => {
   try {
-    const { nom, prenom, ville, email } = req.body;
+    const { nom, prenom, ville, email, telephone, code_postal } = req.body;
     const user = await Utilisateur.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
@@ -95,6 +98,8 @@ exports.updateById = async (req, res, next) => {
     user.prenom = prenom ?? user.prenom;
     user.ville = ville ?? user.ville;
     user.email = email ?? user.email;
+    user.telephone = telephone ?? user.telephone;
+    user.code_postal = code_postal ?? user.code_postal;
 
     await user.save();
     const { password, ...userSafe } = user.dataValues;

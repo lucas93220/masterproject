@@ -41,6 +41,8 @@ export default function Profile({ navigation }) {
       <Text>Prénom : {user.prenom}</Text>
       <Text>Email : {user.email}</Text>
       <Text>Ville : {user.ville}</Text>
+      <Text>Code postal : {user.code_postal || "Non renseigné"}</Text>
+      <Text>Téléphone : {user.telephone || "Non renseigné"}</Text>
       <Text>Rôle : {user.role}</Text>
 
       <Button title="Se déconnecter" onPress={handleLogout} />

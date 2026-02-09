@@ -15,14 +15,14 @@ exports.register = async (req, res, next) => {
   }
 
   try {
-    const { nom, prenom, ville, email, password, role } = req.body;
+    const { nom, prenom, ville, email, password, telephone, code_postal, role } = req.body;
 
     const existing = await Utilisateur.findOne({ where: { email } });
     if (existing) return res.status(409).json({ message: "Cet email est déjà utilisé." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await Utilisateur.create({
-      nom, prenom, ville, email, password: hashedPassword, role
+      nom, prenom, ville, email, telephone, code_postal, password: hashedPassword, role
     });
 
     await Dressing.create({ id_utilisateur: user.id_utilisateur });

@@ -15,7 +15,17 @@ const Utilisateur = sequelize.define('utilisateur', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  ville: DataTypes.STRING,
+  ville: {
+    type: DataTypes.STRING
+  },
+  telephone: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  code_postal: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   email: {
     type: DataTypes.STRING,
     unique: true,
