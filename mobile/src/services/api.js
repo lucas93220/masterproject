@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const API_URL = "http://localhost:3002/api";
 
 export async function loginUser(email, password) {
