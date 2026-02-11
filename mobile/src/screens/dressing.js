@@ -11,15 +11,14 @@ import { getMyDressing } from "../services/api";
 export default function Dressing({ navigation }) {
   const [dressing, setDressing] = useState([]);
 
-const loadDressing = async () => {
-  try {
-    const data = await getMyDressing();
-    setDressing(data.vetements);
-  } catch (error) {
-    console.error(error);
-  }
-};
-
+  const loadDressing = async () => {
+    try {
+      const data = await getMyDressing();
+      setDressing(data.vetements);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", loadDressing);
@@ -27,12 +26,14 @@ const loadDressing = async () => {
   }, [navigation]);
 
   const renderItem = ({ item }) => (
-    <View style={card}>
+    <TouchableOpacity
+      style={card}
+      onPress={() =>
+        navigation.navigate("AddClothing", { clothing: item })
+      }
+    >
       {item.photo ? (
-        <Image
-          source={{ uri: item.photo }}
-          style={image}
-        />
+        <Image source={{ uri: item.photo }} style={image} />
       ) : (
         <View style={[image, placeholder]}>
           <Text>📸</Text>
@@ -40,7 +41,7 @@ const loadDressing = async () => {
       )}
 
       <Text style={name}>{item.nom}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -57,7 +58,7 @@ const loadDressing = async () => {
       <TouchableOpacity
         style={fab}
         onPress={() =>
-          navigation.navigate("Dressing", { screen: "AddClothing" })
+          navigation.navigate("AddClothing")
         }
       >
         <Text style={{ color: "white", fontSize: 24 }}>+</Text>

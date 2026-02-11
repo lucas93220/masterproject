@@ -122,12 +122,36 @@ export async function addClothing(clothingData) {
   return data;
 }
 
+export async function updateClothing(id, clothingData) {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch(
+    `http://localhost:3002/api/vetement/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(clothingData)
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Erreur modification vêtement");
+  }
+
+  return data;
+}
+
 
 // Supprimer un vêtement
 export async function deleteClothing(id) {
   const token = await AsyncStorage.getItem("token");
 
-  const response = await fetch(`${API_URL}/dressing/${id}`, {
+  const response = await fetch(`${API_URL}/vetement/${id}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`

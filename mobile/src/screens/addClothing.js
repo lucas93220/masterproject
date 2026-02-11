@@ -12,18 +12,36 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
-import { addClothing, getCategories } from "../services/api";
+import {
+  addClothing,
+  updateClothing,
+  getCategories
+} from "../services/api";
 
-export default function AddClothing({ navigation }) {
-  const [photo, setPhoto] = useState(null);
-  const [nom, setNom] = useState("");
-  const [marque, setMarque] = useState("");
-  const [couleur, setCouleur] = useState("");
+export default function AddClothing({ navigation, route }) {
+  const editingClothing = route?.params?.clothing;
+
+  const [photo, setPhoto] = useState(editingClothing?.photo || null);
+  const [nom, setNom] = useState(editingClothing?.nom || "");
+  const [marque, setMarque] = useState(editingClothing?.marque || "");
+  const [couleur, setCouleur] = useState(editingClothing?.couleur || "");
   const [categories, setCategories] = useState([]);
-  const [idCategorie, setIdCategorie] = useState(null);
-  const [tempMin, setTempMin] = useState("");
-  const [tempMax, setTempMax] = useState("");
-  const [favori, setFavori] = useState(false);
+  const [idCategorie, setIdCategorie] = useState(
+    editingClothing?.id_categorie || null
+  );
+  const [tempMin, setTempMin] = useState(
+    editingClothing?.temperature_min
+      ? editingClothing.temperature_min.toString()
+      : ""
+  );
+  const [tempMax, setTempMax] = useState(
+    editingClothing?.temperature_max
+      ? editingClothing.temperature_max.toString()
+      : ""
+  );
+  const [favori, setFavori] = useState(
+    editingClothing?.favori || false
+  );
   const [categoryModal, setCategoryModal] = useState(false);
 
   useEffect(() => {
@@ -51,19 +69,26 @@ export default function AddClothing({ navigation }) {
       return;
     }
 
-    try {
-      await addClothing({
-        nom,
-        marque,
-        couleur,
-        photo,
-        favori,
-        temperature_min: tempMin ? Number(tempMin) : null,
-        temperature_max: tempMax ? Number(tempMax) : null,
-        id_categorie: idCategorie
-      });
+    const payload = {
+      nom,
+      marque,
+      couleur,
+      photo,
+      favori,
+      temperature_min: tempMin ? Number(tempMin) : null,
+      temperature_max: tempMax ? Number(tempMax) : null,
+      id_categorie: idCategorie
+    };
 
-      Alert.alert("Succès", "Vêtement ajouté");
+    try {
+      if (editingClothing) {
+        await updateClothing(editingClothing.id_vetement, payload);
+        Alert.alert("Succès", "Vêtement modifié");
+      } else {
+        await addClothing(payload);
+        Alert.alert("Succès", "Vêtement ajouté");
+      }
+
       navigation.goBack();
     } catch (e) {
       Alert.alert("Erreur", e.message);
@@ -72,17 +97,34 @@ export default function AddClothing({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Text style={title}>Ajouter un vêtement</Text>
+      <Text style={{ fontSize: 22, marginBottom: 15 }}>
+        {editingClothing
+          ? "Modifier le vêtement"
+          : "Ajouter un vêtement"}
+      </Text>
 
-      {/* PHOTO */}
       <TouchableOpacity onPress={pickImage}>
         {photo ? (
           <Image
             source={{ uri: photo }}
-            style={image}
+            style={{
+              width: "100%",
+              height: 200,
+              borderRadius: 10,
+              marginBottom: 10
+            }}
           />
         ) : (
-          <View style={imagePlaceholder}>
+          <View
+            style={{
+              height: 200,
+              backgroundColor: "#eee",
+              borderRadius: 10,
+              justifyContent: "center",
+              alignItems: "center",
+              marginBottom: 10
+            }}
+          >
             <Text>📸 Ajouter une photo</Text>
           </View>
         )}
@@ -109,20 +151,21 @@ export default function AddClothing({ navigation }) {
         style={input}
       />
 
-      {/* CATÉGORIE */}
       <TouchableOpacity
         style={input}
         onPress={() => setCategoryModal(true)}
       >
-        <Text style={{ color: idCategorie ? "#000" : "#999" }}>
+        <Text>
           {idCategorie
-            ? categories.find(c => c.id_categorie === idCategorie)?.nom_categorie
+            ? categories.find(
+                c => c.id_categorie === idCategorie
+              )?.nom_categorie
             : "Choisir une catégorie"}
         </Text>
       </TouchableOpacity>
 
       <TextInput
-        placeholder="Température min (°C)"
+        placeholder="Température min"
         keyboardType="numeric"
         value={tempMin}
         onChangeText={setTempMin}
@@ -130,30 +173,45 @@ export default function AddClothing({ navigation }) {
       />
 
       <TextInput
-        placeholder="Température max (°C)"
+        placeholder="Température max"
         keyboardType="numeric"
         value={tempMax}
         onChangeText={setTempMax}
         style={input}
       />
 
-      {/* FAVORI */}
-      <View style={favoriRow}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginVertical: 10
+        }}
+      >
         <Text>Favori</Text>
         <Switch value={favori} onValueChange={setFavori} />
       </View>
 
-      <Button title="Ajouter le vêtement" onPress={handleSubmit} />
+      <Button
+        title={
+          editingClothing ? "Enregistrer" : "Ajouter"
+        }
+        onPress={handleSubmit}
+      />
 
-      {/* MODAL CATÉGORIES */}
       <Modal visible={categoryModal} animationType="slide">
         <View style={{ flex: 1, padding: 20 }}>
-          <Text style={title}>Choisir une catégorie</Text>
+          <Text style={{ fontSize: 22, marginBottom: 15 }}>
+            Choisir une catégorie
+          </Text>
 
-          {categories.map((cat) => (
+          {categories.map(cat => (
             <TouchableOpacity
               key={cat.id_categorie}
-              style={categoryItem}
+              style={{
+                paddingVertical: 15,
+                borderBottomWidth: 1,
+                borderBottomColor: "#eee"
+              }}
               onPress={() => {
                 setIdCategorie(cat.id_categorie);
                 setCategoryModal(false);
@@ -165,19 +223,15 @@ export default function AddClothing({ navigation }) {
             </TouchableOpacity>
           ))}
 
-          <Button title="Annuler" onPress={() => setCategoryModal(false)} />
+          <Button
+            title="Annuler"
+            onPress={() => setCategoryModal(false)}
+          />
         </View>
       </Modal>
     </ScrollView>
   );
 }
-
-/* ===== STYLES ===== */
-
-const title = {
-  fontSize: 22,
-  marginBottom: 15
-};
 
 const input = {
   borderWidth: 1,
@@ -185,33 +239,4 @@ const input = {
   padding: 12,
   marginBottom: 10,
   borderRadius: 6
-};
-
-const image = {
-  width: "100%",
-  height: 200,
-  borderRadius: 10,
-  marginBottom: 10
-};
-
-const imagePlaceholder = {
-  height: 200,
-  backgroundColor: "#eee",
-  borderRadius: 10,
-  justifyContent: "center",
-  alignItems: "center",
-  marginBottom: 10
-};
-
-const favoriRow = {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginVertical: 10
-};
-
-const categoryItem = {
-  paddingVertical: 15,
-  borderBottomWidth: 1,
-  borderBottomColor: "#eee"
 };
