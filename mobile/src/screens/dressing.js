@@ -3,10 +3,14 @@ import {
   Text,
   FlatList,
   Image,
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from "react-native";
 import { useEffect, useState } from "react";
-import { getMyDressing } from "../services/api";
+import {
+  getMyDressing,
+  deleteClothing
+} from "../services/api";
 
 export default function Dressing({ navigation }) {
   const [dressing, setDressing] = useState([]);
@@ -21,19 +25,52 @@ export default function Dressing({ navigation }) {
   };
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", loadDressing);
+    const unsubscribe = navigation.addListener(
+      "focus",
+      loadDressing
+    );
     return unsubscribe;
   }, [navigation]);
+
+  const handleDelete = (id) => {
+    Alert.alert(
+      "Supprimer",
+      "Voulez-vous supprimer ce vêtement ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteClothing(id);
+              loadDressing(); // 🔥 refresh
+            } catch (error) {
+              Alert.alert("Erreur", error.message);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={card}
       onPress={() =>
-        navigation.navigate("AddClothing", { clothing: item })
+        navigation.navigate("AddClothing", {
+          clothing: item
+        })
+      }
+      onLongPress={() =>
+        handleDelete(item.id_vetement)
       }
     >
       {item.photo ? (
-        <Image source={{ uri: item.photo }} style={image} />
+        <Image
+          source={{ uri: item.photo }}
+          style={image}
+        />
       ) : (
         <View style={[image, placeholder]}>
           <Text>📸</Text>
@@ -48,20 +85,27 @@ export default function Dressing({ navigation }) {
     <View style={{ flex: 1, padding: 10 }}>
       <FlatList
         data={dressing}
-        keyExtractor={(item) => item.id_vetement.toString()}
+        keyExtractor={(item) =>
+          item.id_vetement.toString()
+        }
         renderItem={renderItem}
         numColumns={2}
-        columnWrapperStyle={{ justifyContent: "space-between" }}
+        columnWrapperStyle={{
+          justifyContent: "space-between"
+        }}
       />
 
-      {/* Bouton + */}
       <TouchableOpacity
         style={fab}
         onPress={() =>
           navigation.navigate("AddClothing")
         }
       >
-        <Text style={{ color: "white", fontSize: 24 }}>+</Text>
+        <Text
+          style={{ color: "white", fontSize: 24 }}
+        >
+          +
+        </Text>
       </TouchableOpacity>
     </View>
   );
