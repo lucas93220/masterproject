@@ -70,6 +70,75 @@ export async function updateProfile(profileData) {
   return response.json();
 }
 
+// Récupérer le dressing de l'utilisateur
+export async function getMyDressing() {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch(`${API_URL}/dressing/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Erreur chargement dressing");
+  }
+
+  return data;
+}
+
+export const getCategories = async () => {
+  const token = await AsyncStorage.getItem("token");
+  const res = await fetch("http://localhost:3002/api/categorie", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!res.ok) throw new Error("Erreur chargement catégories");
+  return res.json();
+};
+
+
+// Ajouter un vêtement au dressing
+export async function addClothing(clothingData) {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch(`${API_URL}/vetement`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(clothingData)
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Erreur ajout vêtement");
+  }
+
+  return data;
+}
+
+
+// Supprimer un vêtement
+export async function deleteClothing(id) {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch(`${API_URL}/dressing/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Erreur suppression vêtement");
+  }
+}
+
 
 export async function getWeatherForMe() {
   const token = await AsyncStorage.getItem("token");
