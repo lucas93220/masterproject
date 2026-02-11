@@ -4,29 +4,39 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
-  Alert
+  Alert,
+  Modal
 } from "react-native";
 import { useEffect, useState } from "react";
 import {
   getMyDressing,
   deleteClothing,
-  toggleFavorite
+  toggleFavorite,
+  getCategories
 } from "../services/api";
-
 
 export default function Dressing({ navigation }) {
   const [dressing, setDressing] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [filterModal, setFilterModal] = useState(false);
 
   const loadDressing = async () => {
     try {
       const data = await getMyDressing();
-      setDressing(data.vetements.sort((a, b) => b.favori - a.favori));
+      setDressing(
+        data.vetements.sort((a, b) => b.favori - a.favori)
+      );
     } catch (error) {
       console.error(error);
     }
   };
 
   useEffect(() => {
+    getCategories()
+      .then(setCategories)
+      .catch(console.error);
+
     const unsubscribe = navigation.addListener(
       "focus",
       loadDressing
@@ -35,14 +45,13 @@ export default function Dressing({ navigation }) {
   }, [navigation]);
 
   const handleToggleFavorite = async (item) => {
-  try {
-    await toggleFavorite(item.id_vetement, item.favori);
-    loadDressing();
-  } catch (error) {
-    Alert.alert("Erreur", error.message);
-  }
-};
-
+    try {
+      await toggleFavorite(item.id_vetement, item.favori);
+      loadDressing();
+    } catch (error) {
+      Alert.alert("Erreur", error.message);
+    }
+  };
 
   const handleDelete = (id) => {
     Alert.alert(
@@ -56,7 +65,7 @@ export default function Dressing({ navigation }) {
           onPress: async () => {
             try {
               await deleteClothing(id);
-              loadDressing(); // 🔥 refresh
+              loadDressing();
             } catch (error) {
               Alert.alert("Erreur", error.message);
             }
@@ -66,45 +75,79 @@ export default function Dressing({ navigation }) {
     );
   };
 
-const renderItem = ({ item }) => (
-  <TouchableOpacity
-    style={card}
-    onPress={() =>
-      navigation.navigate("AddClothing", { clothing: item })
-    }
-    onLongPress={() =>
-      handleDelete(item.id_vetement)
-    }
-  >
-    {item.photo ? (
-      <Image source={{ uri: item.photo }} style={image} />
-    ) : (
-      <View style={[image, placeholder]}>
-        <Text>📸</Text>
+  const filteredDressing = selectedCategory
+    ? dressing.filter(
+        (item) => item.id_categorie === selectedCategory
+      )
+    : dressing;
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={card}
+      onPress={() =>
+        navigation.navigate("AddClothing", {
+          clothing: item
+        })
+      }
+      onLongPress={() =>
+        handleDelete(item.id_vetement)
+      }
+    >
+      {item.photo ? (
+        <Image source={{ uri: item.photo }} style={image} />
+      ) : (
+        <View style={[image, placeholder]}>
+          <Text>📸</Text>
+        </View>
+      )}
+
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginTop: 5
+        }}
+      >
+        <Text style={name}>{item.nom}</Text>
+
+        <TouchableOpacity
+          onPress={() => handleToggleFavorite(item)}
+          style={{ marginLeft: 6 }}
+        >
+          <Text style={{ fontSize: 18 }}>
+            {item.favori ? "❤️" : "🤍"}
+          </Text>
+        </TouchableOpacity>
       </View>
-    )}
-
-    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
-      <Text style={name}>{item.nom}</Text>
-
-      <TouchableOpacity
-  onPress={() => handleToggleFavorite(item)}
-  style={{ marginLeft: 6 }}
->
-  <Text style={{ fontSize: 18 }}>
-    {item.favori ? "❤️" : "🤍"}
-  </Text>
-</TouchableOpacity>
-
-    </View>
-  </TouchableOpacity>
-);
-
+    </TouchableOpacity>
+  );
 
   return (
     <View style={{ flex: 1, padding: 10 }}>
+      
+      {/* Bouton Filtrer */}
+      <TouchableOpacity
+        style={filterButton}
+        onPress={() => setFilterModal(true)}
+      >
+        <Text style={{ color: "white", textAlign: "center" }}>
+          Filtrer par catégorie
+        </Text>
+      </TouchableOpacity>
+
+      {selectedCategory && (
+        <Text style={{ marginBottom: 10 }}>
+          Catégorie : {
+            categories.find(
+              (c) =>
+                c.id_categorie === selectedCategory
+            )?.nom_categorie
+          }
+        </Text>
+      )}
+
       <FlatList
-        data={dressing}
+        data={filteredDressing}
         keyExtractor={(item) =>
           item.id_vetement.toString()
         }
@@ -115,6 +158,64 @@ const renderItem = ({ item }) => (
         }}
       />
 
+      {/* Modal catégories */}
+      <Modal visible={filterModal} animationType="slide">
+        <View style={{ flex: 1, padding: 20 }}>
+          <Text
+            style={{
+              fontSize: 20,
+              marginBottom: 20
+            }}
+          >
+            Choisir une catégorie
+          </Text>
+
+          <TouchableOpacity
+            style={categoryItem}
+            onPress={() => {
+              setSelectedCategory(null);
+              setFilterModal(false);
+            }}
+          >
+            <Text style={{ fontSize: 16 }}>
+              Toutes
+            </Text>
+          </TouchableOpacity>
+
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat.id_categorie}
+              style={categoryItem}
+              onPress={() => {
+                setSelectedCategory(
+                  cat.id_categorie
+                );
+                setFilterModal(false);
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>
+                {cat.nom_categorie}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity
+            style={closeButton}
+            onPress={() => setFilterModal(false)}
+          >
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center"
+              }}
+            >
+              Fermer
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Bouton + */}
       <TouchableOpacity
         style={fab}
         onPress={() =>
@@ -122,7 +223,10 @@ const renderItem = ({ item }) => (
         }
       >
         <Text
-          style={{ color: "white", fontSize: 24 }}
+          style={{
+            color: "white",
+            fontSize: 24
+          }}
         >
           +
         </Text>
@@ -130,6 +234,8 @@ const renderItem = ({ item }) => (
     </View>
   );
 }
+
+/* ===== STYLES ===== */
 
 const card = {
   width: "48%",
@@ -165,4 +271,24 @@ const fab = {
   alignItems: "center",
   justifyContent: "center",
   elevation: 4
+};
+
+const filterButton = {
+  padding: 10,
+  backgroundColor: "#007AFF",
+  borderRadius: 6,
+  marginBottom: 10
+};
+
+const categoryItem = {
+  paddingVertical: 15,
+  borderBottomWidth: 1,
+  borderBottomColor: "#eee"
+};
+
+const closeButton = {
+  marginTop: 20,
+  padding: 10,
+  backgroundColor: "#007AFF",
+  borderRadius: 6
 };
