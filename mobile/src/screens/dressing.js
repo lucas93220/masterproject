@@ -178,8 +178,9 @@ export default function Dressing({ navigation }) {
             }}
           >
             <Text style={{ fontSize: 16 }}>
-              Toutes
+                Tout
             </Text>
+
           </TouchableOpacity>
 
           {categories.map((cat) => (
