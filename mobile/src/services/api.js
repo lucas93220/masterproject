@@ -146,6 +146,30 @@ export async function updateClothing(id, clothingData) {
   return data;
 }
 
+export async function toggleFavorite(id, currentValue) {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch(
+    `http://localhost:3002/api/vetement/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ favori: !currentValue })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Erreur favori");
+  }
+
+  return data;
+}
+
 
 // Supprimer un vêtement
 export async function deleteClothing(id) {

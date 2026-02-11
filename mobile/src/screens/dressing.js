@@ -9,8 +9,10 @@ import {
 import { useEffect, useState } from "react";
 import {
   getMyDressing,
-  deleteClothing
+  deleteClothing,
+  toggleFavorite
 } from "../services/api";
+
 
 export default function Dressing({ navigation }) {
   const [dressing, setDressing] = useState([]);
@@ -18,7 +20,7 @@ export default function Dressing({ navigation }) {
   const loadDressing = async () => {
     try {
       const data = await getMyDressing();
-      setDressing(data.vetements);
+      setDressing(data.vetements.sort((a, b) => b.favori - a.favori));
     } catch (error) {
       console.error(error);
     }
@@ -31,6 +33,16 @@ export default function Dressing({ navigation }) {
     );
     return unsubscribe;
   }, [navigation]);
+
+  const handleToggleFavorite = async (item) => {
+  try {
+    await toggleFavorite(item.id_vetement, item.favori);
+    loadDressing();
+  } catch (error) {
+    Alert.alert("Erreur", error.message);
+  }
+};
+
 
   const handleDelete = (id) => {
     Alert.alert(
@@ -54,32 +66,40 @@ export default function Dressing({ navigation }) {
     );
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={card}
-      onPress={() =>
-        navigation.navigate("AddClothing", {
-          clothing: item
-        })
-      }
-      onLongPress={() =>
-        handleDelete(item.id_vetement)
-      }
-    >
-      {item.photo ? (
-        <Image
-          source={{ uri: item.photo }}
-          style={image}
-        />
-      ) : (
-        <View style={[image, placeholder]}>
-          <Text>📸</Text>
-        </View>
-      )}
+const renderItem = ({ item }) => (
+  <TouchableOpacity
+    style={card}
+    onPress={() =>
+      navigation.navigate("AddClothing", { clothing: item })
+    }
+    onLongPress={() =>
+      handleDelete(item.id_vetement)
+    }
+  >
+    {item.photo ? (
+      <Image source={{ uri: item.photo }} style={image} />
+    ) : (
+      <View style={[image, placeholder]}>
+        <Text>📸</Text>
+      </View>
+    )}
 
+    <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
       <Text style={name}>{item.nom}</Text>
-    </TouchableOpacity>
-  );
+
+      <TouchableOpacity
+  onPress={() => handleToggleFavorite(item)}
+  style={{ marginLeft: 6 }}
+>
+  <Text style={{ fontSize: 18 }}>
+    {item.favori ? "❤️" : "🤍"}
+  </Text>
+</TouchableOpacity>
+
+    </View>
+  </TouchableOpacity>
+);
+
 
   return (
     <View style={{ flex: 1, padding: 10 }}>
