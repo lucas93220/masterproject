@@ -26,14 +26,21 @@ const Vetement = sequelize.define('Vetement', {
      type: DataTypes.INTEGER,
       allowNull: false
      },
-  id_categorie: {
+  id_sous_categorie: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    references: { model: 'categorie', key: 'id_categorie' }
+    references: { model: 'sous_categorie', key: 'id_sous_categorie' }
   },
 }, {
   tableName: 'vetement',
   timestamps: false
 });
+
+const SousCategorie = require('./sousCategorie');
+
+Vetement.belongsTo(SousCategorie, {
+  foreignKey: 'id_sous_categorie'
+});
+
 
 module.exports = Vetement;

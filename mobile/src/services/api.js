@@ -1,206 +1,89 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const API_URL = "http://localhost:3002/api";
 
-export async function loginUser(email, password) {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
-  });
 
-  if (!response.ok) {
-    throw new Error("Erreur de connexion");
-  }
-
-  return response.json();
-}
-
-export async function registerUser(userData) {
-  const response = await fetch("http://localhost:3002/api/auth/register", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(userData)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Erreur inscription");
-  }
-
-  return response.json();
-}
-
-export async function getProfile() {
+async function apiRequest(endpoint, method = "GET", body = null) {
   const token = await AsyncStorage.getItem("token");
 
-  const response = await fetch("http://localhost:3002/api/utilisateur/me", {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error("Impossible de récupérer le profil");
-  }
-
-  return response.json();
-}
-
-export async function updateProfile(profileData) {
-  const token = await AsyncStorage.getItem("token");
-
-  const response = await fetch("http://localhost:3002/api/utilisateur/me", {
-    method: "PUT",
+  const options = {
+    method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(profileData)
-  });
+      Authorization: token ? `Bearer ${token}` : undefined
+    }
+  };
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Erreur mise à jour profil");
+  if (body) {
+    options.body = JSON.stringify(body);
   }
 
-  return response.json();
-}
+  const response = await fetch(`${API_URL}${endpoint}`, options);
 
-// Récupérer le dressing de l'utilisateur
-export async function getMyDressing() {
-  const token = await AsyncStorage.getItem("token");
-
-  const response = await fetch(`${API_URL}/dressing/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || "Erreur chargement dressing");
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    // cas DELETE ou réponse vide
   }
 
-  return data;
-}
-
-export const getCategories = async () => {
-  const token = await AsyncStorage.getItem("token");
-  const res = await fetch("http://localhost:3002/api/categorie", {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  if (!res.ok) throw new Error("Erreur chargement catégories");
-  return res.json();
-};
-
-
-// Ajouter un vêtement au dressing
-export async function addClothing(clothingData) {
-  const token = await AsyncStorage.getItem("token");
-
-  const response = await fetch(`${API_URL}/vetement`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(clothingData)
-  });
-
-  const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.message || "Erreur ajout vêtement");
-  }
-
-  return data;
-}
-
-export async function updateClothing(id, clothingData) {
-  const token = await AsyncStorage.getItem("token");
-
-  const response = await fetch(
-    `http://localhost:3002/api/vetement/${id}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(clothingData)
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Erreur modification vêtement");
-  }
-
-  return data;
-}
-
-export async function toggleFavorite(id, currentValue) {
-  const token = await AsyncStorage.getItem("token");
-
-  const response = await fetch(
-    `http://localhost:3002/api/vetement/${id}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ favori: !currentValue })
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Erreur favori");
+    throw new Error(data?.message || "Erreur serveur");
   }
 
   return data;
 }
 
 
-// Supprimer un vêtement
-export async function deleteClothing(id) {
-  const token = await AsyncStorage.getItem("token");
+export function loginUser(email, password) {
+  return apiRequest("/auth/login", "POST", { email, password });
+}
 
-  const response = await fetch(`${API_URL}/vetement/${id}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error("Erreur suppression vêtement");
-  }
+export function registerUser(userData) {
+  return apiRequest("/auth/register", "POST", userData);
 }
 
 
-export async function getWeatherForMe() {
-  const token = await AsyncStorage.getItem("token");
+export function getProfile() {
+  return apiRequest("/utilisateur/me");
+}
 
-  const response = await fetch("http://localhost:3002/api/meteo/me", {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
+export function updateProfile(profileData) {
+  return apiRequest("/utilisateur/me", "PUT", profileData);
+}
+
+export function getMyDressing() {
+  return apiRequest("/dressing/me");
+}
+
+
+export function getCategories() {
+  return apiRequest("/categorie");
+}
+
+export function getSousCategoriesByCategorie(id) {
+  return apiRequest(`/sous-categorie/categorie/${id}`);
+}
+
+
+export function addClothing(clothingData) {
+  return apiRequest("/vetement", "POST", clothingData);
+}
+
+export function updateClothing(id, clothingData) {
+  return apiRequest(`/vetement/${id}`, "PUT", clothingData);
+}
+
+export function toggleFavorite(id, currentValue) {
+  return apiRequest(`/vetement/${id}`, "PUT", {
+    favori: !currentValue
   });
+}
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Erreur météo");
-  }
+export function deleteClothing(id) {
+  return apiRequest(`/vetement/${id}`, "DELETE");
+}
 
-  return response.json();
+export function getWeatherForMe() {
+  return apiRequest("/meteo/me");
 }

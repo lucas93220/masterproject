@@ -1,4 +1,6 @@
 require('dotenv').config();
+require('./models');
+
 const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./config/db');
@@ -22,6 +24,9 @@ const evaluationRoutes = require('./routes/evaluationRoutes');
 const dressingRoutes = require('./routes/dressingRoutes');
 const photoRoutes = require('./routes/photoRoutes');
 const meteoRoutes = require('./routes/meteoRoutes');
+const zoneRoutes = require('./routes/zoneRoutes');
+const sousCategorieRoutes = require('./routes/sousCategorieRoutes');
+
 
 app.use('/api/auth', authRoutes);
 app.use('/api/utilisateur', utilisateurRoutes);
@@ -32,6 +37,8 @@ app.use('/api/evaluation', evaluationRoutes);
 app.use('/api/dressing', dressingRoutes);
 app.use('/api/photo', photoRoutes);
 app.use('/api/meteo', meteoRoutes);
+app.use('/api/zone', zoneRoutes);
+app.use('/api/sous-categorie', sousCategorieRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 

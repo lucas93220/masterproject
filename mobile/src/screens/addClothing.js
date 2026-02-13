@@ -15,43 +15,67 @@ import * as ImagePicker from "expo-image-picker";
 import {
   addClothing,
   updateClothing,
-  getCategories
+  getCategories,
+  getSousCategoriesByCategorie
 } from "../services/api";
 
 export default function AddClothing({ navigation, route }) {
-  const editingClothing = route?.params?.clothing;
+  const editingClothing = route?.params?.clothing || null;
 
   const [photo, setPhoto] = useState(editingClothing?.photo || null);
   const [nom, setNom] = useState(editingClothing?.nom || "");
   const [marque, setMarque] = useState(editingClothing?.marque || "");
   const [couleur, setCouleur] = useState(editingClothing?.couleur || "");
-  const [categories, setCategories] = useState([]);
-  const [idCategorie, setIdCategorie] = useState(
-    editingClothing?.id_categorie || null
-  );
   const [tempMin, setTempMin] = useState(
-    editingClothing?.temperature_min
-      ? editingClothing.temperature_min.toString()
-      : ""
+    editingClothing?.temperature_min?.toString() || ""
   );
   const [tempMax, setTempMax] = useState(
-    editingClothing?.temperature_max
-      ? editingClothing.temperature_max.toString()
-      : ""
+    editingClothing?.temperature_max?.toString() || ""
   );
-  const [favori, setFavori] = useState(
-    editingClothing?.favori || false
-  );
-  const [categoryModal, setCategoryModal] = useState(false);
+  const [favori, setFavori] = useState(editingClothing?.favori || false);
 
+  const [categories, setCategories] = useState([]);
+  const [sousCategories, setSousCategories] = useState([]);
+
+  const [idCategorie, setIdCategorie] = useState(null);
+  const [idSousCategorie, setIdSousCategorie] = useState(
+    editingClothing?.id_sous_categorie || null
+  );
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentView, setCurrentView] = useState("categories");
+
+  // Charger catégories
   useEffect(() => {
-    getCategories()
-      .then(setCategories)
-      .catch(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await getCategories();
+        setCategories(data);
+      } catch {
         Alert.alert("Erreur", "Impossible de charger les catégories");
-      });
+      }
+    };
+    loadCategories();
   }, []);
 
+  // Charger sous-catégories
+  const loadSousCategories = async (categorieId) => {
+    try {
+      const data = await getSousCategoriesByCategorie(categorieId);
+      setSousCategories(data);
+      setCurrentView("sousCategories");
+    } catch {
+      Alert.alert("Erreur", "Impossible de charger les sous-catégories");
+    }
+  };
+
+  // Sélection sous-catégorie
+  const handleSelectSousCategorie = (sc) => {
+    setIdSousCategorie(sc.id_sous_categorie);
+    setModalVisible(false);
+  };
+
+  // Image picker
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -63,9 +87,10 @@ export default function AddClothing({ navigation, route }) {
     }
   };
 
+  // Submit
   const handleSubmit = async () => {
-    if (!nom || !idCategorie) {
-      Alert.alert("Erreur", "Nom et catégorie obligatoires");
+    if (!nom || !idSousCategorie) {
+      Alert.alert("Erreur", "Nom et sous-catégorie obligatoires");
       return;
     }
 
@@ -75,9 +100,9 @@ export default function AddClothing({ navigation, route }) {
       couleur,
       photo,
       favori,
-      temperature_min: tempMin ? Number(tempMin) : null,
-      temperature_max: tempMax ? Number(tempMax) : null,
-      id_categorie: idCategorie
+      temperature_min: tempMin ? Number(tempMin) : 0,
+      temperature_max: tempMax ? Number(tempMax) : 50,
+      id_sous_categorie: idSousCategorie
     };
 
     try {
@@ -90,76 +115,50 @@ export default function AddClothing({ navigation, route }) {
       }
 
       navigation.goBack();
-    } catch (e) {
-      Alert.alert("Erreur", e.message);
+    } catch (error) {
+      Alert.alert("Erreur", error.message);
     }
   };
+
+  const selectedSousCategorie = sousCategories.find(
+    sc => sc.id_sous_categorie === idSousCategorie
+  );
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
       <Text style={{ fontSize: 22, marginBottom: 15 }}>
-        {editingClothing
-          ? "Modifier le vêtement"
-          : "Ajouter un vêtement"}
+        {editingClothing ? "Modifier le vêtement" : "Ajouter un vêtement"}
       </Text>
 
+      {/* PHOTO */}
       <TouchableOpacity onPress={pickImage}>
         {photo ? (
           <Image
             source={{ uri: photo }}
-            style={{
-              width: "100%",
-              height: 200,
-              borderRadius: 10,
-              marginBottom: 10
-            }}
+            style={{ width: "100%", height: 200, borderRadius: 10 }}
           />
         ) : (
-          <View
-            style={{
-              height: 200,
-              backgroundColor: "#eee",
-              borderRadius: 10,
-              justifyContent: "center",
-              alignItems: "center",
-              marginBottom: 10
-            }}
-          >
+          <View style={imagePlaceholder}>
             <Text>📸 Ajouter une photo</Text>
           </View>
         )}
       </TouchableOpacity>
 
-      <TextInput
-        placeholder="Nom"
-        value={nom}
-        onChangeText={setNom}
-        style={input}
-      />
+      <TextInput placeholder="Nom" value={nom} onChangeText={setNom} style={input} />
+      <TextInput placeholder="Marque" value={marque} onChangeText={setMarque} style={input} />
+      <TextInput placeholder="Couleur" value={couleur} onChangeText={setCouleur} style={input} />
 
-      <TextInput
-        placeholder="Marque"
-        value={marque}
-        onChangeText={setMarque}
-        style={input}
-      />
-
-      <TextInput
-        placeholder="Couleur"
-        value={couleur}
-        onChangeText={setCouleur}
-        style={input}
-      />
-
+      {/* Sélecteur unique */}
       <TouchableOpacity
         style={input}
-        onPress={() => setCategoryModal(true)}
+        onPress={() => {
+          setCurrentView("categories");
+          setModalVisible(true);
+        }}
       >
         <Text>
-          {idCategorie
-            ? categories.find(
-                c => c.id_categorie === idCategorie
-              )?.nom_categorie
+          {selectedSousCategorie
+            ? selectedSousCategorie.nom_sous_categorie
             : "Choisir une catégorie"}
         </Text>
       </TouchableOpacity>
@@ -180,53 +179,56 @@ export default function AddClothing({ navigation, route }) {
         style={input}
       />
 
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginVertical: 10
-        }}
-      >
+      <View style={favoriRow}>
         <Text>Favori</Text>
         <Switch value={favori} onValueChange={setFavori} />
       </View>
 
-      <Button
-        title={
-          editingClothing ? "Enregistrer" : "Ajouter"
-        }
-        onPress={handleSubmit}
-      />
+      <Button title="Enregistrer" onPress={handleSubmit} />
 
-      <Modal visible={categoryModal} animationType="slide">
+      {/* MODAL UNIQUE */}
+      <Modal visible={modalVisible} animationType="slide">
         <View style={{ flex: 1, padding: 20 }}>
-          <Text style={{ fontSize: 22, marginBottom: 15 }}>
-            Choisir une catégorie
-          </Text>
 
-          {categories.map(cat => (
-            <TouchableOpacity
-              key={cat.id_categorie}
-              style={{
-                paddingVertical: 15,
-                borderBottomWidth: 1,
-                borderBottomColor: "#eee"
-              }}
-              onPress={() => {
-                setIdCategorie(cat.id_categorie);
-                setCategoryModal(false);
-              }}
-            >
-              <Text style={{ fontSize: 16 }}>
-                {cat.nom_categorie}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {currentView === "categories" && (
+            <>
+              <Text style={modalTitle}>Choisir une catégorie</Text>
+              {categories.map(cat => (
+                <TouchableOpacity
+                  key={cat.id_categorie}
+                  style={modalItem}
+                  onPress={() => {
+                    setIdCategorie(cat.id_categorie);
+                    loadSousCategories(cat.id_categorie);
+                  }}
+                >
+                  <Text>{cat.nom_categorie}</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
 
-          <Button
-            title="Annuler"
-            onPress={() => setCategoryModal(false)}
-          />
+          {currentView === "sousCategories" && (
+            <>
+              <TouchableOpacity onPress={() => setCurrentView("categories")}>
+                <Text style={{ marginBottom: 10 }}>← Retour</Text>
+              </TouchableOpacity>
+
+              <Text style={modalTitle}>Choisir une sous-catégorie</Text>
+
+              {sousCategories.map(sc => (
+                <TouchableOpacity
+                  key={sc.id_sous_categorie}
+                  style={modalItem}
+                  onPress={() => handleSelectSousCategorie(sc)}
+                >
+                  <Text>{sc.nom_sous_categorie}</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
+          <Button title="Fermer" onPress={() => setModalVisible(false)} />
         </View>
       </Modal>
     </ScrollView>
@@ -239,4 +241,30 @@ const input = {
   padding: 12,
   marginBottom: 10,
   borderRadius: 6
+};
+
+const imagePlaceholder = {
+  height: 200,
+  backgroundColor: "#eee",
+  borderRadius: 10,
+  justifyContent: "center",
+  alignItems: "center",
+  marginBottom: 10
+};
+
+const favoriRow = {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  marginVertical: 10
+};
+
+const modalItem = {
+  paddingVertical: 15,
+  borderBottomWidth: 1,
+  borderBottomColor: "#eee"
+};
+
+const modalTitle = {
+  fontSize: 20,
+  marginBottom: 15
 };

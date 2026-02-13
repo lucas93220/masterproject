@@ -12,7 +12,8 @@ import {
   getMyDressing,
   deleteClothing,
   toggleFavorite,
-  getCategories
+  getCategories,
+  getSousCategoriesByCategorie
 } from "../services/api";
 
 export default function Dressing({ navigation }) {
@@ -20,6 +21,8 @@ export default function Dressing({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [filterModal, setFilterModal] = useState(false);
+
+  const [categorySousCategories, setCategorySousCategories] = useState([]);
 
   const loadDressing = async () => {
     try {
@@ -75,9 +78,23 @@ export default function Dressing({ navigation }) {
     );
   };
 
+  const handleSelectCategory = async (categorieId) => {
+    try {
+      const sousCats = await getSousCategoriesByCategorie(categorieId);
+      setCategorySousCategories(sousCats);
+      setSelectedCategory(categorieId);
+      setFilterModal(false);
+    } catch {
+      Alert.alert("Erreur", "Impossible de charger les sous-catégories");
+    }
+  };
+
+  // 🔥 Filtrage basé sur id_sous_categorie
   const filteredDressing = selectedCategory
-    ? dressing.filter(
-        (item) => item.id_categorie === selectedCategory
+    ? dressing.filter(item =>
+        categorySousCategories.some(
+          sc => sc.id_sous_categorie === item.id_sous_categorie
+        )
       )
     : dressing;
 
@@ -101,13 +118,7 @@ export default function Dressing({ navigation }) {
         </View>
       )}
 
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          marginTop: 5
-        }}
-      >
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
         <Text style={name}>{item.nom}</Text>
 
         <TouchableOpacity
@@ -139,8 +150,7 @@ export default function Dressing({ navigation }) {
         <Text style={{ marginBottom: 10 }}>
           Catégorie : {
             categories.find(
-              (c) =>
-                c.id_categorie === selectedCategory
+              (c) => c.id_categorie === selectedCategory
             )?.nom_categorie
           }
         </Text>
@@ -161,12 +171,7 @@ export default function Dressing({ navigation }) {
       {/* Modal catégories */}
       <Modal visible={filterModal} animationType="slide">
         <View style={{ flex: 1, padding: 20 }}>
-          <Text
-            style={{
-              fontSize: 20,
-              marginBottom: 20
-            }}
-          >
+          <Text style={{ fontSize: 20, marginBottom: 20 }}>
             Choisir une catégorie
           </Text>
 
@@ -177,22 +182,14 @@ export default function Dressing({ navigation }) {
               setFilterModal(false);
             }}
           >
-            <Text style={{ fontSize: 16 }}>
-                Tout
-            </Text>
-
+            <Text style={{ fontSize: 16 }}>Tout</Text>
           </TouchableOpacity>
 
           {categories.map((cat) => (
             <TouchableOpacity
               key={cat.id_categorie}
               style={categoryItem}
-              onPress={() => {
-                setSelectedCategory(
-                  cat.id_categorie
-                );
-                setFilterModal(false);
-              }}
+              onPress={() => handleSelectCategory(cat.id_categorie)}
             >
               <Text style={{ fontSize: 16 }}>
                 {cat.nom_categorie}
@@ -204,12 +201,7 @@ export default function Dressing({ navigation }) {
             style={closeButton}
             onPress={() => setFilterModal(false)}
           >
-            <Text
-              style={{
-                color: "white",
-                textAlign: "center"
-              }}
-            >
+            <Text style={{ color: "white", textAlign: "center" }}>
               Fermer
             </Text>
           </TouchableOpacity>
@@ -223,14 +215,7 @@ export default function Dressing({ navigation }) {
           navigation.navigate("AddClothing")
         }
       >
-        <Text
-          style={{
-            color: "white",
-            fontSize: 24
-          }}
-        >
-          +
-        </Text>
+        <Text style={{ color: "white", fontSize: 24 }}>+</Text>
       </TouchableOpacity>
     </View>
   );
