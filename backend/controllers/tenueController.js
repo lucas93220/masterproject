@@ -1,53 +1,85 @@
-const Tenue = require('../models/tenue');
-const Composer = require('../models/composer');
 const Vetement = require('../models/vetement');
+const SousCategorie = require('../models/sousCategorie');
+const Zone = require('../models/zone');
+const Dressing = require('../models/dressing');
+const Contenir = require('../models/contenir');
 
-// Créer une tenue (avec une liste de vêtements)
-exports.create = async (req, res, next) => {
+exports.generateTenue = async (req, res, next) => {
   try {
-    const { vetements } = req.body; // array d'id_vetement
-    const tenue = await Tenue.create({
-      id_utilisateur: req.user.id
-    });
-    // Ajoute chaque vêtement à la tenue via composer
-    await Promise.all(
-      vetements.map(id_vetement =>
-        Composer.create({ id_tenue: tenue.id_tenue, id_vetement })
-      )
-    );
-    res.status(201).json({ tenue, vetements });
-  } catch (error) {
-    next(error);
-  }
-};
+    const temperature = req.query.temperature
+      ? Number(req.query.temperature)
+      : null;
 
-// Lire toutes ses tenues
-exports.getAllMine = async (req, res, next) => {
-  try {
-    const tenues = await Tenue.findAll({
+    const dressing = await Dressing.findOne({
       where: { id_utilisateur: req.user.id }
     });
-    res.json(tenues);
-  } catch (error) {
-    next(error);
-  }
-};
 
-// Lire une tenue précise (avec ses vêtements)
-exports.getById = async (req, res, next) => {
-  try {
-    const tenue = await Tenue.findOne({
-      where: { id_tenue: req.params.id, id_utilisateur: req.user.id }
+    if (!dressing)
+      return res.status(404).json({ message: "Dressing non trouvé" });
+
+    const liens = await Contenir.findAll({
+      where: { id_dressing: dressing.id_dressing }
     });
-    if (!tenue) return res.status(404).json({ message: "Tenue non trouvée" });
 
-    const compositions = await Composer.findAll({ where: { id_tenue: tenue.id_tenue } });
-    const vetementIds = compositions.map(c => c.id_vetement);
-    const vetements = await Vetement.findAll({ where: { id_vetement: vetementIds } });
+    const vetementIds = liens.map(l => l.id_vetement);
 
-    res.json({ tenue, vetements });
+    if (!vetementIds.length)
+      return res.status(400).json({ message: "Dressing vide" });
+
+    const vetements = await Vetement.findAll({
+      where: { id_vetement: vetementIds },
+      include: {
+        model: SousCategorie,
+        include: {
+          model: Zone
+        }
+      }
+    });
+
+    const vetementsFiltres = temperature !== null
+      ? vetements.filter(v =>
+          temperature >= v.temperature_min &&
+          temperature <= v.temperature_max
+        )
+      : vetements;
+
+    if (!vetementsFiltres.length)
+      return res.status(400).json({
+        message: "Aucun vêtement compatible avec cette température"
+      });
+
+    const zones = await Zone.findAll();
+
+    const tenueFinale = [];
+
+    for (const zone of zones) {
+
+      const vetementsZone = vetementsFiltres.filter(v =>
+        v.sous_categorie &&
+        v.sous_categorie.zone &&
+        v.sous_categorie.zone.id_zone === zone.id_zone
+);
+
+
+      if (!vetementsZone.length) {
+        if (zone.obligatoire) {
+          return res.status(400).json({
+            message: `Zone obligatoire manquante : ${zone.nom_zone}`
+          });
+        }
+        continue;
+      }
+
+      const shuffled = vetementsZone.sort(() => 0.5 - Math.random());
+
+      const selection = shuffled.slice(0, zone.max_elements);
+
+      tenueFinale.push(...selection);
+    }
+
+    return res.json(tenueFinale);
+
   } catch (error) {
     next(error);
   }
 };
-
