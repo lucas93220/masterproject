@@ -61,6 +61,28 @@ export function getCategories() {
   return apiRequest("/categorie");
 }
 
+export async function generateTenue(temperature) {
+  const token = await AsyncStorage.getItem("token");
+
+  const response = await fetch(
+    `${API_URL}/tenue/generate?temperature=${temperature}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Erreur génération tenue");
+  }
+
+  return data;
+}
+
+
 export function getSousCategoriesByCategorie(id) {
   return apiRequest(`/sous-categorie/categorie/${id}`);
 }
