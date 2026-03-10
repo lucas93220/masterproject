@@ -2,13 +2,13 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   Alert,
   ScrollView,
   Image,
   Switch,
   TouchableOpacity,
-  Modal
+  Modal,
+  SafeAreaView
 } from "react-native";
 import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
@@ -18,6 +18,10 @@ import {
   getCategories,
   getSousCategoriesByCategorie
 } from "../services/api";
+
+import { COLORS } from "../styles/colors";
+import { SPACING } from "../styles/spacing";
+import { CARD, BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
 
 export default function AddClothing({ navigation, route }) {
   const editingClothing = route?.params?.clothing || null;
@@ -45,7 +49,6 @@ export default function AddClothing({ navigation, route }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentView, setCurrentView] = useState("categories");
 
-  // Charger catégories
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -58,7 +61,6 @@ export default function AddClothing({ navigation, route }) {
     loadCategories();
   }, []);
 
-  // Charger sous-catégories
   const loadSousCategories = async (categorieId) => {
     try {
       const data = await getSousCategoriesByCategorie(categorieId);
@@ -69,13 +71,11 @@ export default function AddClothing({ navigation, route }) {
     }
   };
 
-  // Sélection sous-catégorie
   const handleSelectSousCategorie = (sc) => {
     setIdSousCategorie(sc.id_sous_categorie);
     setModalVisible(false);
   };
 
-  // Image picker
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -87,7 +87,6 @@ export default function AddClothing({ navigation, route }) {
     }
   };
 
-  // Submit
   const handleSubmit = async () => {
     if (!nom || !idSousCategorie) {
       Alert.alert("Erreur", "Nom et sous-catégorie obligatoires");
@@ -108,10 +107,8 @@ export default function AddClothing({ navigation, route }) {
     try {
       if (editingClothing) {
         await updateClothing(editingClothing.id_vetement, payload);
-        Alert.alert("Succès", "Vêtement modifié");
       } else {
         await addClothing(payload);
-        Alert.alert("Succès", "Vêtement ajouté");
       }
 
       navigation.goBack();
@@ -125,78 +122,107 @@ export default function AddClothing({ navigation, route }) {
   );
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Text style={{ fontSize: 22, marginBottom: 15 }}>
-        {editingClothing ? "Modifier le vêtement" : "Ajouter un vêtement"}
-      </Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
 
-      {/* PHOTO */}
-      <TouchableOpacity onPress={pickImage}>
-        {photo ? (
-          <Image
-            source={{ uri: photo }}
-            style={{ width: "100%", height: 200, borderRadius: 10 }}
-          />
-        ) : (
-          <View style={imagePlaceholder}>
-            <Text>📸 Ajouter une photo</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      <TextInput placeholder="Nom" value={nom} onChangeText={setNom} style={input} />
-      <TextInput placeholder="Marque" value={marque} onChangeText={setMarque} style={input} />
-      <TextInput placeholder="Couleur" value={couleur} onChangeText={setCouleur} style={input} />
-
-      {/* Sélecteur unique */}
-      <TouchableOpacity
-        style={input}
-        onPress={() => {
-          setCurrentView("categories");
-          setModalVisible(true);
-        }}
-      >
-        <Text>
-          {selectedSousCategorie
-            ? selectedSousCategorie.nom_sous_categorie
-            : "Choisir une catégorie"}
+        <Text style={styles.title}>
+          {editingClothing ? "Modifier le vêtement" : "Ajouter un vêtement"}
         </Text>
-      </TouchableOpacity>
 
-      <TextInput
-        placeholder="Température min"
-        keyboardType="numeric"
-        value={tempMin}
-        onChangeText={setTempMin}
-        style={input}
-      />
+        {/* PHOTO */}
+        <TouchableOpacity onPress={pickImage} style={styles.photoContainer}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photo} />
+          ) : (
+            <View style={styles.photoPlaceholder}>
+              <Text>📸 Ajouter une photo</Text>
+            </View>
+          )}
+        </TouchableOpacity>
 
-      <TextInput
-        placeholder="Température max"
-        keyboardType="numeric"
-        value={tempMax}
-        onChangeText={setTempMax}
-        style={input}
-      />
+        {/* FORM CARD */}
+        <View style={CARD}>
 
-      <View style={favoriRow}>
-        <Text>Favori</Text>
-        <Switch value={favori} onValueChange={setFavori} />
-      </View>
+          <TextInput
+            placeholder="Nom"
+            value={nom}
+            onChangeText={setNom}
+            style={styles.input}
+          />
 
-      <Button title="Enregistrer" onPress={handleSubmit} />
+          <TextInput
+            placeholder="Marque"
+            value={marque}
+            onChangeText={setMarque}
+            style={styles.input}
+          />
 
-      {/* MODAL UNIQUE */}
+          <TextInput
+            placeholder="Couleur"
+            value={couleur}
+            onChangeText={setCouleur}
+            style={styles.input}
+          />
+
+          <TouchableOpacity
+            style={styles.input}
+            onPress={() => {
+              setCurrentView("categories");
+              setModalVisible(true);
+            }}
+          >
+            <Text>
+              {selectedSousCategorie
+                ? selectedSousCategorie.nom_sous_categorie
+                : "Choisir une catégorie"}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.tempRow}>
+            <TextInput
+              placeholder="Temp min"
+              keyboardType="numeric"
+              value={tempMin}
+              onChangeText={setTempMin}
+              style={[styles.input, styles.tempInput]}
+            />
+
+            <TextInput
+              placeholder="Temp max"
+              keyboardType="numeric"
+              value={tempMax}
+              onChangeText={setTempMax}
+              style={[styles.input, styles.tempInput]}
+            />
+          </View>
+
+          <View style={styles.favoriRow}>
+            <Text>Favori</Text>
+            <Switch value={favori} onValueChange={setFavori} />
+          </View>
+
+        </View>
+
+        <TouchableOpacity
+          onPress={handleSubmit}
+          style={[BUTTON_PRIMARY, { marginTop: SPACING.lg }]}
+        >
+          <Text style={BUTTON_TEXT}>Enregistrer</Text>
+        </TouchableOpacity>
+
+      </ScrollView>
+
+      {/* MODAL */}
       <Modal visible={modalVisible} animationType="slide">
-        <View style={{ flex: 1, padding: 20 }}>
+        <SafeAreaView style={styles.modalContainer}>
 
           {currentView === "categories" && (
             <>
-              <Text style={modalTitle}>Choisir une catégorie</Text>
+              <Text style={styles.modalTitle}>Choisir une catégorie</Text>
               {categories.map(cat => (
                 <TouchableOpacity
                   key={cat.id_categorie}
-                  style={modalItem}
+                  style={styles.modalItem}
                   onPress={() => {
                     setIdCategorie(cat.id_categorie);
                     loadSousCategories(cat.id_categorie);
@@ -210,16 +236,20 @@ export default function AddClothing({ navigation, route }) {
 
           {currentView === "sousCategories" && (
             <>
-              <TouchableOpacity onPress={() => setCurrentView("categories")}>
-                <Text style={{ marginBottom: 10 }}>← Retour</Text>
+              <TouchableOpacity
+                onPress={() => setCurrentView("categories")}
+              >
+                <Text style={{ marginBottom: SPACING.md }}>← Retour</Text>
               </TouchableOpacity>
 
-              <Text style={modalTitle}>Choisir une sous-catégorie</Text>
+              <Text style={styles.modalTitle}>
+                Choisir une sous-catégorie
+              </Text>
 
               {sousCategories.map(sc => (
                 <TouchableOpacity
                   key={sc.id_sous_categorie}
-                  style={modalItem}
+                  style={styles.modalItem}
                   onPress={() => handleSelectSousCategorie(sc)}
                 >
                   <Text>{sc.nom_sous_categorie}</Text>
@@ -228,43 +258,80 @@ export default function AddClothing({ navigation, route }) {
             </>
           )}
 
-          <Button title="Fermer" onPress={() => setModalVisible(false)} />
-        </View>
+          <TouchableOpacity
+            style={[BUTTON_PRIMARY, { marginTop: SPACING.lg }]}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={BUTTON_TEXT}>Fermer</Text>
+          </TouchableOpacity>
+
+        </SafeAreaView>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const input = {
-  borderWidth: 1,
-  borderColor: "#ccc",
-  padding: 12,
-  marginBottom: 10,
-  borderRadius: 6
-};
-
-const imagePlaceholder = {
-  height: 200,
-  backgroundColor: "#eee",
-  borderRadius: 10,
-  justifyContent: "center",
-  alignItems: "center",
-  marginBottom: 10
-};
-
-const favoriRow = {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  marginVertical: 10
-};
-
-const modalItem = {
-  paddingVertical: 15,
-  borderBottomWidth: 1,
-  borderBottomColor: "#eee"
-};
-
-const modalTitle = {
-  fontSize: 20,
-  marginBottom: 15
+const styles = {
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background
+  },
+  content: {
+    padding: SPACING.md
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: SPACING.md
+  },
+  photoContainer: {
+    marginBottom: SPACING.md
+  },
+  photo: {
+    width: "100%",
+    height: 180,
+    borderRadius: 16
+  },
+  photoPlaceholder: {
+    height: 180,
+    backgroundColor: COLORS.border,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
+    backgroundColor: "#fff"
+  },
+  tempRow: {
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  tempInput: {
+    width: "48%"
+  },
+  favoriRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
+  },
+  modalContainer: {
+    flex: 1,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.background
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: SPACING.lg
+  },
+  modalItem: {
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border
+  }
 };

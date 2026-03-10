@@ -1,15 +1,19 @@
 import {
   View,
   Text,
-  Button,
   ActivityIndicator,
   Image,
   ScrollView,
   TouchableOpacity,
-  Alert
+  Alert,
+  SafeAreaView
 } from "react-native";
 import { useEffect, useState } from "react";
 import { getWeatherForMe, generateTenue } from "../services/api";
+
+import { COLORS } from "../styles/colors";
+import { SPACING } from "../styles/spacing";
+import { CARD, BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
 
 export default function Home({ navigation }) {
   const [weather, setWeather] = useState(null);
@@ -38,10 +42,8 @@ export default function Home({ navigation }) {
 
     try {
       setGenerating(true);
-
       const data = await generateTenue(weather.temperature);
-      setTenue(data);
-
+      setTenue(data.vetements);
     } catch (err) {
       Alert.alert("Erreur génération", err.message);
     } finally {
@@ -50,116 +52,160 @@ export default function Home({ navigation }) {
   };
 
   if (loading) {
-    return <ActivityIndicator size="large" style={{ marginTop: 40 }} />;
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
   if (error) {
     return (
-      <View style={{ padding: 20 }}>
-        <Text>{error}</Text>
-        <Button
-          title="Voir mon profil"
-          onPress={() => navigation.navigate("Profile")}
-        />
+      <View style={styles.errorContainer}>
+        <Text style={{ color: COLORS.text }}>{error}</Text>
       </View>
     );
   }
 
   if (!weather) {
-    return <Text>Météo indisponible</Text>;
+    return (
+      <View style={styles.centered}>
+        <Text>Météo indisponible</Text>
+      </View>
+    );
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
 
-      {/* MÉTÉO */}
-      <Text style={{ fontSize: 20, marginBottom: 10 }}>
-        Météo à {weather.localisation}
-      </Text>
+        {/* METEO */}
+        <View style={CARD}>
+          <Text style={styles.city}>{weather.localisation}</Text>
 
-      <Image
-        source={{
-          uri: `https://openweathermap.org/img/wn/${weather.icon}@2x.png`
-        }}
-        style={{ width: 100, height: 100 }}
-      />
+          <View style={styles.weatherRow}>
+            <Image
+              source={{
+                uri: `https://openweathermap.org/img/wn/${weather.icon}@2x.png`
+              }}
+              style={styles.weatherIcon}
+            />
+            <Text style={styles.temperature}>
+              {weather.temperature}°C
+            </Text>
+          </View>
+        </View>
 
-      <Text>🌡️ {weather.temperature} °C</Text>
-      <Text>
-        Min {weather.temperature_min}° / Max {weather.temperature_max}°
-      </Text>
+        {/* TENUE */}
+        {tenue.length > 0 && (
+          <View style={{ marginTop: SPACING.lg }}>
+            <Text style={styles.sectionTitle}>
+              Ta tenue du jour
+            </Text>
 
-      <Text>{weather.description}</Text>
-
-      {weather.pluie && (
-        <Text>☔ Pense à prendre un parapluie</Text>
-      )}
-
-      <Text>💨 Vent : {weather.vent} m/s</Text>
-
-      {/* BOUTON GENERER */}
-      <TouchableOpacity
-        onPress={handleGenerateTenue}
-        style={{
-          marginTop: 25,
-          backgroundColor: "#007AFF",
-          padding: 14,
-          borderRadius: 8
-        }}
-      >
-        <Text style={{ color: "white", textAlign: "center" }}>
-          {generating ? "Génération..." : "🎲 Générer une tenue"}
-        </Text>
-      </TouchableOpacity>
-
-      {/* TENUE */}
-      {tenue.length > 0 && (
-        <View style={{ marginTop: 30 }}>
-          <Text style={{ fontSize: 18, marginBottom: 15 }}>
-            👕 Ta tenue du jour
-          </Text>
-
-          {tenue.map(item => (
-            <View key={item.id_vetement} style={{ marginBottom: 20 }}>
-              {item.photo ? (
-                <Image
-                  source={{ uri: item.photo }}
-                  style={{
-                    width: "100%",
-                    height: 180,
-                    borderRadius: 10
-                  }}
-                />
-              ) : (
-                <View
-                  style={{
-                    height: 180,
-                    backgroundColor: "#eee",
-                    borderRadius: 10,
-                    justifyContent: "center",
-                    alignItems: "center"
-                  }}
-                >
-                  <Text>📸</Text>
-                </View>
-              )}
+            <View style={styles.outfitGrid}>
+              {tenue.map(item => (
+                <View key={item.id_vetement} style={styles.outfitCard}>
+                  {item.photo ? (
+                    <Image
+                      source={{ uri: item.photo }}
+                      style={styles.outfitImage}
+                    />
+                  ) : (
+                    <View style={[styles.outfitImage, styles.placeholder]}>
+                      <Text>📸</Text>
+                    </View>
+                  )}
 
               <Text style={{ marginTop: 5 }}>
                 {item.nom}
               </Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-      )}
+          </View>
+        )}
 
-      {/* Navigation */}
-      <View style={{ marginTop: 20 }}>
-        <Button
-          title="Voir mon profil"
-          onPress={() => navigation.navigate("Profile")}
-        />
-      </View>
+        {/* BOUTON */}
+        <TouchableOpacity
+          onPress={handleGenerateTenue}
+          style={[BUTTON_PRIMARY, { marginTop: SPACING.lg }]}
+        >
+          <Text style={BUTTON_TEXT}>
+            {generating ? "Génération..." : "Générer ma tenue"}
+          </Text>
+        </TouchableOpacity>
 
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = {
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background
+  },
+  content: {
+    padding: SPACING.md
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.md
+  },
+  city: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text
+  },
+  weatherRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.sm
+  },
+  weatherIcon: {
+    width: 50,
+    height: 50
+  },
+  temperature: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginLeft: SPACING.sm,
+    color: COLORS.text
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: SPACING.md,
+    color: COLORS.text
+  },
+
+  /* GRID tenue */
+  outfitGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between"
+  },
+  outfitCard: {
+    width: "48%",
+    marginBottom: SPACING.md
+  },
+  outfitImage: {
+    width: "100%",
+    height: 90,
+    borderRadius: 12
+  },
+  placeholder: {
+    backgroundColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center"
+  }
+};

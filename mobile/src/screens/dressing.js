@@ -5,8 +5,10 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-  Modal
+  Modal,
+  SafeAreaView
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   getMyDressing,
@@ -16,12 +18,15 @@ import {
   getSousCategoriesByCategorie
 } from "../services/api";
 
+import { COLORS } from "../styles/colors";
+import { SPACING } from "../styles/spacing";
+import { BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
+
 export default function Dressing({ navigation }) {
   const [dressing, setDressing] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [filterModal, setFilterModal] = useState(false);
-
   const [categorySousCategories, setCategorySousCategories] = useState([]);
 
   const loadDressing = async () => {
@@ -89,7 +94,6 @@ export default function Dressing({ navigation }) {
     }
   };
 
-  // 🔥 Filtrage basé sur id_sous_categorie
   const filteredDressing = selectedCategory
     ? dressing.filter(item =>
         categorySousCategories.some(
@@ -100,7 +104,7 @@ export default function Dressing({ navigation }) {
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
-      style={card}
+      style={styles.card}
       onPress={() =>
         navigation.navigate("AddClothing", {
           clothing: item
@@ -110,53 +114,53 @@ export default function Dressing({ navigation }) {
         handleDelete(item.id_vetement)
       }
     >
-      {item.photo ? (
-        <Image source={{ uri: item.photo }} style={image} />
-      ) : (
-        <View style={[image, placeholder]}>
-          <Text>📸</Text>
-        </View>
-      )}
+      <View style={styles.imageContainer}>
 
-      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
-        <Text style={name}>{item.nom}</Text>
+        {item.photo ? (
+          <Image source={{ uri: item.photo }} style={styles.image} />
+        ) : (
+          <View style={[styles.image, styles.placeholder]}>
+            <Text>📸</Text>
+          </View>
+        )}
 
+        {/* ❤️ Like overlay */}
         <TouchableOpacity
           onPress={() => handleToggleFavorite(item)}
-          style={{ marginLeft: 6 }}
+          style={styles.heartContainer}
         >
-          <Text style={{ fontSize: 18 }}>
-            {item.favori ? "❤️" : "🤍"}
-          </Text>
+          <Ionicons
+            name={item.favori ? "heart" : "heart-outline"}
+            size={20}
+            color={item.favori ? "#E53935" : "#ffffffff"}
+          />
         </TouchableOpacity>
+
       </View>
+
+      <Text style={styles.name}>
+        {item.nom}
+      </Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={{ flex: 1, padding: 10 }}>
-      
-      {/* Bouton Filtrer */}
-      <TouchableOpacity
-        style={filterButton}
-        onPress={() => setFilterModal(true)}
-      >
-        <Text style={{ color: "white", textAlign: "center" }}>
-          Filtrer par catégorie
-        </Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
 
-      {selectedCategory && (
-        <Text style={{ marginBottom: 10 }}>
-          Catégorie : {
-            categories.find(
-              (c) => c.id_categorie === selectedCategory
-            )?.nom_categorie
-          }
-        </Text>
-      )}
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Mon Dressing</Text>
+
+        <TouchableOpacity
+          onPress={() => setFilterModal(true)}
+          style={styles.filterButton}
+        >
+          <Text style={styles.filterText}>Filtrer</Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
+        contentContainerStyle={{ padding: SPACING.md }}
         data={filteredDressing}
         keyExtractor={(item) =>
           item.id_vetement.toString()
@@ -168,113 +172,173 @@ export default function Dressing({ navigation }) {
         }}
       />
 
-      {/* Modal catégories */}
+      {/* MODAL */}
       <Modal visible={filterModal} animationType="slide">
-        <View style={{ flex: 1, padding: 20 }}>
-          <Text style={{ fontSize: 20, marginBottom: 20 }}>
+        <SafeAreaView style={styles.modalContainer}>
+
+          <Text style={styles.modalTitle}>
             Choisir une catégorie
           </Text>
 
           <TouchableOpacity
-            style={categoryItem}
+            style={styles.modalItem}
             onPress={() => {
               setSelectedCategory(null);
               setFilterModal(false);
             }}
           >
-            <Text style={{ fontSize: 16 }}>Tout</Text>
+            <Text>Tout</Text>
           </TouchableOpacity>
 
           {categories.map((cat) => (
             <TouchableOpacity
               key={cat.id_categorie}
-              style={categoryItem}
+              style={styles.modalItem}
               onPress={() => handleSelectCategory(cat.id_categorie)}
             >
-              <Text style={{ fontSize: 16 }}>
-                {cat.nom_categorie}
-              </Text>
+              <Text>{cat.nom_categorie}</Text>
             </TouchableOpacity>
           ))}
 
           <TouchableOpacity
-            style={closeButton}
+            style={[BUTTON_PRIMARY, { marginTop: SPACING.lg }]}
             onPress={() => setFilterModal(false)}
           >
-            <Text style={{ color: "white", textAlign: "center" }}>
-              Fermer
-            </Text>
+            <Text style={BUTTON_TEXT}>Fermer</Text>
           </TouchableOpacity>
-        </View>
+
+        </SafeAreaView>
       </Modal>
 
-      {/* Bouton + */}
+      {/* FAB */}
       <TouchableOpacity
-        style={fab}
+        style={styles.fab}
         onPress={() =>
           navigation.navigate("AddClothing")
         }
       >
-        <Text style={{ color: "white", fontSize: 24 }}>+</Text>
+        <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
-    </View>
+
+    </SafeAreaView>
   );
 }
 
-/* ===== STYLES ===== */
+const styles = {
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background
+  },
 
-const card = {
-  width: "48%",
-  marginBottom: 15,
-  alignItems: "center"
-};
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm
+  },
 
-const image = {
-  width: "100%",
-  height: 150,
-  borderRadius: 10
-};
+  title: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: COLORS.text
+  },
 
-const placeholder = {
-  backgroundColor: "#eee",
-  justifyContent: "center",
-  alignItems: "center"
-};
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
 
-const name = {
-  marginTop: 5,
-  fontWeight: "500"
-};
+  filterText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: COLORS.text
+  },
 
-const fab = {
-  position: "absolute",
-  bottom: 20,
-  right: 20,
-  width: 56,
-  height: 56,
-  borderRadius: 28,
-  backgroundColor: "#007AFF",
-  alignItems: "center",
-  justifyContent: "center",
-  elevation: 4
-};
+  card: {
+    width: "48%",
+    marginBottom: 20
+  },
 
-const filterButton = {
-  padding: 10,
-  backgroundColor: "#007AFF",
-  borderRadius: 6,
-  marginBottom: 10
-};
+  imageContainer: {
+    position: "relative"
+  },
 
-const categoryItem = {
-  paddingVertical: 15,
-  borderBottomWidth: 1,
-  borderBottomColor: "#eee"
-};
+  image: {
+    width: "100%",
+    height: 160,
+    borderRadius: 16
+  },
 
-const closeButton = {
-  marginTop: 20,
-  padding: 10,
-  backgroundColor: "#007AFF",
-  borderRadius: 6
+  placeholder: {
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+
+  heartContainer: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.50,
+    shadowRadius: 4,
+    elevation: 3
+  },
+
+  name: {
+    marginTop: 8,
+    fontWeight: "500",
+    fontSize: 14
+  },
+
+  modalContainer: {
+    flex: 1,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.background
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: SPACING.lg
+  },
+
+  modalItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border
+  },
+
+  fab: {
+    position: "absolute",
+    bottom: 25,
+    right: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6
+  },
+
+  fabText: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "600"
+  }
 };
