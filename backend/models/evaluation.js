@@ -15,11 +15,16 @@ const Evaluation = sequelize.define('Evaluation', {
   is_liked: {
     type: DataTypes.BOOLEAN,
     allowNull: false
-    },
+  },
+  temperature: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+
   date_avis: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
-    }
+  }
 }, {
   tableName: 'evaluation',
   timestamps: false

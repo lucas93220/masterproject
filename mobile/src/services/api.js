@@ -109,3 +109,10 @@ export function deleteClothing(id) {
 export function getWeatherForMe() {
   return apiRequest("/meteo/me");
 }
+
+export function evaluateTenue(id_tenue, is_liked) {
+  return apiRequest("/evaluation", "POST", {
+    id_tenue,
+    is_liked
+  });
+}

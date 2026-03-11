@@ -9,15 +9,16 @@ import {
   SafeAreaView
 } from "react-native";
 import { useEffect, useState } from "react";
-import { getWeatherForMe, generateTenue } from "../services/api";
+import { getWeatherForMe, generateTenue, evaluateTenue } from "../services/api";
 
 import { COLORS } from "../styles/colors";
 import { SPACING } from "../styles/spacing";
 import { CARD, BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
 
-export default function Home({ navigation }) {
+export default function Home() {
   const [weather, setWeather] = useState(null);
   const [tenue, setTenue] = useState([]);
+  const [tenueId, setTenueId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
@@ -43,7 +44,8 @@ export default function Home({ navigation }) {
     try {
       setGenerating(true);
       const data = await generateTenue(weather.temperature);
-      setTenue(data.vetements);
+      setTenue(data.vetements || []);
+      setTenueId(data.id_tenue || null);
     } catch (err) {
       Alert.alert("Erreur génération", err.message);
     } finally {
@@ -51,27 +53,46 @@ export default function Home({ navigation }) {
     }
   };
 
+ const handleEvaluation = async (isLiked) => {
+  if (!tenueId) return;
+
+  try {
+    await evaluateTenue(tenueId, isLiked);
+
+    if (isLiked) {
+      setTenueId(null);
+    } else {
+      const data = await generateTenue(weather.temperature);
+      setTenue(data.vetements || []);
+      setTenueId(data.id_tenue || null);
+    }
+
+  } catch (err) {
+    Alert.alert("Erreur", err.message);
+  }
+};
+
   if (loading) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.centered}>
         <Text style={{ color: COLORS.text }}>{error}</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!weather) {
     return (
-      <View style={styles.centered}>
+      <SafeAreaView style={styles.centered}>
         <Text>Météo indisponible</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -98,7 +119,7 @@ export default function Home({ navigation }) {
 
         {/* TENUE */}
         {tenue.length > 0 && (
-          <View style={{ marginTop: SPACING.lg }}>
+          <View style={styles.tenueSection}>
             <Text style={styles.sectionTitle}>
               Ta tenue du jour
             </Text>
@@ -116,17 +137,33 @@ export default function Home({ navigation }) {
                       <Text>📸</Text>
                     </View>
                   )}
-
-              <Text style={{ marginTop: 5 }}>
-                {item.nom}
-              </Text>
+                  <Text style={styles.itemName}>{item.nom}</Text>
                 </View>
               ))}
             </View>
+
+            {/* FEEDBACK */}
+            {tenueId && (
+              <View style={styles.feedbackContainer}>
+                <TouchableOpacity
+                  style={styles.likeButton}
+                  onPress={() => handleEvaluation(true)}
+                >
+                  <Text style={styles.feedbackText}>👍 J'aime</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.dislikeButton}
+                  onPress={() => handleEvaluation(false)}
+                >
+                  <Text style={styles.feedbackText}>👎 Je n'aime pas</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
-        {/* BOUTON */}
+        {/* BOUTON GENERATION */}
         <TouchableOpacity
           onPress={handleGenerateTenue}
           style={[BUTTON_PRIMARY, { marginTop: SPACING.lg }]}
@@ -155,12 +192,6 @@ const styles = {
     alignItems: "center",
     backgroundColor: COLORS.background
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: SPACING.md
-  },
   city: {
     fontSize: 14,
     fontWeight: "600",
@@ -181,14 +212,15 @@ const styles = {
     marginLeft: SPACING.sm,
     color: COLORS.text
   },
+  tenueSection: {
+    marginTop: SPACING.lg
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     marginBottom: SPACING.md,
     color: COLORS.text
   },
-
-  /* GRID tenue */
   outfitGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -203,9 +235,36 @@ const styles = {
     height: 90,
     borderRadius: 12
   },
+  itemName: {
+    marginTop: 5,
+    color: COLORS.text
+  },
   placeholder: {
     backgroundColor: COLORS.border,
     justifyContent: "center",
     alignItems: "center"
+  },
+  feedbackContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: SPACING.md
+  },
+  likeButton: {
+    backgroundColor: "#4CAF50",
+    paddingVertical: 12,
+    borderRadius: 30,
+    width: "48%",
+    alignItems: "center"
+  },
+  dislikeButton: {
+    backgroundColor: "#E53935",
+    paddingVertical: 12,
+    borderRadius: 30,
+    width: "48%",
+    alignItems: "center"
+  },
+  feedbackText: {
+    color: "#fff",
+    fontWeight: "600"
   }
 };
