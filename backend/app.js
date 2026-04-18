@@ -39,6 +39,7 @@ app.use('/api/photo', photoRoutes);
 app.use('/api/meteo', meteoRoutes);
 app.use('/api/zone', zoneRoutes);
 app.use('/api/sous-categorie', sousCategorieRoutes);
+app.use("/api/ml", require("./routes/mlRoutes"));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 
