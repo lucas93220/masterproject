@@ -53,28 +53,13 @@ exports.generateTenue = async (req, res, next) => {
       });
 
     const zones = await Zone.findAll();
-    const tenueFinale = [];
 
-    for (const zone of zones) {
+    const tenueFinale = buildRandomTenue(vetementsFiltres, zones);
 
-      const vetementsZone = vetementsFiltres.filter(v =>
-        v.sous_categorie &&
-        v.sous_categorie.zone &&
-        v.sous_categorie.zone.id_zone === zone.id_zone
-      );
-
-      if (!vetementsZone.length) {
-        if (zone.obligatoire) {
-          return res.status(400).json({
-            message: `Zone obligatoire manquante : ${zone.nom_zone}`
-          });
-        }
-        continue;
-      }
-
-      const shuffled = vetementsZone.sort(() => 0.5 - Math.random());
-      const selection = shuffled.slice(0, zone.max_elements);
-      tenueFinale.push(...selection);
+    if (!tenueFinale) {
+      return res.status(400).json({
+        message: "Impossible de générer une tenue valide"
+      });
     }
 
     const nouvelleTenue = await Tenue.create({
@@ -100,3 +85,29 @@ exports.generateTenue = async (req, res, next) => {
     next(error);
   }
 };
+
+function buildRandomTenue(vetementsFiltres, zones) {
+  const tenueFinale = [];
+
+  for (const zone of zones) {
+    const vetementsZone = vetementsFiltres.filter(v =>
+      v.sous_categorie &&
+      v.sous_categorie.zone &&
+      v.sous_categorie.zone.id_zone === zone.id_zone
+    );
+
+    if (!vetementsZone.length) {
+      if (zone.obligatoire) {
+        return null; // tenue invalide
+      }
+      continue;
+    }
+
+    const shuffled = vetementsZone.sort(() => 0.5 - Math.random());
+    const selection = shuffled.slice(0, zone.max_elements);
+
+    tenueFinale.push(...selection);
+  }
+
+  return tenueFinale;
+}

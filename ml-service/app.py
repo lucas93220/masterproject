@@ -34,6 +34,15 @@ def predict(data: dict):
         model = joblib.load("model.joblib")
 
     df = pd.DataFrame([data])
+
+    model_features = model.feature_names_in_
+
+    for col in model_features:
+        if col not in df.columns:
+            df[col] = 0
+
+    df = df[model_features]
+
     prediction = model.predict_proba(df)[0][1]
 
     return {"probability_like": float(prediction)}

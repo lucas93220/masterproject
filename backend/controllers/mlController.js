@@ -52,3 +52,16 @@ exports.trainModel = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.predict = async (req, res, next) => {
+  try {
+    const features = req.body;
+
+    const response = await axios.post("http://localhost:8000/predict", features);
+
+    res.json(response.data);
+
+  } catch (error) {
+    next(error);
+  }
+};
