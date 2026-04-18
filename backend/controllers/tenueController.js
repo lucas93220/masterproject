@@ -1,3 +1,4 @@
+const axios = require("axios");
 const Vetement = require('../models/vetement');
 const SousCategorie = require('../models/sousCategorie');
 const Zone = require('../models/zone');
@@ -54,13 +55,45 @@ exports.generateTenue = async (req, res, next) => {
 
     const zones = await Zone.findAll();
 
-    const tenueFinale = buildRandomTenue(vetementsFiltres, zones);
+    const candidates = [];
 
-    if (!tenueFinale) {
+    for (let i = 0; i < 5; i++) {
+      const candidate = buildRandomTenue(vetementsFiltres, zones);
+
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    }
+
+    if (!candidates.length) {
       return res.status(400).json({
-        message: "Impossible de générer une tenue valide"
+        message: "Impossible de générer des tenues valides"
       });
     }
+
+    let bestTenue = null;
+    let bestScore = -1;
+
+    for (const candidate of candidates) {
+
+      const features = buildFeatures(candidate, temperature);
+
+      const response = await axios.post(
+        "http://localhost:8000/predict",
+        features
+      );
+
+      const score = response.data.probability_like;
+        console.log("Score candidate:", score);
+
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestTenue = candidate;
+      }
+    }
+
+    const tenueFinale = bestTenue;
 
     const nouvelleTenue = await Tenue.create({
       id_utilisateur: req.user.id,
@@ -110,4 +143,20 @@ function buildRandomTenue(vetementsFiltres, zones) {
   }
 
   return tenueFinale;
+}
+
+function buildFeatures(tenueCandidate, temperature) {
+  const features = {
+    temperature
+  };
+
+  for (const vetement of tenueCandidate) {
+    const zoneName = vetement.sous_categorie.zone.nom_zone
+      .toLowerCase()
+      .replace(/\s+/g, "_");
+
+    features[`zone_${zoneName}`] = 1;
+  }
+
+  return features;
 }
