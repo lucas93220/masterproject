@@ -76,8 +76,8 @@ exports.generateTenue = async (req, res, next) => {
 
     for (const candidate of candidates) {
 
-      const features = buildFeatures(candidate, temperature);
-
+      const features = await buildFeatures(candidate, temperature);
+      console.log("Features envoyées :", features);
       const response = await axios.post(
         "http://localhost:8000/predict",
         features
@@ -145,16 +145,29 @@ function buildRandomTenue(vetementsFiltres, zones) {
   return tenueFinale;
 }
 
-function buildFeatures(tenueCandidate, temperature) {
+async function buildFeatures(tenue, temperature) {
+  const allZones = await Zone.findAll();
+
+  const nb_vetements = tenue.length;
+  const nb_favoris = tenue.filter(v => v.favori).length;
+  const ratio_favoris =
+    nb_vetements > 0 ? nb_favoris / nb_vetements : 0;
+
   const features = {
-    temperature
+    temperature,
+    nb_vetements,
+    nb_favoris,
+    ratio_favoris
   };
 
-  for (const vetement of tenueCandidate) {
-    const zoneName = vetement.sous_categorie.zone.nom_zone
-      .toLowerCase()
-      .replace(/\s+/g, "_");
+  // 🔥 Initialiser toutes les zones à 0
+  for (const zone of allZones) {
+    features[`zone_${zone.nom_zone}`] = 0;
+  }
 
+  // 🔥 Mettre à 1 celles présentes
+  for (const v of tenue) {
+    const zoneName = v.sous_categorie.zone.nom_zone;
     features[`zone_${zoneName}`] = 1;
   }
 
