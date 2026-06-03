@@ -1,5 +1,6 @@
-const Evaluation = require('../models/evaluation');
-const Tenue = require('../models/tenue');
+const axios = require("axios");
+const Evaluation = require("../models/evaluation");
+const Tenue = require("../models/tenue");
 
 exports.create = async (req, res, next) => {
   try {
@@ -18,6 +19,17 @@ exports.create = async (req, res, next) => {
       temperature: tenue.temperature,
       date_avis: new Date()
     });
+
+    try {
+      await axios.post("http://localhost:3002/api/ml/train", {}, {
+        headers: {
+          Authorization: req.headers.authorization
+        }
+      });
+      console.log("Modèle réentraîné automatiquement");
+    } catch (trainError) {
+      console.log("Erreur retrain (non bloquante) :", trainError.message);
+    }
 
     res.status(201).json(evaluation);
 
