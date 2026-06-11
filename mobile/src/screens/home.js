@@ -141,21 +141,22 @@ export default function Home() {
             {tenueId && (
               <View style={styles.feedbackContainer}>
 
-                <TouchableOpacity
-                  onPress={() => handleEvaluation(true)}
-                  style={styles.iconButton}
-                >
-                  <Ionicons name="thumbs-up-outline" size={26} color="#4CAF50" />
-                </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleEvaluation(true)}
+                style={styles.likeButton}
+              >
+                <Ionicons name="heart" size={20} color="#ff0000ff" />
+                <Text style={styles.likeText}></Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={() => handleEvaluation(false)}
-                  style={styles.iconButton}
-                >
-                  <Ionicons name="thumbs-down-outline" size={26} color="#E53935" />
-                </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleGenerateTenue}
+                style={styles.regenerateButton}
+              >
+                <Ionicons name="refresh" size={20} color="#333" />
+              </TouchableOpacity>
 
-              </View>
+            </View>
             )}
           </View>
         )}
