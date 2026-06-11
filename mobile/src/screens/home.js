@@ -145,7 +145,7 @@ export default function Home() {
                 onPress={() => handleEvaluation(true)}
                 style={styles.likeButton}
               >
-                <Ionicons name="heart" size={20} color="#ff0000ff" />
+                <Ionicons name="heart" size={25} color="#ff0000ff" />
                 <Text style={styles.likeText}></Text>
               </TouchableOpacity>
 
@@ -153,7 +153,7 @@ export default function Home() {
                 onPress={handleGenerateTenue}
                 style={styles.regenerateButton}
               >
-                <Ionicons name="refresh" size={20} color="#333" />
+                <Ionicons name="close" size={25} color="#333" />
               </TouchableOpacity>
 
             </View>
