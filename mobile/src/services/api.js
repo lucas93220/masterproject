@@ -116,3 +116,27 @@ export function evaluateTenue(id_tenue, is_liked) {
     is_liked
   });
 }
+
+export const uploadImage = async (uri) => {
+  const formData = new FormData();
+
+  formData.append("image", {
+    uri,
+    name: "photo.jpg",
+    type: "image/jpeg",
+  });
+
+  const response = await fetch("http://192.168.1.17:3002/api/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.log("UPLOAD ERROR:", text);
+    throw new Error("Erreur upload image");
+  }
+
+  const data = await response.json();
+  return data.imageUrl;
+};

@@ -9,6 +9,7 @@ import {
   SafeAreaView
 } from "react-native";
 import { useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { getWeatherForMe, generateTenue, evaluateTenue } from "../services/api";
 
 import { COLORS } from "../styles/colors";
@@ -126,38 +127,34 @@ export default function Home() {
 
             <View style={styles.outfitGrid}>
               {tenue.map(item => (
-                <View key={item.id_vetement} style={styles.outfitCard}>
-                  {item.photo ? (
-                    <Image
-                      source={{ uri: item.photo }}
-                      style={styles.outfitImage}
-                    />
-                  ) : (
-                    <View style={[styles.outfitImage, styles.placeholder]}>
-                      <Text>📸</Text>
-                    </View>
-                  )}
-                  <Text style={styles.itemName}>{item.nom}</Text>
-                </View>
-              ))}
+              <View key={item.id_vetement} style={styles.outfitCard}>
+                <Image
+                  source={{ uri: item.photo || "https://picsum.photos/300" }}
+                  style={styles.outfitImage}
+                />
+                <Text style={styles.itemName}>{item.nom}</Text>
+              </View>
+            ))}
             </View>
 
             {/* FEEDBACK */}
             {tenueId && (
               <View style={styles.feedbackContainer}>
+
                 <TouchableOpacity
-                  style={styles.likeButton}
                   onPress={() => handleEvaluation(true)}
+                  style={styles.iconButton}
                 >
-                  <Text style={styles.feedbackText}>👍 J'aime</Text>
+                  <Ionicons name="thumbs-up-outline" size={26} color="#4CAF50" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.dislikeButton}
                   onPress={() => handleEvaluation(false)}
+                  style={styles.iconButton}
                 >
-                  <Text style={styles.feedbackText}>👎 Je n'aime pas</Text>
+                  <Ionicons name="thumbs-down-outline" size={26} color="#E53935" />
                 </TouchableOpacity>
+
               </View>
             )}
           </View>
@@ -244,27 +241,21 @@ const styles = {
     justifyContent: "center",
     alignItems: "center"
   },
+
   feedbackContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: SPACING.md
+    justifyContent: "center",
+    gap: 40,
+    marginTop: SPACING.lg
   },
-  likeButton: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 12,
-    borderRadius: 30,
-    width: "48%",
-    alignItems: "center"
-  },
-  dislikeButton: {
-    backgroundColor: "#E53935",
-    paddingVertical: 12,
-    borderRadius: 30,
-    width: "48%",
-    alignItems: "center"
-  },
-  feedbackText: {
-    color: "#fff",
-    fontWeight: "600"
-  }
+
+iconButton: {
+  width: 50,
+  height: 50,
+  borderRadius: 25,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#ffffff",
+  elevation: 3
+}
 };

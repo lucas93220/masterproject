@@ -54,8 +54,9 @@ describe('Tests FITS', () => {
         couleur: "bleu",
         temperature_min: 15,
         temperature_max: 30,
-        id_categorie: 9
+        id_sous_categorie: 1
       });
+
     expect(res.statusCode).toBe(201);
     expect(res.body).toHaveProperty('id_vetement');
     vetementId = res.body.id_vetement;

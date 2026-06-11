@@ -16,7 +16,8 @@ import {
   addClothing,
   updateClothing,
   getCategories,
-  getSousCategoriesByCategorie
+  getSousCategoriesByCategorie,
+  uploadImage
 } from "../services/api";
 
 import { COLORS } from "../styles/colors";
@@ -93,29 +94,37 @@ export default function AddClothing({ navigation, route }) {
       return;
     }
 
+  try {
+    let imageUrl = photo;
+
+    // Upload uniquement si nouvelle image locale
+    if (photo && photo.startsWith("file://")) {
+      imageUrl = await uploadImage(photo);
+    }
+
     const payload = {
       nom,
       marque,
       couleur,
-      photo,
+      photo: imageUrl,
       favori,
       temperature_min: tempMin ? Number(tempMin) : 0,
       temperature_max: tempMax ? Number(tempMax) : 50,
       id_sous_categorie: idSousCategorie
     };
 
-    try {
-      if (editingClothing) {
-        await updateClothing(editingClothing.id_vetement, payload);
-      } else {
-        await addClothing(payload);
-      }
-
-      navigation.goBack();
-    } catch (error) {
-      Alert.alert("Erreur", error.message);
+    if (editingClothing) {
+      await updateClothing(editingClothing.id_vetement, payload);
+    } else {
+      await addClothing(payload);
     }
-  };
+
+    navigation.goBack();
+
+  } catch (error) {
+    Alert.alert("Erreur", error.message);
+  }
+};
 
   const selectedSousCategorie = sousCategories.find(
     sc => sc.id_sous_categorie === idSousCategorie
