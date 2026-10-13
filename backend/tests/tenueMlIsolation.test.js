@@ -1,4 +1,7 @@
 jest.mock("../services/mlClient", () => ({ postToMl: jest.fn() }));
+jest.mock("../services/outfitFeatures", () => ({
+  loadFeatureSchema: jest.fn(), extractFeatures: jest.fn()
+}));
 jest.mock("../models/vetement", () => ({ findAll: jest.fn() }));
 jest.mock("../models/sousCategorie", () => ({}));
 jest.mock("../models/zone", () => ({ findAll: jest.fn() }));
@@ -11,6 +14,7 @@ jest.mock("../config/db", () => {
 });
 
 const { postToMl } = require("../services/mlClient");
+const { loadFeatureSchema, extractFeatures } = require("../services/outfitFeatures");
 const Vetement = require("../models/vetement");
 const Zone = require("../models/zone");
 const Dressing = require("../models/dressing");
@@ -30,6 +34,11 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
   Contenir.findAll.mockResolvedValue([{ id_vetement: 12 }]);
   Vetement.findAll.mockResolvedValue([vetement]);
   Zone.findAll.mockResolvedValue([zone]);
+  loadFeatureSchema.mockResolvedValue({ version: "outfit-v2-test" });
+  extractFeatures.mockReturnValue({
+    temperature: 18, nb_vetements: 1, nb_favoris: 1,
+    ratio_favoris: 1, zone_torse: 1
+  });
   postToMl.mockResolvedValue({ data: { probability_like: 1, model_used: "fallback" } });
   Tenue.create.mockResolvedValue({ id_tenue: 22 });
   Composer.create.mockResolvedValue({});
@@ -41,7 +50,7 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
 
   expect(postToMl).toHaveBeenCalledWith("predict", {
     temperature: 18, nb_vetements: 1, nb_favoris: 1,
-    ratio_favoris: 1, zone_torse: 1
+    ratio_favoris: 1, zone_torse: 1, feature_version: "outfit-v2-test"
   }, 7);
   expect(Tenue.create).toHaveBeenCalledWith({ id_utilisateur: 7, temperature: 18 });
   expect(Composer.create).toHaveBeenCalledWith({ id_tenue: 22, id_vetement: 12 });

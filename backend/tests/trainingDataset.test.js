@@ -2,22 +2,22 @@ jest.mock("../models/evaluation", () => ({ findAll: jest.fn() }));
 jest.mock("../models/tenue", () => ({ findAll: jest.fn() }));
 jest.mock("../models/composer", () => ({ findAll: jest.fn() }));
 jest.mock("../models/vetement", () => ({ findAll: jest.fn() }));
-jest.mock("../models/sousCategorie", () => ({}));
+jest.mock("../models/sousCategorie", () => ({ findAll: jest.fn() }));
+jest.mock("../models/categorie", () => ({ findAll: jest.fn() }));
 jest.mock("../models/zone", () => ({ findAll: jest.fn() }));
 jest.mock("../config/db", () => {
   throw new Error("Ce test ne doit pas ouvrir de connexion à la base");
 });
 
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
 const Evaluation = require("../models/evaluation");
 const Tenue = require("../models/tenue");
 const Composer = require("../models/composer");
 const Vetement = require("../models/vetement");
 const Zone = require("../models/zone");
 const SousCategorie = require("../models/sousCategorie");
+const Categorie = require("../models/categorie");
 const { buildTrainingDataset } = require("../services/trainingDataset");
+const { loadFeatureSchema, extractFeatures } = require("../services/outfitFeatures");
 
 const zones = [
   { id_zone: 1, nom_zone: "torse" },
@@ -26,7 +26,9 @@ const zones = [
 ];
 const garment = (id, zone, favori = false) => ({
   id_vetement: id,
+  id_sous_categorie: id,
   favori,
+  couleur: 'bleu',
   sous_categorie: {
     id_sous_categorie: id,
     id_categorie: id,
@@ -52,12 +54,22 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
       garment(102, zones[1])
     ]);
     Zone.findAll.mockResolvedValue(zones);
+    Categorie.findAll.mockResolvedValue([
+      { id_categorie: 101, nom_categorie: 'Hauts' },
+      { id_categorie: 102, nom_categorie: 'Bas' },
+      { id_categorie: 201, nom_categorie: 'Chaussures' }
+    ]);
+    SousCategorie.findAll.mockResolvedValue([
+      { id_sous_categorie: 101, id_categorie: 101, nom_sous_categorie: 'T-shirt' },
+      { id_sous_categorie: 102, id_categorie: 102, nom_sous_categorie: 'Pantalon' },
+      { id_sous_categorie: 201, id_categorie: 201, nom_sous_categorie: 'Baskets' }
+    ]);
   });
 
   test("construit la ligne d'un like à partir de plusieurs vêtements", async () => {
     const result = await buildTrainingDataset(1);
 
-    expect(result).toEqual([{
+    expect(result).toEqual([expect.objectContaining({
       temperature: 18,
       nb_vetements: 2,
       nb_favoris: 1,
@@ -65,8 +77,10 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
       is_liked: 1,
       zone_torse: 1,
       zone_jambes: 1,
-      zone_pieds: 0
-    }]);
+      zone_pieds: 0,
+      couleur_bleu: 1,
+      association_torse_jambes_meme_couleur: 1
+    })]);
     expect(Evaluation.findAll).toHaveBeenCalledWith({ where: { id_utilisateur: 1 } });
     expect(Tenue.findAll).toHaveBeenCalledWith({
       where: { id_tenue: [10], id_utilisateur: 1 }
@@ -109,6 +123,26 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
     expect(result).toHaveLength(2);
     expect(result.map(row => row.is_liked)).toEqual([1, 0]);
     expect(result.map(row => row.temperature)).toEqual([18, 12]);
+  });
+
+  test("réutilise l'instantané même si le vêtement a été supprimé ou modifié", async () => {
+    Evaluation.findAll.mockResolvedValue([{
+      id_utilisateur: 1, id_tenue: 10, is_liked: true, temperature: 18,
+      feature_snapshot: { version: 1, garments: [{
+        couleur: 'bleu', favori: true, zone_name: 'torse',
+        category_name: 'hauts', subcategory_name: 't-shirt'
+      }] }
+    }]);
+    Composer.findAll.mockResolvedValue([]);
+    Vetement.findAll.mockResolvedValue([]);
+
+    const [row] = await buildTrainingDataset(1);
+
+    expect(row).toEqual(expect.objectContaining({
+      is_liked: 1, nb_vetements: 1, nb_favoris: 1,
+      couleur_bleu: 1, couleur_rouge: 0, zone_torse: 1
+    }));
+    expect(Vetement.findAll).not.toHaveBeenCalled();
   });
 
   test("ne crée aucune ligne négative pour une tenue sans évaluation", async () => {
@@ -157,14 +191,14 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
       buildTrainingDataset(1), buildTrainingDataset(2)
     ]);
 
-    expect(first).toEqual([{
+    expect(first).toEqual([expect.objectContaining({
       temperature: 18, nb_vetements: 1, nb_favoris: 1, ratio_favoris: 1,
       is_liked: 1, zone_torse: 1, zone_jambes: 0, zone_pieds: 0
-    }]);
-    expect(second).toEqual([{
+    })]);
+    expect(second).toEqual([expect.objectContaining({
       temperature: 12, nb_vetements: 1, nb_favoris: 0, ratio_favoris: 0,
       is_liked: 0, zone_torse: 0, zone_jambes: 0, zone_pieds: 1
-    }]);
+    })]);
   });
 
   test("ignore un avis renvoyé par erreur pour un autre utilisateur", async () => {
@@ -205,12 +239,14 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
   test.each([
     garment(102, zones[1], null),
     garment(102, null)
-  ].map(vetement => [vetement]))("ignore un vêtement incomplet : %p", async vetement => {
+  ].map(vetement => [vetement]))("encode un vêtement incomplet sans planter : %p", async vetement => {
     Vetement.findAll.mockResolvedValue([
       garment(101, zones[0], true),
       vetement
     ]);
-    expect(await buildTrainingDataset(1)).toEqual([]);
+    const result = await buildTrainingDataset(1);
+    expect(result).toHaveLength(1);
+    expect(result[0].nb_favoris).toBe(1);
   });
 
   test("ignore les avis incomplets sans assimiler une valeur manquante à un dislike", async () => {
@@ -237,13 +273,11 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
   });
 
   test("a les mêmes features que la prédiction et ne transmet aucun identifiant", async () => {
-    const source = fs.readFileSync(path.join(__dirname, "../controllers/tenueController.js"), "utf8");
-    const functionSource = source.slice(source.indexOf("async function buildFeatures("));
-    const buildFeatures = vm.runInNewContext(functionSource + "\nbuildFeatures", { Zone });
+    const schema = await loadFeatureSchema();
     const vetements = await Vetement.findAll();
-    const predictedFeatures = await buildFeatures(vetements, 18);
+    const predictedFeatures = extractFeatures(vetements, 18, schema);
 
-    const [row] = await buildTrainingDataset(1);
+    const [row] = await buildTrainingDataset(1, schema);
     expect(row).toEqual({ ...predictedFeatures, is_liked: 1 });
     expect(Object.keys(row)).not.toContain("id_vetement");
     expect(Object.keys(row)).not.toContain("id_utilisateur");

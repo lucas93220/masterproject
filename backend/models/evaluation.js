@@ -24,6 +24,10 @@ const Evaluation = sequelize.define('Evaluation', {
   date_avis: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
+  },
+  feature_snapshot: {
+    type: DataTypes.JSONB,
+    allowNull: true
   }
 }, {
   tableName: 'evaluation',

@@ -24,6 +24,8 @@ _base_features = {"temperature", "nb_vetements", "nb_favoris", "ratio_favoris"}
 
 class Dataset(BaseModel):
     data: list[dict]
+    feature_version: str
+    feature_catalog: Optional[dict] = None
 
 
 def _setting(name, default):
@@ -62,7 +64,8 @@ def _validate_rows(rows):
     columns = set(rows[0])
     features = columns - {"is_liked"}
     if not _base_features <= features or any(
-        not name.startswith("zone_") for name in features - _base_features
+        not name.startswith(("zone_", "couleur_", "categorie_", "sous_categorie_", "association_"))
+        for name in features - _base_features
     ):
         raise HTTPException(status_code=422, detail="Schéma de features invalide")
 
@@ -78,6 +81,8 @@ def _validate_rows(rows):
 
 @app.post("/train")
 def train_model(dataset: Dataset, user_id: int = Depends(_authenticated_user)):
+    if not dataset.feature_version.startswith("outfit-v2-"):
+        raise HTTPException(status_code=422, detail="Version de features invalide")
     rows = dataset.data
     minimum = _setting("ML_MIN_TRAIN_SAMPLES", 20)
     minimum_per_class = _setting("ML_MIN_SAMPLES_PER_CLASS", 5)
@@ -108,7 +113,10 @@ def train_model(dataset: Dataset, user_id: int = Depends(_authenticated_user)):
                                 suffix=".joblib.tmp", delete=False) as temporary:
             temporary_path = Path(temporary.name)
         try:
-            joblib.dump(candidate, temporary_path)
+            joblib.dump({"feature_version": dataset.feature_version,
+                         "feature_catalog": dataset.feature_catalog,
+                         "model": candidate},
+                        temporary_path)
             os.replace(temporary_path, path)
         finally:
             temporary_path.unlink(missing_ok=True)
@@ -134,15 +142,17 @@ def predict(data: dict, user_id: int = Depends(_authenticated_user)):
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", InconsistentVersionWarning)
-            model = joblib.load(path)
+            artifact = joblib.load(path)
+        if not isinstance(artifact, dict) or artifact.get("feature_version") != data.get("feature_version"):
+            return _fallback(data, "incompatible_model")
+        model = artifact.get("model")
         if set(model.classes_) != {0, 1} or not hasattr(model, "feature_names_in_"):
             return _fallback(data, "invalid_model")
 
-        df = pd.DataFrame([data])
-        for col in model.feature_names_in_:
-            if col not in df.columns:
-                df[col] = 0
-        df = df[model.feature_names_in_]
+        features = {key: value for key, value in data.items() if key != "feature_version"}
+        if list(features) != list(model.feature_names_in_):
+            return _fallback(data, "incompatible_features")
+        df = pd.DataFrame([features])
         index = list(model.classes_).index(1)
         probability = float(model.predict_proba(df)[0][index])
         if not math.isfinite(probability):

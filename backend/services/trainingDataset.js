@@ -4,8 +4,15 @@ const Composer = require('../models/composer');
 const Vetement = require('../models/vetement');
 const SousCategorie = require('../models/sousCategorie');
 const Zone = require('../models/zone');
+const { loadFeatureSchema, extractFeatures } = require('./outfitFeatures');
 
-async function buildTrainingDataset(userId) {
+function hasSnapshot(evaluation) {
+  const snapshot = evaluation.feature_snapshot;
+  return snapshot?.version === 1 && Array.isArray(snapshot.garments) &&
+    snapshot.garments.length > 0;
+}
+
+async function buildTrainingDataset(userId, providedSchema) {
   const evaluations = await Evaluation.findAll({
     where: { id_utilisateur: userId }
   });
@@ -29,6 +36,8 @@ async function buildTrainingDataset(userId) {
 
   if (!ownedTenues.size) return [];
 
+  const schema = providedSchema || await loadFeatureSchema();
+
   const compositions = await Composer.findAll({
     where: { id_tenue: [...ownedTenues.keys()] }
   });
@@ -42,55 +51,32 @@ async function buildTrainingDataset(userId) {
     vetementIdsByTenue.get(composition.id_tenue).push(composition.id_vetement);
   }
 
-  const vetementIds = [...new Set([...vetementIdsByTenue.values()].flat())];
-  if (!vetementIds.length) return [];
-
-  const [vetements, zones] = await Promise.all([
-    Vetement.findAll({
-      where: { id_vetement: vetementIds },
-      include: { model: SousCategorie, include: Zone }
-    }),
-    Zone.findAll()
-  ]);
+  const vetementIds = [...new Set(validEvaluations
+    .filter(evaluation => !hasSnapshot(evaluation))
+    .flatMap(evaluation => vetementIdsByTenue.get(evaluation.id_tenue) || []))];
+  const vetements = vetementIds.length ? await Vetement.findAll({
+    where: { id_vetement: vetementIds },
+    include: { model: SousCategorie, include: Zone }
+  }) : [];
   const vetementsById = new Map(vetements.map(vetement => [vetement.id_vetement, vetement]));
-  const zoneNames = new Set(zones.map(zone => zone.nom_zone));
   const dataset = [];
 
   for (const evaluation of validEvaluations) {
     const tenue = ownedTenues.get(evaluation.id_tenue);
-    const ids = vetementIdsByTenue.get(evaluation.id_tenue);
+    if (!tenue || tenue.temperature !== evaluation.temperature) continue;
 
-    if (!tenue || tenue.temperature !== evaluation.temperature ||
-        !ids?.length || new Set(ids).size !== ids.length) {
-      continue;
+    let clothes;
+    if (hasSnapshot(evaluation)) {
+      clothes = evaluation.feature_snapshot.garments;
+    } else {
+      const ids = vetementIdsByTenue.get(evaluation.id_tenue);
+      if (!ids?.length || new Set(ids).size !== ids.length) continue;
+      clothes = ids.map(id => vetementsById.get(id));
+      if (clothes.some(item => !item)) continue;
     }
 
-    const clothes = ids.map(id => vetementsById.get(id));
-    if (clothes.some(vetement =>
-      !vetement || typeof vetement.favori !== 'boolean' ||
-      !zoneNames.has(vetement.sous_categorie?.zone?.nom_zone)
-    )) {
-      continue;
-    }
-
-    const nb_favoris = clothes.filter(vetement => vetement.favori).length;
-    const row = {
-      temperature: evaluation.temperature,
-      nb_vetements: clothes.length,
-      nb_favoris,
-      ratio_favoris: nb_favoris / clothes.length,
-      is_liked: evaluation.is_liked ? 1 : 0
-    };
-
-    for (const zone of zones) {
-      row[`zone_${zone.nom_zone}`] = 0;
-    }
-
-    for (const vetement of clothes) {
-      row[`zone_${vetement.sous_categorie.zone.nom_zone}`] = 1;
-    }
-
-    dataset.push(row);
+    dataset.push({ ...extractFeatures(clothes, evaluation.temperature, schema),
+      is_liked: evaluation.is_liked ? 1 : 0 });
   }
 
   return dataset;

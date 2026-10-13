@@ -6,6 +6,7 @@ const Dressing = require('../models/dressing');
 const Contenir = require('../models/contenir');
 const Tenue = require('../models/tenue');
 const Composer = require('../models/composer');
+const { loadFeatureSchema, extractFeatures } = require('../services/outfitFeatures');
 
 exports.generateTenue = async (req, res, next) => {
   try {
@@ -71,17 +72,20 @@ exports.generateTenue = async (req, res, next) => {
       });
     }
 
+    const schema = await loadFeatureSchema();
+
     let bestTenue = null;
     let bestScore = -1;
 
     for (const candidate of candidates) {
 
-      const features = await buildFeatures(candidate, temperature);
-      console.log("Features envoyées :", features);
-      const response = await postToMl("predict", features, req.user.id);
+      const features = extractFeatures(candidate, temperature, schema);
+      const response = await postToMl("predict", {
+        ...features,
+        feature_version: schema.version
+      }, req.user.id);
 
       const score = response.data.probability_like;
-        console.log("Score candidate:", score);
 
 
       if (score > bestScore) {
@@ -155,31 +159,4 @@ function buildRandomTenue(vetementsFiltres, zones) {
   }
 
   return tenueFinale;
-}
-
-async function buildFeatures(tenue, temperature) {
-  const allZones = await Zone.findAll();
-
-  const nb_vetements = tenue.length;
-  const nb_favoris = tenue.filter(v => v.favori).length;
-  const ratio_favoris =
-    nb_vetements > 0 ? nb_favoris / nb_vetements : 0;
-
-  const features = {
-    temperature,
-    nb_vetements,
-    nb_favoris,
-    ratio_favoris
-  };
-
-  for (const zone of allZones) {
-    features[`zone_${zone.nom_zone}`] = 0;
-  }
-
-  for (const v of tenue) {
-    const zoneName = v.sous_categorie.zone.nom_zone;
-    features[`zone_${zoneName}`] = 1;
-  }
-
-  return features;
 }

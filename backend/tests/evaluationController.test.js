@@ -1,6 +1,13 @@
 jest.mock("axios", () => ({ post: jest.fn() }));
 jest.mock("../models/evaluation", () => ({ upsert: jest.fn() }));
 jest.mock("../models/tenue", () => ({ findByPk: jest.fn() }));
+jest.mock("../models/composer", () => ({ findAll: jest.fn() }));
+jest.mock("../models/vetement", () => ({ findAll: jest.fn() }));
+jest.mock("../models/sousCategorie", () => ({}));
+jest.mock("../models/zone", () => ({}));
+jest.mock("../services/outfitFeatures", () => ({
+  loadFeatureSchema: jest.fn(), snapshotGarment: jest.fn()
+}));
 jest.mock("../config/db", () => {
   throw new Error("Ces tests ne doivent pas ouvrir de connexion à la base");
 });
@@ -8,6 +15,9 @@ jest.mock("../config/db", () => {
 const axios = require("axios");
 const Evaluation = require("../models/evaluation");
 const Tenue = require("../models/tenue");
+const Composer = require("../models/composer");
+const Vetement = require("../models/vetement");
+const { loadFeatureSchema, snapshotGarment } = require("../services/outfitFeatures");
 const controller = require("../controllers/evaluationController");
 
 describe("Évaluations utilisateur (sans base ni réseau)", () => {
@@ -32,6 +42,7 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     });
     Evaluation.upsert.mockImplementation(async data => [data]);
     axios.post.mockResolvedValue({ data: {} });
+    Composer.findAll.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -47,7 +58,8 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
       id_tenue: 10,
       is_liked: isLiked,
       temperature: 18,
-      date_avis: expect.any(Date)
+      date_avis: expect.any(Date),
+      feature_snapshot: null
     };
     expect(Tenue.findByPk).toHaveBeenCalledWith(10);
     expect(Evaluation.upsert).toHaveBeenCalledTimes(1);
@@ -60,6 +72,37 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     });
     expect(Evaluation.upsert.mock.invocationCallOrder[0])
       .toBeLessThan(axios.post.mock.invocationCallOrder[0]);
+  });
+
+  test("enregistre les caractéristiques présentes au moment de l'avis", async () => {
+    Composer.findAll.mockResolvedValue([{ id_tenue: 10, id_vetement: 101 }]);
+    Vetement.findAll.mockResolvedValue([{ id_vetement: 101, couleur: "bleu" }]);
+    loadFeatureSchema.mockResolvedValue({ version: "outfit-v2-test" });
+    snapshotGarment.mockReturnValue({ couleur: "bleu", favori: true,
+      zone_name: "torse", category_name: "hauts", subcategory_name: "t-shirt" });
+
+    await controller.create(req, res, next);
+
+    expect(Evaluation.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      feature_snapshot: { version: 1, garments: [snapshotGarment.mock.results[0].value] }
+    }));
+    expect(Vetement.findAll).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id_vetement: [101] }
+    }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  test("une capture d'instantané impossible ne bloque pas le like ou dislike", async () => {
+    req.body.is_liked = false;
+    Composer.findAll.mockRejectedValue(new Error("Lecture simulée impossible"));
+
+    await controller.create(req, res, next);
+
+    expect(Evaluation.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      is_liked: false, feature_snapshot: null
+    }));
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(next).not.toHaveBeenCalled();
   });
 
   test("renvoie l'évaluation retournée par l'upsert lors d'un changement d'avis", async () => {
@@ -153,7 +196,7 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     let finishSave;
     Evaluation.upsert.mockReturnValue(new Promise(resolve => { finishSave = resolve; }));
     const pending = controller.create(req, res, next);
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
 
     expect(Evaluation.upsert).toHaveBeenCalledTimes(1);
     expect(axios.post).not.toHaveBeenCalled();

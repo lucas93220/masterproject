@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 
 from app import app
 
+VERSION = "outfit-v2-test"
+
 
 def rows(inverted=False):
     result = []
@@ -45,7 +47,8 @@ class MlServiceTests(unittest.TestCase):
 
     def post(self, endpoint, user=1, body=None, secret="test-secret"):
         headers = {"X-FITS-USER-ID": str(user), "X-FITS-ML-SECRET": secret}
-        return self.client.post(endpoint, json=body or {}, headers=headers)
+        payload = {**(body or {}), "feature_version": VERSION}
+        return self.client.post(endpoint, json=payload, headers=headers)
 
     def test_two_users_have_distinct_models_and_predictions(self):
         self.assertEqual(self.post("/train", 1, {"data": rows()}).json()["status"], "model trained")
@@ -59,6 +62,33 @@ class MlServiceTests(unittest.TestCase):
         self.assertGreater(first["probability_like"], second["probability_like"])
         self.assertTrue((Path(self.directory.name) / "user_1.joblib").is_file())
         self.assertTrue((Path(self.directory.name) / "user_2.joblib").is_file())
+
+    def test_new_color_category_and_association_columns_work_end_to_end(self):
+        enriched = []
+        for row in rows():
+            enriched.append({
+                "temperature": row["temperature"],
+                "nb_vetements": row["nb_vetements"],
+                "nb_favoris": row["nb_favoris"],
+                "ratio_favoris": row["ratio_favoris"],
+                "zone_torse": row["zone_torse"],
+                "couleur_bleu": row["is_liked"],
+                "categorie_00": 1,
+                "sous_categorie_00": row["is_liked"],
+                "association_torse_jambes_meme_couleur": row["is_liked"],
+                "is_liked": row["is_liked"],
+            })
+        catalog = {"zones": ["torse"], "categories": ["hauts"],
+                   "subcategories": ["hauts/t-shirt"]}
+        self.assertEqual(self.post("/train", 1, {"data": enriched,
+                         "feature_catalog": catalog}).json()["status"],
+                         "model trained")
+        self.assertEqual(joblib.load(Path(self.directory.name) / "user_1.joblib")
+                         ["feature_catalog"], catalog)
+        candidate = {key: value for key, value in enriched[15].items() if key != "is_liked"}
+        response = self.post("/predict", 1, candidate)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["model_used"], "personalized")
 
     def test_no_model_falls_back_to_favorite_ratio(self):
         response = self.post("/predict", 3, {"ratio_favoris": 0.4})
@@ -103,10 +133,9 @@ class MlServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertEqual(path.read_bytes(), original)
         self.assertFalse(list(Path(self.directory.name).glob("*.tmp")))
-        self.assertEqual(joblib.load(path).classes_.tolist(), [0, 1])
-        self.assertEqual(self.post("/predict", 1, {"ratio_favoris": 1,
-                          "temperature": 20, "nb_vetements": 2,
-                          "nb_favoris": 1, "zone_torse": 1}).json()["model_used"],
+        self.assertEqual(joblib.load(path)["model"].classes_.tolist(), [0, 1])
+        candidate = {key: value for key, value in rows()[15].items() if key != "is_liked"}
+        self.assertEqual(self.post("/predict", 1, candidate).json()["model_used"],
                          "personalized")
 
     def test_concurrent_training_keeps_complete_model(self):
@@ -116,7 +145,7 @@ class MlServiceTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             responses = list(pool.map(train, [False, True]))
         self.assertTrue(all(response.status_code == 200 for response in responses))
-        model = joblib.load(Path(self.directory.name) / "user_1.joblib")
+        model = joblib.load(Path(self.directory.name) / "user_1.joblib")["model"]
         self.assertEqual(model.classes_.tolist(), [0, 1])
         self.assertFalse(list(Path(self.directory.name).glob("*.tmp")))
 
@@ -146,6 +175,21 @@ class MlServiceTests(unittest.TestCase):
         response = self.post("/predict", 2, {"ratio_favoris": 0.2})
         self.assertEqual(response.json()["model_used"], "fallback")
         self.assertEqual(response.json()["reason"], "invalid_model")
+
+    def test_old_and_incompatible_feature_versions_fall_back(self):
+        self.post("/train", 1, {"data": rows()})
+        candidate = {key: value for key, value in rows()[15].items() if key != "is_liked"}
+        wrong_version = self.client.post("/predict", json={**candidate,
+            "feature_version": "outfit-v2-other"}, headers={
+                "X-FITS-USER-ID": "1", "X-FITS-ML-SECRET": "test-secret"})
+        self.assertEqual(wrong_version.json()["reason"], "incompatible_model")
+        missing_column = self.post("/predict", 1, {"ratio_favoris": 0.5})
+        self.assertEqual(missing_column.json()["reason"], "incompatible_features")
+
+        path = Path(self.directory.name) / "user_1.joblib"
+        joblib.dump(joblib.load(path)["model"], path)
+        legacy = self.post("/predict", 1, candidate)
+        self.assertEqual(legacy.json()["reason"], "incompatible_model")
 
 
 if __name__ == "__main__":

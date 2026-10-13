@@ -1,16 +1,20 @@
 jest.mock("../services/mlClient", () => ({ postToMl: jest.fn() }));
 jest.mock("../services/trainingDataset", () => ({ buildTrainingDataset: jest.fn() }));
+jest.mock("../services/outfitFeatures", () => ({ loadFeatureSchema: jest.fn() }));
 jest.mock("../config/db", () => {
   throw new Error("Ce test ne doit pas ouvrir de connexion à la base");
 });
 
 const { postToMl } = require("../services/mlClient");
 const { buildTrainingDataset } = require("../services/trainingDataset");
+const { loadFeatureSchema } = require("../services/outfitFeatures");
 const { trainModel, predict } = require("../controllers/mlController");
 
 describe("Envoi du dataset au service ML", () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    loadFeatureSchema.mockResolvedValue({ version: "outfit-v2-test",
+      zoneNames: [], categoryVocabulary: [], subcategoryVocabulary: [] });
   });
 
   test("conserve le contrat POST /train et la réponse existante", async () => {
@@ -26,8 +30,13 @@ describe("Envoi du dataset au service ML", () => {
 
     await trainModel(req, res, next);
 
-    expect(buildTrainingDataset).toHaveBeenCalledWith(7);
-    expect(postToMl).toHaveBeenCalledWith("train", { data }, 7);
+    expect(buildTrainingDataset).toHaveBeenCalledWith(7, expect.objectContaining({
+      version: "outfit-v2-test"
+    }));
+    expect(postToMl).toHaveBeenCalledWith("train", {
+      data, feature_version: "outfit-v2-test",
+      feature_catalog: { zones: [], categories: [], subcategories: [] }
+    }, 7);
     expect(res.json).toHaveBeenCalledWith({ message: "Model trained successfully" });
     expect(next).not.toHaveBeenCalled();
   });
@@ -39,7 +48,10 @@ describe("Envoi du dataset au service ML", () => {
 
     await trainModel({ user: { id: 7 } }, res, jest.fn());
 
-    expect(postToMl).toHaveBeenCalledWith("train", { data: [] }, 7);
+    expect(postToMl).toHaveBeenCalledWith("train", {
+      data: [], feature_version: "outfit-v2-test",
+      feature_catalog: { zones: [], categories: [], subcategories: [] }
+    }, 7);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       status: "insufficient_data", reason: "empty_dataset"
     }));
@@ -62,7 +74,9 @@ describe("Envoi du dataset au service ML", () => {
     postToMl.mockResolvedValue({ data: { probability_like: 0.7 } });
     const res = { json: jest.fn() };
     await predict({ user: { id: 7 }, body: { ratio_favoris: 0.5, user_id: 99 } }, res, jest.fn());
-    expect(postToMl).toHaveBeenCalledWith("predict", { ratio_favoris: 0.5, user_id: 99 }, 7);
+    expect(postToMl).toHaveBeenCalledWith("predict", {
+      ratio_favoris: 0.5, user_id: 99, feature_version: "outfit-v2-test"
+    }, 7);
     expect(res.json).toHaveBeenCalledWith({ probability_like: 0.7 });
   });
 });
