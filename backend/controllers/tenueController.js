@@ -136,8 +136,23 @@ function buildRandomTenue(vetementsFiltres, zones) {
       continue;
     }
 
-    const shuffled = vetementsZone.sort(() => 0.5 - Math.random());
-    const selection = shuffled.slice(0, zone.max_elements);
+    const shuffled = [...vetementsZone].sort(() => 0.5 - Math.random());
+
+    const selection = [];
+    const sousCategories = new Set();
+
+    for (const vetement of shuffled) {
+      if (selection.length >= zone.max_elements) {
+        break;
+      }
+
+      if (sousCategories.has(vetement.id_sous_categorie)) {
+        continue;
+      }
+
+      selection.push(vetement);
+      sousCategories.add(vetement.id_sous_categorie);
+    }
 
     tenueFinale.push(...selection);
   }
@@ -160,12 +175,10 @@ async function buildFeatures(tenue, temperature) {
     ratio_favoris
   };
 
-  // 🔥 Initialiser toutes les zones à 0
   for (const zone of allZones) {
     features[`zone_${zone.nom_zone}`] = 0;
   }
 
-  // 🔥 Mettre à 1 celles présentes
   for (const v of tenue) {
     const zoneName = v.sous_categorie.zone.nom_zone;
     features[`zone_${zoneName}`] = 1;

@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://localhost:3002/api";
-
+const API_URL = "http://192.168.1.181:3002/api";
 
 async function apiRequest(endpoint, method = "GET", body = null) {
   const token = await AsyncStorage.getItem("token");
@@ -126,7 +125,7 @@ export const uploadImage = async (uri) => {
     type: "image/jpeg",
   });
 
-  const response = await fetch("http://192.168.1.17:3002/api/upload", {
+  const response = await fetch(`${API_URL}/upload`, {
     method: "POST",
     body: formData,
   });

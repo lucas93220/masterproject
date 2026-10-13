@@ -15,7 +15,7 @@ const upload = multer({ storage });
 
 router.post("/", upload.single("image"), (req, res) => {
   res.json({
-    imageUrl: `http://192.168.1.17:3002/uploads/${req.file.filename}`
+    imageUrl: `${req.protocol}://${req.get("host")}/uploads/${encodeURIComponent(req.file.filename)}`
   });
 });
 
