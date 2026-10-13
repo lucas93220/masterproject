@@ -1,6 +1,7 @@
 // Export en lecture seule, hors du démarrage de l'application.
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { performance } = require('node:perf_hooks');
 
 async function main() {
   require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -30,8 +31,10 @@ async function main() {
         !['127.0.0.1', '::1'].includes(identity[0]?.address)) {
       throw new Error('Le serveur PostgreSQL ne correspond pas à la base locale attendue.');
     }
+    const startedAt = performance.now();
     const schema = await loadFeatureSchema();
     const data = await buildTrainingDataset(userId, schema, { includeTenueId: true });
+    const preparationMs = performance.now() - startedAt;
     const payload = {
       source: 'Export de la base locale fits ; provenance des avis à confirmer',
       user_id: userId,
@@ -40,6 +43,7 @@ async function main() {
     };
     await fs.writeFile(output, JSON.stringify(payload, null, 2), { flag: 'wx', mode: 0o600 });
     console.log(`Export de ${data.length} avis vers ${output}`);
+    console.log(`Préparation du dataset ML : ${preparationMs.toFixed(3)} ms`);
   } finally {
     await Promise.allSettled([sequelize.close(), mongoose.disconnect()]);
   }
