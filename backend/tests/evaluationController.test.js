@@ -67,7 +67,7 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expected);
     expect(next).not.toHaveBeenCalled();
-    expect(axios.post).toHaveBeenCalledWith("http://localhost:3002/api/ml/train", {}, {
+    expect(axios.post).toHaveBeenCalledWith("http://127.0.0.1:3002/api/ml/train", {}, {
       headers: { Authorization: "Bearer token-fictif" }
     });
     expect(Evaluation.upsert.mock.invocationCallOrder[0])
@@ -190,6 +190,20 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     expect(Evaluation.upsert).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  test("le réentraînement utilise le port réel du backend", async () => {
+    const previousPort = process.env.PORT;
+    process.env.PORT = "43210";
+    try {
+      await controller.create(req, res, next);
+      expect(axios.post).toHaveBeenCalledWith("http://127.0.0.1:43210/api/ml/train", {}, {
+        headers: { Authorization: "Bearer token-fictif" }
+      });
+    } finally {
+      if (previousPort === undefined) delete process.env.PORT;
+      else process.env.PORT = previousPort;
+    }
   });
 
   test("ne déclenche pas le réentraînement avant la fin de l'enregistrement", async () => {

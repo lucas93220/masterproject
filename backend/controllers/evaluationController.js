@@ -61,12 +61,16 @@ exports.create = async (req, res, next) => {
     });
 
     try {
-      await axios.post("http://localhost:3002/api/ml/train", {}, {
+      const trainResponse = await axios.post(`http://127.0.0.1:${process.env.PORT || 3002}/api/ml/train`, {}, {
         headers: {
           Authorization: req.headers.authorization
         }
       });
-      console.log("Modèle réentraîné automatiquement");
+      if (trainResponse.data.status === "insufficient_data") {
+        console.log("Données insuffisantes pour réentraîner le modèle");
+      } else {
+        console.log("Modèle réentraîné automatiquement");
+      }
     } catch (trainError) {
       console.log("Erreur retrain (non bloquante) :", trainError.message);
     }
