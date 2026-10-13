@@ -29,8 +29,7 @@ exports.register = async (req, res, next) => {
 
     await logAction({
       userId: user.id_utilisateur,
-      action: "register",
-      details: { email, ip: req.ip }
+      action: "register"
     });
 
     const { password: _, ...userSafe } = user.dataValues;
@@ -49,7 +48,7 @@ exports.login = async (req, res, next) => {
     if (!user) {
       await logAction({
         action: "login_failed",
-        details: { email, reason: "not_found", ip: req.ip }
+        details: { reason: "not_found" }
       });
     
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
@@ -60,7 +59,7 @@ exports.login = async (req, res, next) => {
       await logAction({
         userId: user.id_utilisateur,
         action: "login_failed",
-        details: { email, reason: "bad_password", ip: req.ip }
+        details: { reason: "bad_password" }
       });
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
@@ -69,8 +68,7 @@ exports.login = async (req, res, next) => {
 
     await logAction({
       userId: user.id_utilisateur,
-      action: "login_success",
-      details: { email, ip: req.ip }
+      action: "login_success"
     });
 
     const { password: _, ...userSafe } = user.dataValues;

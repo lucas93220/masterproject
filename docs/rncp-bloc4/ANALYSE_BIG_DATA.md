@@ -8,7 +8,7 @@
 |---|---|---|---|
 | PostgreSQL : `utilisateur`, `dressing`, `contenir`, `vetement`, `categorie`, `sous_categorie`, `zone` | Structurée | Compte, garde-robe, catalogue, règles de zones et températures | Oui : vêtements et catalogue deviennent des features. L'identité ne sert qu'à isoler les modèles. |
 | PostgreSQL : `tenue`, `composer`, `evaluation` | Structurée, plus `feature_snapshot` JSONB semi-structuré | Tenues générées, composition, like/dislike et instantané des attributs au vote | Oui : température, composition/snapshot et label ; seuls les avis valides de l'utilisateur sont retenus. |
-| MongoDB : `logs` | Documents semi-structurés | Journalisation des inscriptions et connexions, y compris e-mail/IP dans `details` | Non. Aucun code de préparation ML ne les lit. |
+| MongoDB : `logs` | Documents semi-structurés | Journalisation des inscriptions et connexions ; les anciens documents peuvent contenir e-mail/IP, les nouveaux logs d'authentification n'ajoutent plus ces champs | Non. Aucun code de préparation ML ne les lit. |
 | MongoDB : `photos` | Métadonnées + octets binaires BSON | Voie `POST /api/photo/upload` et `GET /api/photo/:id` | Non. Le Random Forest ne traite pas les pixels. |
 | Disque local : `backend/uploads` | Images non structurées | Voie d'upload employée par le mobile ; URL conservée dans `vetement.photo` | Non. |
 | OpenWeatherMap | JSON externe temporaire | Température et affichage météo ; les températures de tenue/avis sont ensuite stockées en SQL | Oui, **seulement la température** passée à la génération et conservée avec la tenue/avis ; pas le JSON météo brut. |

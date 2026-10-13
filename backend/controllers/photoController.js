@@ -9,6 +9,7 @@ exports.upload = async (req, res, next) => {
     const type = imageType(req.file);
     if (!type) return res.status(415).json({ message: 'Format image non pris en charge' });
     const photo = await Photo.create({
+      ownerUserId: req.user.id,
       filename: `${randomUUID()}${type.extension}`,
       data: req.file.buffer,
       contentType: type.contentType
@@ -24,8 +25,11 @@ exports.getPhoto = async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: 'Identifiant image invalide' });
     }
-    const photo = await Photo.findById(req.params.id);
+    const photo = await Photo.findOne({ _id: req.params.id, ownerUserId: req.user.id });
     if (!photo) return res.status(404).json({ message: "Image non trouvée" });
+    if (photo.ownerUserId !== req.user.id) {
+      return res.status(404).json({ message: "Image non trouvée" });
+    }
     if (!imageType({ buffer: photo.data, mimetype: photo.contentType })) {
       return res.status(415).json({ message: 'Format image non pris en charge' });
     }

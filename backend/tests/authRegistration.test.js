@@ -79,4 +79,36 @@ describe('Inscription publique sans base de données', () => {
       else process.env.JWT_SECRET = previousSecret;
     }
   });
+
+  test('les nouveaux journaux de compte et de connexion ne contiennent ni e-mail ni IP', async () => {
+    const email = 'prive@example.invalid';
+    const ip = '192.0.2.25';
+    const response = () => ({ status: jest.fn().mockReturnThis(), json: jest.fn() });
+    await controller.register({ body: { nom: 'Test', prenom: 'Compte', email,
+      password: 'fictif' }, ip }, response(), jest.fn());
+
+    Utilisateur.findOne.mockResolvedValue({
+      id_utilisateur: 12, email, password: 'hachage-fictif', role: 'user',
+      dataValues: { id_utilisateur: 12, email, role: 'user', password: 'hachage-fictif' }
+    });
+    bcrypt.compare.mockResolvedValue(false);
+    await controller.login({ body: { email, password: 'incorrect' }, ip }, response(), jest.fn());
+    bcrypt.compare.mockResolvedValue(true);
+    const previousSecret = process.env.JWT_SECRET;
+    process.env.JWT_SECRET = 'secret-jwt-test';
+    try {
+      await controller.login({ body: { email, password: 'fictif' }, ip }, response(), jest.fn());
+    } finally {
+      if (previousSecret === undefined) delete process.env.JWT_SECRET;
+      else process.env.JWT_SECRET = previousSecret;
+    }
+    Utilisateur.findOne.mockResolvedValue(null);
+    await controller.login({ body: { email, password: 'fictif' }, ip }, response(), jest.fn());
+
+    expect(logAction).toHaveBeenCalledTimes(4);
+    for (const [entry] of logAction.mock.calls) {
+      expect(JSON.stringify(entry)).not.toContain(email);
+      expect(JSON.stringify(entry)).not.toContain(ip);
+    }
+  });
 });

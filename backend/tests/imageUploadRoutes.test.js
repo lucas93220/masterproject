@@ -1,4 +1,4 @@
-jest.mock('../models/photo', () => ({ create: jest.fn(), findById: jest.fn() }));
+jest.mock('../models/photo', () => ({ create: jest.fn(), findOne: jest.fn() }));
 jest.mock('../config/db', () => {
   throw new Error('Ce test ne doit pas ouvrir de connexion à la base');
 });
@@ -89,7 +89,7 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
       .attach('photo', jpeg, { filename: 'photo.jpg', contentType: 'image/jpeg' });
     expect(created.status).toBe(201);
     expect(Photo.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: jpeg, contentType: 'image/jpeg'
+      data: jpeg, contentType: 'image/jpeg', ownerUserId: 1
     }));
     expect(Photo.create.mock.calls[0][0].filename).toMatch(/^[a-f0-9-]{36}\.jpg$/);
     expect((await authorized(request(app).post('/api/photo/upload'))
@@ -99,12 +99,20 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
     const photoId = '507f1f77bcf86cd799439011';
     expect((await request(app).get(`/api/photo/${photoId}`)).status).toBe(401);
     expect((await authorized(request(app).get('/api/photo/invalide'))).status).toBe(400);
-    Photo.findById.mockResolvedValue({ data: jpeg, contentType: 'image/jpeg' });
+    Photo.findOne.mockResolvedValue({ data: jpeg, contentType: 'image/jpeg', ownerUserId: 1 });
     const found = await authorized(request(app).get(`/api/photo/${photoId}`));
     expect(found.status).toBe(200);
+    expect(Photo.findOne).toHaveBeenCalledWith({ _id: photoId, ownerUserId: 1 });
     expect(found.headers['x-content-type-options']).toBe('nosniff');
     expect(found.body).toEqual(jpeg);
-    Photo.findById.mockResolvedValue({ data: Buffer.from('<svg/>'), contentType: 'image/jpeg' });
+    const otherToken = jwt.sign({ id: 2, role: 'user' }, process.env.JWT_SECRET);
+    expect((await request(app).get(`/api/photo/${photoId}`)
+      .set('Authorization', `Bearer ${otherToken}`)).status).toBe(404);
+    expect(Photo.findOne).toHaveBeenCalledWith({ _id: photoId, ownerUserId: 2 });
+    Photo.findOne.mockResolvedValue({ data: jpeg, contentType: 'image/jpeg' });
+    expect((await authorized(request(app).get(`/api/photo/${photoId}`))).status).toBe(404);
+    Photo.findOne.mockResolvedValue({ data: Buffer.from('<svg/>'),
+      contentType: 'image/jpeg', ownerUserId: 1 });
     expect((await authorized(request(app).get(`/api/photo/${photoId}`))).status).toBe(415);
   });
 });

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const photoSchema = new mongoose.Schema({
+  ownerUserId: { type: Number, required: true },
   filename: String,
   data: Buffer,
   contentType: String,
