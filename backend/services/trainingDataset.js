@@ -12,7 +12,7 @@ function hasSnapshot(evaluation) {
     snapshot.garments.length > 0;
 }
 
-async function buildTrainingDataset(userId, providedSchema) {
+async function buildTrainingDataset(userId, providedSchema, { includeTenueId = false } = {}) {
   const evaluations = await Evaluation.findAll({
     where: { id_utilisateur: userId }
   });
@@ -76,7 +76,8 @@ async function buildTrainingDataset(userId, providedSchema) {
     }
 
     dataset.push({ ...extractFeatures(clothes, evaluation.temperature, schema),
-      is_liked: evaluation.is_liked ? 1 : 0 });
+      is_liked: evaluation.is_liked ? 1 : 0,
+      ...(includeTenueId ? { id_tenue: evaluation.id_tenue } : {}) });
   }
 
   return dataset;

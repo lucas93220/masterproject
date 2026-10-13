@@ -90,6 +90,16 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
       where: { id_vetement: [101, 102] },
       include: { model: SousCategorie, include: Zone }
     });
+    expect(result[0]).not.toHaveProperty('id_tenue');
+  });
+
+  test("ajoute l'identifiant de tenue seulement pour l'export d'évaluation", async () => {
+    const schema = await loadFeatureSchema();
+    const production = await buildTrainingDataset(1, schema);
+    const [exported] = await buildTrainingDataset(1, schema, { includeTenueId: true });
+    const { id_tenue, ...trainingRow } = exported;
+    expect(id_tenue).toBe(10);
+    expect(trainingRow).toEqual(production[0]);
   });
 
   test("conserve un dislike explicite avec une cible binaire à zéro", async () => {
