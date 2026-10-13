@@ -2,6 +2,8 @@
 
 **Photographie du 13 octobre 2026.** Ce document remplace les audits, plans et rapports intermédiaires du dossier RNCP. Les chiffres ci-dessous sont des mesures locales datées, pas des performances de production. Ils ne doivent pas être actualisés sans nouvelle mesure reproductible. Le [REX individuel](DOSSIER_REX_E7B.md) est le livrable à personnaliser ; le [guide de préparation](PREPARATION_SOUTENANCE.md) contient la démo, le protocole utilisateur et la trame orale. Les anciens documents retirés restent consultables dans l'historique Git.
 
+**Nouveau relevé du 13 octobre 2026 à 19:55 UTC.** Les sections ci-dessous conservent l'ancien compte comme cohorte historique et présentent séparément le compte de test récent. Les mesures du nouveau compte proviennent d'un export privé temporaire, supprimé après l'évaluation ; seuls les agrégats figurent ici. L'attribution du compte SQL 6 au nouveau compte personnel du candidat repose sur ses avis récents et reste à confirmer par lui.
+
 La grille Excel RNCP40573 fournie par le candidat est celle validée par son professeur. Elle demande cinq décisions **VALIDE / NON VALIDE**, sans barème officiel sur 20. Son libellé BC04B, sa mention BC04A en B102 et la fiche publique BC05 divergent : confirmer le code à afficher auprès du responsable de session. Le projet a été défini par le candidat ; aucun commanditaire ni retour utilisateur explicite n'a encore été recueilli.
 
 ## Parcours et architecture réellement implémentés
@@ -22,6 +24,8 @@ Le mobile attend l'enregistrement du dislike avant de régénérer et bloque les
 ## C1 — Besoin, sources et 3V
 
 **Hypothèse de besoin :** choisir une tenue compatible avec la température et le dressing, puis tenir compte des likes/dislikes. Le projet est un prototype local ; ni demande externe ni effet métier mesuré ne sont revendiqués.
+
+**Critères vérifiables sans utilisateur externe :** une tenue générée contient au moins un haut, un bas et des chaussures quand le dressing le permet ; à partir de 20 °C, elle n'ajoute pas de couche extérieure ; like et dislike sont enregistrés sur la tenue du compte authentifié ; un compte sans modèle utilise un fallback explicite. Les tests isolés couvrent ces règles fonctionnelles. Ils valident l'exécution du besoin supposé, **pas** son utilité ressentie : l'essai des volontaires reste la preuve C1 manquante.
 
 | Mesure locale du 13/10/2026 | Valeur | Portée |
 |---|---:|---|
@@ -51,11 +55,27 @@ Le RF n'a dépassé la majorité en accuracy sur **aucun des 30 splits appariés
 
 Le backend ne conserve ni le lot complet des cinq candidats et leurs scores, ni des jugements sur les candidats non retenus. ROC AUC/AP sur les avis exposés ne mesurent donc pas le classement d'un lot : **NDCG@5 et gain métier non mesurables honnêtement**. Le RF reste une référence expérimentale utilisée lorsqu'un modèle compatible existe ; il n'y a pas de garde-fou le comparant à la baseline en production. Aucune modification du RF ou des Joblib n'est justifiée avant l'oral.
 
+### Cohorte récente distincte — compte SQL 6
+
+Relevé local du 13/10/2026 : **100 avis, 67 likes et 33 dislikes**, tous avec température et snapshot valide ; 100 tenues distinctes. Les 100 températures valent **19 °C** et les indicateurs de favoris sont nuls sur toutes les lignes. Parmi les 85 features, 59 sont constantes ; 80 groupes de vecteurs indépendants restent après regroupement, 20 lignes répètent un vecteur et huit vecteurs identiques portent des avis contradictoires. Ces observations limitent la généralisation à d'autres températures ou dressings.
+
+`evaluate_robust.py` a produit **30/30 séparations groupées admissibles**, avec la même méthode et les mêmes graines pour les trois modèles. Les groupes relient une tenue et les vecteurs de features identiques ; les ensembles d'entraînement et de test ne partagent donc aucun de ces doublons exacts. Les scores suivants proviennent uniquement des parties test ; le RF est réentraîné hors ligne à chaque séparation avec les paramètres actuels, sans charger ou remplacer le Joblib de l'application.
+
+| Modèle hors ligne, compte 6 | Accuracy moyenne ± écart-type | Balanced accuracy | F1 like | ROC AUC |
+|---|---:|---:|---:|---:|
+| RF, 85 features | **0,624 ± 0,090** | 0,529 | 0,744 | 0,566 |
+| Majorité de l'entraînement | **0,659 ± 0,065** | 0,500 | 0,793 | 0,500 |
+| Régression logistique L2 exploratoire | **0,655 ± 0,096** | 0,595 | 0,747 | 0,611 |
+
+Le RF dépasse la majorité en accuracy sur **4/30 séparations**. Une séparation stratifiée 75/25 non groupée par vecteur donne RF **0,640** contre majorité **0,680** sur 25 avis de test ; elle est moins stricte contre les vecteurs répétés et n'est pas le résultat principal. Les 30 séparations se recouvrent : l'écart-type n'est pas un intervalle de confiance indépendant. L'AUC porte sur les seuls avis affichés, pas sur le classement des cinq candidats. Ce compte récent améliore la qualité des snapshots, **pas encore la preuve de supériorité du RF**. Il ne faut ni fusionner ses avis avec ceux du compte historique ni utiliser les scores exploratoires pour promouvoir un nouveau modèle.
+
 ## C3 — ETL, qualité et protection des données
 
 ![69 avis bruts, 64 exploitables, cinq exclus, 42 likes/22 dislikes et trois snapshots valides](visuels/qualite_avis.png)
 
 **Extraction :** avis et compositions du seul utilisateur concerné. **Contrôles :** propriétaire de la tenue, température entière/cohérente, booléen, composition complète, snapshot versionné. **Transformation :** snapshot figé si présent, sinon attributs courants ; normalisation en colonnes `outfit-v2`. **Chargement :** envoi des lignes numériques et labels à `/train` avec l'identité authentifiée. Les cinq avis sans température sont exclus sans imputation ; aucun ancien snapshot n'a été inventé. Les nouveaux votes dont le snapshot échoue sont refusés sans enregistrer l'avis. Scripts de preuve : `backend/scripts/reportEvaluationQuality.js` (agrégats en lecture seule) et `backend/scripts/exportEvaluationDataset.js` (export privé hors Git, garde-fous sur la base locale).
+
+**Relevé qualité plus récent, 13/10/2026 à 19:55 UTC :** 171 avis sur deux comptes ayant voté, 112 likes et 59 dislikes ; cinq températures absentes, zéro tenue absente/étrangère et zéro température divergente ; **105 snapshots valides et 66 absents**. Le compte récent apporte 100/100 snapshots valides ; les cinq exclusions et les 66 snapshots absents concernent l'historique. Ces totaux décrivent la base entière et ne doivent pas servir à entraîner ou évaluer un modèle commun : l'ETL reste séparé par utilisateur. La part de snapshots valides est passée de 3/69 sur l'ancien relevé à 105/171 sur la base actuelle, surtout parce que les nouveaux votes sont capturés correctement, et non par réparation de l'historique.
 
 L'inscription publique impose le rôle `user`. Les uploads sont authentifiés, limités à 5 Mio, à JPEG/PNG/WebP et à une signature initiale cohérente ; les noms nouveaux sont des UUID. Les nouvelles couleurs sont choisies dans une palette contrôlée, sans migration ni changement des anciennes valeurs ; cela évite de nouveaux libellés ambigus mais ne reconstitue pas l'historique. Les nouveaux logs d'authentification n'ajoutent plus e-mail/IP ; la voie photo Mongo vérifie le propriétaire à la lecture. **Limites :** anciens logs potentiellement plus détaillés, anciennes photos Mongo sans propriétaire refusées, `/uploads` disque public, anciennes images suivies par Git, URL d'upload basée sur `Host`, absence de suppression coordonnée des logs/photos/images/Joblib après suppression SQL. Aucune durée de conservation appliquée ni conformité RGPD/PSH/SLA ne sont démontrées. Une suppression transversale demande attribution fiable, politique de rétention, sauvegardes et tests isolés ; ne pas la déclencher sur les données actuelles.
 
@@ -76,6 +96,8 @@ erDiagram
 PostgreSQL porte les FK, transactions et clés composées, dont `evaluation(id_utilisateur,id_tenue)` ; `feature_snapshot` est un JSONB nullable déjà présent dans la base locale mesurée. Le contrôleur, et non les seules FK, vérifie l'appartenance de la tenue à l'utilisateur. SQL n'impose ni l'unicité d'un dressing par utilisateur ni l'appartenance de tous les vêtements d'une composition au même compte. Trois nullabilités SQL diffèrent des modèles Sequelize (`evaluation.temperature`, `tenue.temperature`, `vetement.id_sous_categorie`).
 
 Sur cinq `EXPLAIN ANALYZE` de lectures `SELECT` en transaction **READ ONLY**, médianes côté serveur : avis par utilisateur **0,017 ms**, tenues **0,049 ms**, dressing **0,005 ms**, vêtements d'un dressing **0,031 ms**, vêtements d'une tenue **0,007 ms**. À 69 ou 271 lignes, les scans séquentiels observés sont plausibles ; ces temps ne couvrent ni réseau, ORM, API ni génération complète. Aucun gain d'index n'a été mesuré. MongoDB héberge 233 logs et une photo, sans alimenter le ML ; son bénéfice face à la complexité de deux stockages n'est pas prouvé. Aucun index secondaire Mongo ni TTL observé. Ne pas ajouter index ou migration avant une mesure sur copie isolée.
+
+**Contrôle SQL actualisé, 13/10/2026 à 19:55 UTC :** 6 utilisateurs, 57 vêtements, 385 tenues, 2 210 compositions et 171 avis ; base entière 10 052 387 octets. Cinq répétitions en transaction `READ ONLY` donnent des médianes côté serveur de **0,020 ms** pour les avis par utilisateur, **0,044 ms** pour les tenues, **0,005 ms** pour le dressing, **0,038 ms** pour ses vêtements et **0,007 ms** pour les vêtements d'une tenue. Source reproductible : `backend/scripts/diagnosePostgres.js`. Ces micro-mesures locales restent insuffisantes pour dimensionner l'application ou justifier un nouvel index.
 
 ## C5 — Intégration, démonstration et limites
 

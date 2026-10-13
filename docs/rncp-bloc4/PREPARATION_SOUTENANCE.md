@@ -7,8 +7,8 @@ Ce guide regroupe les preuves à montrer, la démo sans données réelles, les t
 | Axe | Pièce à montrer | Phrase juste et limite |
 |---|---|---|
 | C1 — besoin/3V | Schéma sources et mesures d'`ETAT_ACTUEL.md`, `backend/scripts/diagnosePostgres.js` | Prototype défini par le candidat ; variété réelle, volume/vélocité massifs non constatés ; retour utilisateur encore absent. |
-| C2 — conception/évaluation ML | `ml-service/evaluate_robust.py`, `audit_final_ml.py`, graphique ci-dessous | Modèle personnel fonctionnel, RF 0,582 contre majorité 0,638 sur 30 splits recouvrants d'un compte aux avis parfois aléatoires ; gain prédictif et classement des cinq candidats non démontrés. |
-| C3 — ETL/qualité/protection | `backend/services/trainingDataset.js`, `evaluationController.js`, graphique ci-dessous | 69 avis → 64 lignes, cinq exclusions, trois snapshots valides ; protection et suppression inter-stockages incomplètes. |
+| C2 — conception/évaluation ML | `ml-service/evaluate_robust.py`, `audit_final_ml.py`, graphique historique ci-dessous et nouveau relevé dans `ETAT_ACTUEL.md` | Ancien compte : RF 0,582 contre majorité 0,638 ; compte récent séparé : RF 0,624 contre majorité 0,659. Gain prédictif et classement des cinq candidats non démontrés. |
+| C3 — ETL/qualité/protection | `backend/services/trainingDataset.js`, `evaluationController.js`, graphique historique ci-dessous et nouveau relevé dans `ETAT_ACTUEL.md` | Ancien compte : 69 avis → 64 lignes, trois snapshots valides ; compte récent : 100/100 snapshots valides. Protection et suppression inter-stockages incomplètes. |
 | C4 — bases de données | Diagramme et plans SQL d'`ETAT_ACTUEL.md`, `backend/scripts/diagnosePostgres.js` | Clés/FK/JSONB adaptés ; scans rapides sur petites tables, aucun gain d'index démontré. |
 | C5 — programme IA | `backend/tests/mlJourney.integration.test.js`, `ml-service/demo_isolated.py` | Identité par JWT, Joblib par utilisateur et fallback ; démo synthétique ≠ performance réelle. |
 
@@ -19,6 +19,8 @@ Le premier visuel porte sur **69 avis bruts** pour les exclusions et snapshots, 
 ![Random Forest et baseline sur 30 séparations groupées recouvrantes d'un compte local](visuels/accuracy_rf_baseline.png)
 
 Les moustaches indiquent un **écart-type descriptif**, pas un intervalle de confiance. Le RF ne gagne aucun des 30 comparatifs appariés. Le candidat a indiqué avoir voté parfois assez aléatoirement ; ces chiffres ne décrivent ni ses préférences réelles ni la performance de l'application en production.
+
+**Nouveau relevé à présenter séparément si le compte SQL 6 est bien celui du candidat :** 100 avis récents, 67 likes/33 dislikes et 100 snapshots valides. Sur 30 séparations groupées, accuracy RF **0,624 ± 0,090**, majorité **0,659 ± 0,065** ; RF supérieur sur 4/30 séparations. Les 100 avis ont tous été donnés à 19 °C. Le graphique ci-dessus reste celui de l'ancien compte et ne représente pas ces nouveaux résultats. Tableau complet, méthode et limites : `ETAT_ACTUEL.md`. Ne pas fusionner les comptes ou déduire un gain réel des valeurs les plus favorables.
 
 ## Démo isolée et tests sûrs
 
@@ -62,19 +64,33 @@ Rapporter le nombre de tâches réussies **sur celles effectivement tentées** e
 | Diapo | Preuve et message |
 |---|---|
 | 1. Problème | FITS choisit une tenue plausible à partir de météo, dressing et préférences ; projet personnel, prototype local. |
-| 2. Sources / 3V | Schéma du parcours ; 271 tenues, 69 avis, 233 logs. Variété observée, Big Data massif absent. |
-| 3. ETL / qualité | Visuel 69 → 64, cinq exclus, 42/22, trois snapshots ; risque historique. |
+| 2. Sources / 3V | Schéma du parcours ; dernier relevé local : 385 tenues et 171 avis sur deux comptes ; mesure Mongo historique de 233 logs. Variété observée, Big Data massif absent. |
+| 3. ETL / qualité | Cohortes séparées : historique initial 69 → 64, cinq exclus et trois snapshots ; compte récent 100/100 snapshots. Visuel existant limité à l'historique. |
 | 4. C4 | Schéma SQL, JSONB, `Seq Scan` de 69 avis en 0,017 ms côté serveur ; aucun index ajouté sans mesure. |
 | 5. Programme d'IA | Jusqu'à cinq candidats distincts après filtres thermiques et couleur simple, `outfit-v2`, modèle par utilisateur ou fallback, vote puis snapshot ; démo isolée si utile. |
-| 6. Résultat ML | Visuel RF 58,2 % < majorité 63,8 %, 29 vecteurs, un compte aux votes parfois aléatoires, 30 splits recouvrants ; aucun gain démontré. |
+| 6. Résultat ML | Ancien compte : visuel RF 58,2 % < majorité 63,8 %. Compte récent : tableau RF 62,4 % < majorité 65,9 %, 30 splits recouvrants ; aucun gain démontré. |
 | 7. Sécurité et limites | JWT, uploads contrôlés, nouveaux logs minimisés ; images disque publiques et suppression transversale absente. |
 | 8. Décision | Fonctionnement établi, valeur du classement non mesurée ; prochaines preuves : retours authentiques, avis diversifiés avec snapshots, protocole de classement. |
 
 Prévoir une **sortie de secours** si le téléphone ou le réseau local échoue : ne pas lancer un entraînement réel sous stress ; montrer la sortie vérifiée de `demo_isolated.py` et les graphiques. Le mobile utilise encore une IP LAN fixe dans `mobile/src/services/api.js` : sur un autre réseau, relever l'IP du Mac, adapter la configuration et tester connexion/image/génération avant l'oral. Le backend charge `backend/.env` ; Python lit `ML_SERVICE_SECRET` de son environnement de processus. Leurs valeurs doivent être identiques sans être affichées. Vérifier que PostgreSQL, Mongo, Python, Node et la météo sont joignables. Les tests manuels du parcours créent des données et peuvent réentraîner le modèle du compte : les faire sur un environnement de test préparé.
 
+**Contrôle technique rapide sur le Mac, sans vote ni entraînement :** depuis la racine du dépôt, exécuter les commandes ci-dessous dans le Terminal. `pg_isready` vérifie PostgreSQL ; les deux `curl` interrogent des pages publiques locales sans toucher aux modèles. Si un test échoue, démarrer le service concerné puis le relancer. Enfin, comparer l'adresse `API_URL` affichée avec l'adresse IPv4 actuelle du Mac sur le réseau utilisé par le téléphone ; l'accès au backend depuis le téléphone reste à essayer manuellement. Ne pas ouvrir `.env` devant le jury.
+
+```sh
+pg_isready -h 127.0.0.1 -p 5432
+curl -fsS http://127.0.0.1:3002/api-docs/ >/dev/null && echo 'API Node joignable'
+curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null && echo 'Service Python joignable'
+rg -n 'const API_URL' mobile/src/services/api.js
+ifconfig | rg 'inet '
+```
+
+Ces vérifications établissent la disponibilité des ports locaux et la cohérence probable de l'adresse mobile ; elles ne prouvent ni la communication authentifiée Node↔Python, ni le fonctionnement météo/Mongo, ni l'accès depuis le téléphone. Pour ces points, jouer le parcours réel une fois avant l'oral sur un compte de démo, après sauvegarde et vérification de l'environnement.
+
+**Contrôle effectué le 13/10/2026 vers 19:57 UTC depuis le Mac :** PostgreSQL local acceptait les connexions ; `/api-docs/` côté Node et `/openapi.json` côté Python répondaient chacun HTTP 200. Ce constat est local et daté ; il faudra le refaire sur le réseau de l'oral.
+
 ## Réponses courtes aux objections probables
 
-- **Pourquoi le RF sous la baseline ?** Peu de données d'un compte, 29 vecteurs distincts, des labels contradictoires et 66 snapshots absents. C'est un constat, pas une cause prouvée individuellement.
+- **Pourquoi le RF sous la baseline ?** Les deux cohortes restent petites et comportent des vecteurs aux labels contradictoires. L'historique a seulement 29 vecteurs distincts et 66 snapshots absents ; la cohorte récente a 100 snapshots mais une seule température (19 °C). Ce sont des limites constatées, pas la preuve d'une cause unique.
 - **Aucune fuite ?** Le protocole sépare tenue et vecteur identiques. Le partage de vêtements et la reconstruction de l'historique laissent d'autres risques ; ne pas revendiquer une absence absolue de fuite.
 - **Qualité du classement des cinq tenues ?** Non mesurée : seul le candidat affiché reçoit un avis. AUC des avis exposés n'est pas NDCG@5.
 - **Pourquoi conserver le RF ?** C'est le modèle de référence technique ; les mêmes avis ne constituent pas un jeu indépendant justifiant son remplacement. La personnalisation reste expérimentale.

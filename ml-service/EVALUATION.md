@@ -44,3 +44,5 @@ PYTHONDONTWRITEBYTECODE=1 /opt/anaconda3/bin/python3 evaluate_robust.py \
 ```
 
 L'option `--synthetic` utilise seulement des données **fictives** pour vérifier le script. Le résultat réel local du 13/10/2026, ses limites et les chiffres agrégés sont dans `../docs/rncp-bloc4/ETAT_ACTUEL.md`. Supprimer l'export privé après usage ; ne jamais le commiter.
+
+Un second relevé réel du 13/10/2026 porte sur un **compte récent distinct**, avec 100 avis et 100 snapshots. Les résultats agrégés de ses 30 découpages groupés sont également dans `ETAT_ACTUEL.md` ; ils ne remplacent pas le relevé historique à 64 avis, qui vient d'un autre compte. L'export privé temporaire utilisé pour le second relevé a été supprimé après calcul.
