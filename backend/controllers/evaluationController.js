@@ -29,26 +29,33 @@ exports.create = async (req, res, next) => {
       return res.status(403).json({ message: "Cette tenue ne vous appartient pas" });
     }
 
-    let featureSnapshot = null;
+    if (!Number.isInteger(tenue.temperature)) {
+      return res.status(409).json({ message: "Température de la tenue indisponible" });
+    }
+
+    let featureSnapshot;
     try {
       const compositions = await Composer.findAll({ where: { id_tenue } });
       const ids = compositions.map(item => item.id_vetement);
-      if (ids.length && new Set(ids).size === ids.length) {
-        const [garments, schema] = await Promise.all([
-          Vetement.findAll({
-            where: { id_vetement: ids },
-            include: { model: SousCategorie, include: Zone }
-          }),
-          loadFeatureSchema()
-        ]);
-        const byId = new Map(garments.map(item => [item.id_vetement, item]));
-        if (ids.every(id => byId.has(id))) {
-          featureSnapshot = { version: 1,
-            garments: ids.map(id => snapshotGarment(byId.get(id), schema)) };
-        }
+      if (!ids.length || new Set(ids).size !== ids.length) {
+        return res.status(409).json({ message: "Composition de tenue invalide" });
       }
+
+      const [garments, schema] = await Promise.all([
+        Vetement.findAll({
+          where: { id_vetement: ids },
+          include: { model: SousCategorie, include: Zone }
+        }),
+        loadFeatureSchema()
+      ]);
+      const byId = new Map(garments.map(item => [item.id_vetement, item]));
+      if (!ids.every(id => byId.has(id))) {
+        return res.status(409).json({ message: "Composition de tenue invalide" });
+      }
+      featureSnapshot = { version: 1,
+        garments: ids.map(id => snapshotGarment(byId.get(id), schema)) };
     } catch (snapshotError) {
-      console.log("Instantané ML indisponible :", snapshotError.message);
+      return res.status(503).json({ message: "Évaluation temporairement indisponible" });
     }
 
     const [evaluation] = await Evaluation.upsert({

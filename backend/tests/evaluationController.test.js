@@ -42,7 +42,11 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     });
     Evaluation.upsert.mockImplementation(async data => [data]);
     axios.post.mockResolvedValue({ data: {} });
-    Composer.findAll.mockResolvedValue([]);
+    Composer.findAll.mockResolvedValue([{ id_tenue: 10, id_vetement: 101 }]);
+    Vetement.findAll.mockResolvedValue([{ id_vetement: 101, couleur: "bleu" }]);
+    loadFeatureSchema.mockResolvedValue({ version: "outfit-v2-test" });
+    snapshotGarment.mockReturnValue({ couleur: "bleu", favori: false,
+      zone_name: "torse", category_name: "hauts", subcategory_name: "t-shirt" });
   });
 
   afterEach(() => {
@@ -59,7 +63,7 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
       is_liked: isLiked,
       temperature: 18,
       date_avis: expect.any(Date),
-      feature_snapshot: null
+      feature_snapshot: { version: 1, garments: [snapshotGarment.mock.results[0].value] }
     };
     expect(Tenue.findByPk).toHaveBeenCalledWith(10);
     expect(Evaluation.upsert).toHaveBeenCalledTimes(1);
@@ -92,17 +96,49 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
-  test("une capture d'instantané impossible ne bloque pas le like ou dislike", async () => {
+  test("une capture d'instantané impossible refuse le vote sans écrire ni entraîner", async () => {
     req.body.is_liked = false;
     Composer.findAll.mockRejectedValue(new Error("Lecture simulée impossible"));
 
     await controller.create(req, res, next);
 
-    expect(Evaluation.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      is_liked: false, feature_snapshot: null
-    }));
-    expect(res.status).toHaveBeenCalledWith(201);
+    expect(Evaluation.upsert).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.json).toHaveBeenCalledWith({ message: "Évaluation temporairement indisponible" });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  test("refuse une température absente avant toute écriture", async () => {
+    Tenue.findByPk.mockResolvedValue({ id_tenue: 10, id_utilisateur: 1, temperature: null });
+    await controller.create(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ message: "Température de la tenue indisponible" });
+    expect(Composer.findAll).not.toHaveBeenCalled();
+    expect(Evaluation.upsert).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [],
+    [{ id_tenue: 10, id_vetement: 101 }, { id_tenue: 10, id_vetement: 101 }]
+  ].map(compositions => [compositions]))("refuse une composition vide ou dupliquée (%p)", async compositions => {
+    Composer.findAll.mockResolvedValue(compositions);
+    await controller.create(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(Evaluation.upsert).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  test("refuse une composition dont un vêtement a disparu", async () => {
+    Vetement.findAll.mockResolvedValue([]);
+    await controller.create(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(Evaluation.upsert).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
   });
 
   test("renvoie l'évaluation retournée par l'upsert lors d'un changement d'avis", async () => {
