@@ -1,4 +1,4 @@
-const axios = require("axios");
+const { postToMl } = require('../services/mlClient');
 const Vetement = require('../models/vetement');
 const SousCategorie = require('../models/sousCategorie');
 const Zone = require('../models/zone');
@@ -78,10 +78,7 @@ exports.generateTenue = async (req, res, next) => {
 
       const features = await buildFeatures(candidate, temperature);
       console.log("Features envoyées :", features);
-      const response = await axios.post(
-        "http://localhost:8000/predict",
-        features
-      );
+      const response = await postToMl("predict", features, req.user.id);
 
       const score = response.data.probability_like;
         console.log("Score candidate:", score);
