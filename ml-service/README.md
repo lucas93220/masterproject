@@ -39,6 +39,8 @@ Les seuils 20/5 sont des valeurs de départ à valider sur des données d'usage 
 
 L'ancien `model.joblib` partagé reste intact et n'est jamais utilisé par ce nouveau pipeline. Il n'est pas possible de l'attribuer à un utilisateur de façon fiable ; les modèles personnalisés se créeront au fil des réentraînements existants. Conservez ce fichier comme sauvegarde tant qu'une décision de migration ou d'archivage n'a pas été prise.
 
+Lors d'une suppression de compte authentifiée, Node appelle aussi l'endpoint interne `POST /delete-model` avec l'identifiant issu du JWT et le secret de service. Python retire uniquement `user_<id>.joblib` ; l'opération est idempotente et testée dans un répertoire temporaire. Si Python est indisponible, Node conserve un manifeste privé de nettoyage à reprendre et répond `202`. Aucun endpoint de suppression de modèle n'est exposé directement au mobile et aucun Joblib réel n'a été supprimé pendant cette implémentation.
+
 ## Schéma des caractéristiques de l'étape 3B
 
 La base locale mesurée possède déjà la colonne JSONB nullable ajoutée par `backend/migrations/20261013_add_evaluation_feature_snapshot.sql`. Vérifier l'état d'une autre base et la sauvegarder avant toute migration ; les tests ne l'exécutent pas. Chaque nouvel avis y conserve la couleur, le favori, la zone, la catégorie et la sous-catégorie des vêtements au moment du vote. **Si la capture échoue, le contrôleur refuse le nouvel avis** ; les anciens avis sans instantané utilisent encore l'état actuel des vêtements, avec un risque de dérive après modification ou suppression.

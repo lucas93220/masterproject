@@ -1,4 +1,5 @@
 const Utilisateur = require('../models/utilisateur');
+const { deleteAccount } = require('../services/accountDeletion');
 
 // Récupérer son profil utilisateur
 exports.getMe = async (req, res, next) => {
@@ -39,11 +40,8 @@ exports.updateMe = async (req, res, next) => {
 // Supprimer son compte
 exports.deleteMe = async (req, res, next) => {
   try {
-    const user = await Utilisateur.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-
-    await user.destroy();
-    res.json({ message: "Compte supprimé avec succès." });
+    const result = await deleteAccount(req.user.id);
+    res.status(result.status).json({ message: result.message });
   } catch (error) {
     next(error);
   }
@@ -52,11 +50,12 @@ exports.deleteMe = async (req, res, next) => {
 // Suppression par id (admin seulement)
 exports.deleteById = async (req, res, next) => {
   try {
-    const user = await Utilisateur.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-
-    await user.destroy();
-    res.json({ message: "Utilisateur supprimé avec succès." });
+    const id = /^[1-9]\d*$/.test(req.params.id) ? Number(req.params.id) : NaN;
+    if (!Number.isSafeInteger(id) || id > 2147483647) {
+      return res.status(400).json({ message: 'Identifiant utilisateur invalide' });
+    }
+    const result = await deleteAccount(id);
+    res.status(result.status).json({ message: result.message });
   } catch (error) {
     next(error);
   }

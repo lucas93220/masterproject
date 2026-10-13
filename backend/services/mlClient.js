@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-function postToMl(endpoint, payload, userId) {
+function postToMl(endpoint, payload, userId, { timeout } = {}) {
   if (!Number.isSafeInteger(userId) || userId <= 0 || userId > 2147483647) {
     throw new Error('Identifiant utilisateur ML invalide');
   }
@@ -15,7 +15,8 @@ function postToMl(endpoint, payload, userId) {
     headers: {
       'X-FITS-ML-SECRET': secret,
       'X-FITS-USER-ID': String(userId)
-    }
+    },
+    ...(Number.isInteger(timeout) && timeout > 0 ? { timeout } : {})
   });
 }
 

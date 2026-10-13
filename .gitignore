@@ -3,4 +3,6 @@ node_modules/
 package.json
 package-lock.json
 ml-service/models/
+backend/uploads/
+backend/private/
 

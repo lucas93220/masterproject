@@ -8,7 +8,7 @@ Ce guide regroupe les preuves à montrer, la démo sans données réelles, les t
 |---|---|---|
 | C1 — besoin/3V | Schéma sources et mesures d'`ETAT_ACTUEL.md`, `backend/scripts/diagnosePostgres.js` | Prototype défini par le candidat ; variété réelle, volume/vélocité massifs non constatés ; retour utilisateur encore absent. |
 | C2 — conception/évaluation ML | `ml-service/evaluate_robust.py`, `audit_final_ml.py`, graphique historique ci-dessous et nouveau relevé dans `ETAT_ACTUEL.md` | Ancien compte : RF 0,582 contre majorité 0,638 ; compte récent séparé : RF 0,624 contre majorité 0,659. Gain prédictif et classement des cinq candidats non démontrés. |
-| C3 — ETL/qualité/protection | `backend/services/trainingDataset.js`, `evaluationController.js`, graphique historique ci-dessous et nouveau relevé dans `ETAT_ACTUEL.md` | Ancien compte : 69 avis → 64 lignes, trois snapshots valides ; compte récent : 100/100 snapshots valides. Protection et suppression inter-stockages incomplètes. |
+| C3 — ETL/qualité/protection | `backend/services/trainingDataset.js`, `accountDeletion.js`, graphique historique et nouveau relevé dans `ETAT_ACTUEL.md` | Ancien compte : 69 avis → 64 lignes, trois snapshots valides ; compte récent : 100/100 snapshots valides. Nettoyage coordonné des ressources identifiables testé avec mocks ; historique non attribuable et sauvegardes restent hors périmètre. |
 | C4 — bases de données | Diagramme et plans SQL d'`ETAT_ACTUEL.md`, `backend/scripts/diagnosePostgres.js` | Clés/FK/JSONB adaptés ; scans rapides sur petites tables, aucun gain d'index démontré. |
 | C5 — programme IA | `backend/tests/mlJourney.integration.test.js`, `ml-service/demo_isolated.py` | Identité par JWT, Joblib par utilisateur et fallback ; démo synthétique ≠ performance réelle. |
 
@@ -69,7 +69,7 @@ Rapporter le nombre de tâches réussies **sur celles effectivement tentées** e
 | 4. C4 | Schéma SQL, JSONB, `Seq Scan` de 69 avis en 0,017 ms côté serveur ; aucun index ajouté sans mesure. |
 | 5. Programme d'IA | Jusqu'à cinq candidats distincts après filtres thermiques et couleur simple, `outfit-v2`, modèle par utilisateur ou fallback, vote puis snapshot ; démo isolée si utile. |
 | 6. Résultat ML | Ancien compte : visuel RF 58,2 % < majorité 63,8 %. Compte récent : tableau RF 62,4 % < majorité 65,9 %, 30 splits recouvrants ; aucun gain démontré. |
-| 7. Sécurité et limites | JWT, uploads contrôlés, nouveaux logs minimisés ; images disque publiques et suppression transversale absente. |
+| 7. Sécurité et limites | JWT, uploads contrôlés, nouveaux logs minimisés ; nettoyage inter-stockages testé en isolation, mais images disque publiques et effacement historique incomplet. |
 | 8. Décision | Fonctionnement établi, valeur du classement non mesurée ; prochaines preuves : retours authentiques, avis diversifiés avec snapshots, protocole de classement. |
 
 Prévoir une **sortie de secours** si le téléphone ou le réseau local échoue : ne pas lancer un entraînement réel sous stress ; montrer la sortie vérifiée de `demo_isolated.py` et les graphiques. Le mobile utilise encore une IP LAN fixe dans `mobile/src/services/api.js` : sur un autre réseau, relever l'IP du Mac, adapter la configuration et tester connexion/image/génération avant l'oral. Le backend charge `backend/.env` ; Python lit `ML_SERVICE_SECRET` de son environnement de processus. Leurs valeurs doivent être identiques sans être affichées. Vérifier que PostgreSQL, Mongo, Python, Node et la météo sont joignables. Les tests manuels du parcours créent des données et peuvent réentraîner le modèle du compte : les faire sur un environnement de test préparé.
@@ -95,7 +95,7 @@ Ces vérifications établissent la disponibilité des ports locaux et la cohére
 - **Qualité du classement des cinq tenues ?** Non mesurée : seul le candidat affiché reçoit un avis. AUC des avis exposés n'est pas NDCG@5.
 - **Pourquoi conserver le RF ?** C'est le modèle de référence technique ; les mêmes avis ne constituent pas un jeu indépendant justifiant son remplacement. La personnalisation reste expérimentale.
 - **Pourquoi PostgreSQL et Mongo ?** SQL assure relations/transactions du métier ; Mongo héberge logs et voie photo mais n'apporte aucun gain ML observé à ce volume et complique la suppression.
-- **FITS est-il conforme RGPD ?** Non démontré : accès aux images disque, rétention et suppression entre stockages restent incomplets.
+- **FITS est-il conforme RGPD ?** Non démontré : le nettoyage coordonné des ressources attribuables est testé en isolation, mais l'accès public aux images, la rétention, les données historiques sans propriétaire et les sauvegardes restent à traiter.
 - **Quels retours clients ?** Aucun à ce jour ; les votes du compte test sont des labels, pas une étude utilisateur. Le protocole des volontaires est prêt, sans résultat inventé.
 - **Où est le jeu réel sur Git ?** Il n'y est pas : les préférences individuelles restent dans un export privé. Code et exemples synthétiques sont reproductibles ; une diffusion anonymisée demanderait une revue de confidentialité.
 - **Qu'est-ce qui est effectivement rapide ?** Quelques lectures SQL et une prédiction Python locale. Latence complète, charge et SLA n'ont pas été mesurés.

@@ -161,3 +161,12 @@ def predict(data: dict, user_id: int = Depends(_authenticated_user)):
         return _fallback(data, "invalid_model")
 
     return {"probability_like": probability, "model_used": "personalized"}
+
+
+@app.post("/delete-model")
+def delete_model(user_id: int = Depends(_authenticated_user)):
+    """Idempotent cleanup for an authenticated account deletion."""
+    path = _model_path(user_id)
+    with _lock_for(user_id):
+        path.unlink(missing_ok=True)
+    return {"status": "deleted"}

@@ -176,6 +176,30 @@ class MlServiceTests(unittest.TestCase):
         self.assertEqual(response.json()["model_used"], "fallback")
         self.assertEqual(response.json()["reason"], "invalid_model")
 
+    def test_delete_model_is_authorized_idempotent_and_isolated(self):
+        self.post("/train", 1, {"data": rows()})
+        self.post("/train", 2, {"data": rows(True)})
+        first = Path(self.directory.name) / "user_1.joblib"
+        second = Path(self.directory.name) / "user_2.joblib"
+        self.assertEqual(self.post("/delete-model", 1, secret="wrong").status_code, 401)
+        self.assertTrue(first.exists())
+        self.assertEqual(self.post("/delete-model", "../2").status_code, 400)
+        self.assertEqual(self.post("/delete-model", 1).json(), {"status": "deleted"})
+        self.assertEqual(self.post("/delete-model", 1).status_code, 200)
+        self.assertFalse(first.exists())
+        self.assertTrue(second.exists())
+        self.assertEqual(self.post("/predict", 1, {"ratio_favoris": 0}).json()["reason"],
+                         "no_model")
+
+    def test_delete_model_removes_symlink_without_touching_target(self):
+        self.post("/train", 1, {"data": rows()})
+        target = Path(self.directory.name) / "user_1.joblib"
+        alias = Path(self.directory.name) / "user_2.joblib"
+        alias.symlink_to(target)
+        self.assertEqual(self.post("/delete-model", 2).status_code, 200)
+        self.assertFalse(alias.exists())
+        self.assertTrue(target.is_file())
+
     def test_old_and_incompatible_feature_versions_fall_back(self):
         self.post("/train", 1, {"data": rows()})
         candidate = {key: value for key, value in rows()[15].items() if key != "is_liked"}

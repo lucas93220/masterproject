@@ -59,7 +59,7 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
       .attach('image', jpeg, { filename: '../nom-client.jpg', contentType: 'image/jpeg' });
     expect(response.status).toBe(200);
     const url = new URL(response.body.imageUrl);
-    expect(url.pathname).toMatch(/^\/uploads\/[a-f0-9-]{36}\.jpg$/);
+    expect(url.pathname).toMatch(/^\/uploads\/u1_[a-f0-9-]{36}\.jpg$/);
     expect(url.pathname).not.toContain('nom-client');
     const saved = await fs.readFile(path.join(uploadDir, path.basename(url.pathname)));
     expect(saved).toEqual(jpeg);

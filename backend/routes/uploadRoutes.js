@@ -10,11 +10,14 @@ const uploadDir = path.resolve(process.env.FITS_UPLOAD_DIR || path.join(__dirnam
 
 router.post("/", auth, singleImage('image'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ message: 'Aucune image envoyée' });
+  if (!Number.isSafeInteger(req.user.id) || req.user.id <= 0 || req.user.id > 2147483647) {
+    return res.status(400).json({ message: 'Identifiant utilisateur invalide' });
+  }
   const type = imageType(req.file);
   if (!type) return res.status(415).json({ message: 'Format image non pris en charge' });
 
   try {
-    const filename = `${randomUUID()}${type.extension}`;
+    const filename = `u${req.user.id}_${randomUUID()}${type.extension}`;
     await fs.mkdir(uploadDir, { recursive: true, mode: 0o700 });
     await fs.writeFile(path.join(uploadDir, filename), req.file.buffer,
       { flag: 'wx', mode: 0o600 });

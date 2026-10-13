@@ -16,7 +16,9 @@ router.put('/me', auth, utilisateurController.updateMe);
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Compte supprimé avec succès
+ *         description: Compte et ressources identifiables supprimés
+ *       202:
+ *         description: Compte SQL supprimé, nettoyage annexe à reprendre
  *       401:
  *         description: Non authentifié ou accès refusé
  *       404:
