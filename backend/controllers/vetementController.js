@@ -4,6 +4,7 @@ const Contenir = require('../models/contenir');
 const SousCategorie = require('../models/sousCategorie');
 const Categorie = require('../models/categorie');
 const Zone = require('../models/zone');
+const { canonicalColor } = require('../services/clothingColors');
 
 
 // =========================
@@ -29,11 +30,16 @@ exports.create = async (req, res, next) => {
       id_sous_categorie
     } = req.body;
 
+    const selectedColor = canonicalColor(couleur);
+    if (!selectedColor) {
+      return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
+    }
+
     const vetement = await Vetement.create({
       marque,
       nom,
       photo,
-      couleur,
+      couleur: selectedColor,
       favori: favori ?? false,
       temperature_min,
       temperature_max,
@@ -161,7 +167,15 @@ exports.update = async (req, res, next) => {
     if (!vetement)
       return res.status(404).json({ message: "Vêtement non trouvé" });
 
-    Object.assign(vetement, req.body);
+    if (req.body.couleur !== undefined) {
+      const selectedColor = canonicalColor(req.body.couleur);
+      if (!selectedColor) {
+        return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
+      }
+      Object.assign(vetement, { ...req.body, couleur: selectedColor });
+    } else {
+      Object.assign(vetement, req.body);
+    }
     await vetement.save();
 
     res.json(vetement);
@@ -232,7 +246,15 @@ exports.updateById = async (req, res, next) => {
     if (!vetement)
       return res.status(404).json({ message: "Vêtement non trouvé" });
 
-    Object.assign(vetement, req.body);
+    if (req.body.couleur !== undefined) {
+      const selectedColor = canonicalColor(req.body.couleur);
+      if (!selectedColor) {
+        return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
+      }
+      Object.assign(vetement, { ...req.body, couleur: selectedColor });
+    } else {
+      Object.assign(vetement, req.body);
+    }
     await vetement.save();
 
     res.json(vetement);

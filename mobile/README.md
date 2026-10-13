@@ -1,6 +1,6 @@
 # Application mobile FITS
 
-Application React Native/Expo du parcours dressing → génération de tenue → like/dislike.
+Application React Native/Expo du parcours dressing → génération de tenue → like/dislike. À la création et à la modification d'un vêtement, une couleur principale se choisit dans une palette de 12 couleurs ; les anciennes valeurs libres doivent être remplacées lors d'une modification depuis cet écran.
 
 ```sh
 cd mobile

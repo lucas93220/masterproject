@@ -52,8 +52,22 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
     temperature: 18, nb_vetements: 1, nb_favoris: 1,
     ratio_favoris: 1, zone_torse: 1, feature_version: "outfit-v2-test"
   }, 7);
+  expect(postToMl).toHaveBeenCalledTimes(1);
   expect(Tenue.create).toHaveBeenCalledWith({ id_utilisateur: 7, temperature: 18 });
   expect(Composer.create).toHaveBeenCalledWith({ id_tenue: 22, id_vetement: 12 });
   expect(res.json).toHaveBeenCalledWith({ id_tenue: 22, vetements: [vetement] });
+  expect(next).not.toHaveBeenCalled();
+});
+
+test('rejette une température non numérique avant la lecture du dressing', async () => {
+  jest.clearAllMocks();
+  const req = { user: { id: 7 }, query: { temperature: 'abc' } };
+  const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+  const next = jest.fn();
+
+  await generateTenue(req, res, next);
+
+  expect(res.status).toHaveBeenCalledWith(400);
+  expect(Dressing.findOne).not.toHaveBeenCalled();
   expect(next).not.toHaveBeenCalled();
 });

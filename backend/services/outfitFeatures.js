@@ -2,17 +2,7 @@ const { createHash } = require('node:crypto');
 const Categorie = require('../models/categorie');
 const SousCategorie = require('../models/sousCategorie');
 const Zone = require('../models/zone');
-
-const PALETTE = [
-  'noir', 'blanc', 'gris', 'bleu', 'rouge', 'vert', 'jaune',
-  'orange', 'rose', 'violet', 'marron', 'beige', 'autre', 'inconnu'
-];
-const COLOR_ALIASES = {
-  black: 'noir', noire: 'noir', white: 'blanc', blanche: 'blanc',
-  gray: 'gris', grey: 'gris', grise: 'gris', blue: 'bleu', bleue: 'bleu',
-  red: 'rouge', green: 'vert', yellow: 'jaune', pink: 'rose',
-  purple: 'violet', brown: 'marron', marron: 'marron', tan: 'beige'
-};
+const { PALETTE, colorBucket } = require('./clothingColors');
 const CATEGORY_SLOTS = 8;
 const SUBCATEGORY_SLOTS = 16;
 const SCHEMA_PREFIX = 'outfit-v2-';
@@ -21,16 +11,6 @@ function normalize(value) {
   return typeof value === 'string'
     ? value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ')
     : '';
-}
-
-function colorBucket(value) {
-  const normalized = normalize(value);
-  if (!normalized) return 'inconnu';
-  for (const word of normalized.split(/[^a-z]+/).filter(Boolean)) {
-    const bucket = COLOR_ALIASES[word] || (PALETTE.includes(word) ? word : null);
-    if (bucket && bucket !== 'autre' && bucket !== 'inconnu') return bucket;
-  }
-  return 'autre';
 }
 
 function uniqueSorted(values) {

@@ -7,7 +7,7 @@ Ce guide regroupe les preuves à montrer, la démo sans données réelles, les t
 | Axe | Pièce à montrer | Phrase juste et limite |
 |---|---|---|
 | C1 — besoin/3V | Schéma sources et mesures d'`ETAT_ACTUEL.md`, `backend/scripts/diagnosePostgres.js` | Prototype défini par le candidat ; variété réelle, volume/vélocité massifs non constatés ; retour utilisateur encore absent. |
-| C2 — conception/évaluation ML | `ml-service/evaluate_robust.py`, `audit_final_ml.py`, graphique ci-dessous | Modèle personnel fonctionnel, RF 0,582 contre majorité 0,638 sur 30 splits recouvrants d'un compte ; gain prédictif et classement des cinq candidats non démontrés. |
+| C2 — conception/évaluation ML | `ml-service/evaluate_robust.py`, `audit_final_ml.py`, graphique ci-dessous | Modèle personnel fonctionnel, RF 0,582 contre majorité 0,638 sur 30 splits recouvrants d'un compte aux avis parfois aléatoires ; gain prédictif et classement des cinq candidats non démontrés. |
 | C3 — ETL/qualité/protection | `backend/services/trainingDataset.js`, `evaluationController.js`, graphique ci-dessous | 69 avis → 64 lignes, cinq exclusions, trois snapshots valides ; protection et suppression inter-stockages incomplètes. |
 | C4 — bases de données | Diagramme et plans SQL d'`ETAT_ACTUEL.md`, `backend/scripts/diagnosePostgres.js` | Clés/FK/JSONB adaptés ; scans rapides sur petites tables, aucun gain d'index démontré. |
 | C5 — programme IA | `backend/tests/mlJourney.integration.test.js`, `ml-service/demo_isolated.py` | Identité par JWT, Joblib par utilisateur et fallback ; démo synthétique ≠ performance réelle. |
@@ -18,7 +18,7 @@ Le premier visuel porte sur **69 avis bruts** pour les exclusions et snapshots, 
 
 ![Random Forest et baseline sur 30 séparations groupées recouvrantes d'un compte local](visuels/accuracy_rf_baseline.png)
 
-Les moustaches indiquent un **écart-type descriptif**, pas un intervalle de confiance. Le RF ne gagne aucun des 30 comparatifs appariés. Ces chiffres ne décrivent pas la performance de l'application en production.
+Les moustaches indiquent un **écart-type descriptif**, pas un intervalle de confiance. Le RF ne gagne aucun des 30 comparatifs appariés. Le candidat a indiqué avoir voté parfois assez aléatoirement ; ces chiffres ne décrivent ni ses préférences réelles ni la performance de l'application en production.
 
 ## Démo isolée et tests sûrs
 
@@ -55,7 +55,7 @@ Donner sans guidage les trois mêmes tâches : **ajouter un vêtement fictif ; g
 | P2 | À remplir | À remplir | À remplir | À remplir | À remplir |
 | P3, si disponible | À remplir | À remplir | À remplir | À remplir | À remplir |
 
-Rapporter le nombre de tâches réussies **sur celles effectivement tentées** et garder les pannes. Avec peu de personnes, présenter des observations individuelles anonymisées, pas une représentativité ni une accuracy ML. Garder les 69 avis historiques séparés de la nouvelle cohorte ; les anciennes tenues ont pu être sélectionnées par une version précédente et 66 avis manquent de snapshot. Pour chaque nouveau compte, résumer séparément avis bruts, likes/dislikes, températures et snapshots valides, lignes exploitables et groupes distincts. Le seuil d'entraînement 20 avis / cinq par classe n'est **pas** un seuil de preuve prédictive. S'il manque des groupes indépendants pour un test fixé à l'avance, écrire « métriques prédictives non fiables / non calculées ». Les retours d'usage ne mesurent pas le classement des cinq candidats non présentés.
+Rapporter le nombre de tâches réussies **sur celles effectivement tentées** et garder les pannes. Avec peu de personnes, présenter des observations individuelles anonymisées, pas une représentativité ni une accuracy ML. Garder les 69 avis historiques séparés de la nouvelle cohorte : les votes étaient parfois aléatoires, les anciennes tenues ont pu être sélectionnées par une version précédente du générateur et 66 avis manquent de snapshot. Le candidat peut aussi créer son nouveau compte, distinct des volontaires. Noter date et révision du code pour chaque session, puis voter selon une préférence réellement ressentie, sans forcer artificiellement un équilibre likes/dislikes. Pour chaque nouveau compte, résumer séparément avis bruts, likes/dislikes, températures et snapshots valides, lignes exploitables et groupes distincts. Le seuil d'entraînement 20 avis / cinq par classe n'est **pas** un seuil de preuve prédictive. S'il manque des groupes indépendants pour un test fixé à l'avance, écrire « métriques prédictives non fiables / non calculées ». Les retours d'usage ne mesurent pas le classement des cinq candidats non présentés.
 
 ## Trame de huit diapositives, dix minutes maximum
 
@@ -65,8 +65,8 @@ Rapporter le nombre de tâches réussies **sur celles effectivement tentées** e
 | 2. Sources / 3V | Schéma du parcours ; 271 tenues, 69 avis, 233 logs. Variété observée, Big Data massif absent. |
 | 3. ETL / qualité | Visuel 69 → 64, cinq exclus, 42/22, trois snapshots ; risque historique. |
 | 4. C4 | Schéma SQL, JSONB, `Seq Scan` de 69 avis en 0,017 ms côté serveur ; aucun index ajouté sans mesure. |
-| 5. Programme d'IA | Cinq candidats, `outfit-v2`, modèle par utilisateur ou fallback, vote puis snapshot ; démo isolée si utile. |
-| 6. Résultat ML | Visuel RF 58,2 % < majorité 63,8 %, 29 vecteurs, un compte, 30 splits recouvrants ; aucun gain démontré. |
+| 5. Programme d'IA | Jusqu'à cinq candidats distincts après filtres thermiques et couleur simple, `outfit-v2`, modèle par utilisateur ou fallback, vote puis snapshot ; démo isolée si utile. |
+| 6. Résultat ML | Visuel RF 58,2 % < majorité 63,8 %, 29 vecteurs, un compte aux votes parfois aléatoires, 30 splits recouvrants ; aucun gain démontré. |
 | 7. Sécurité et limites | JWT, uploads contrôlés, nouveaux logs minimisés ; images disque publiques et suppression transversale absente. |
 | 8. Décision | Fonctionnement établi, valeur du classement non mesurée ; prochaines preuves : retours authentiques, avis diversifiés avec snapshots, protocole de classement. |
 

@@ -7,12 +7,14 @@ const Contenir = require('../models/contenir');
 const Tenue = require('../models/tenue');
 const Composer = require('../models/composer');
 const { loadFeatureSchema, extractFeatures } = require('../services/outfitFeatures');
+const { buildRandomTenue } = require('../services/outfitCandidate');
 
 exports.generateTenue = async (req, res, next) => {
   try {
-    const temperature = req.query.temperature
-  ? Math.round(Number(req.query.temperature))
-  : null;
+    const rawTemperature = req.query.temperature;
+    const temperature = rawTemperature !== undefined && rawTemperature !== '' &&
+      Number.isFinite(Number(rawTemperature))
+      ? Math.round(Number(rawTemperature)) : null;
 
     if (temperature === null) {
       return res.status(400).json({ message: "Température requise" });
@@ -57,12 +59,17 @@ exports.generateTenue = async (req, res, next) => {
     const zones = await Zone.findAll();
 
     const candidates = [];
+    const candidateKeys = new Set();
 
-    for (let i = 0; i < 5; i++) {
-      const candidate = buildRandomTenue(vetementsFiltres, zones);
+    for (let i = 0; i < 15 && candidates.length < 5; i++) {
+      const candidate = buildRandomTenue(vetementsFiltres, zones, temperature);
 
       if (candidate) {
-        candidates.push(candidate);
+        const key = candidate.map(item => item.id_vetement).sort((a, b) => a - b).join(',');
+        if (!candidateKeys.has(key)) {
+          candidates.push(candidate);
+          candidateKeys.add(key);
+        }
       }
     }
 
@@ -119,44 +126,3 @@ exports.generateTenue = async (req, res, next) => {
     next(error);
   }
 };
-
-function buildRandomTenue(vetementsFiltres, zones) {
-  const tenueFinale = [];
-
-  for (const zone of zones) {
-    const vetementsZone = vetementsFiltres.filter(v =>
-      v.sous_categorie &&
-      v.sous_categorie.zone &&
-      v.sous_categorie.zone.id_zone === zone.id_zone
-    );
-
-    if (!vetementsZone.length) {
-      if (zone.obligatoire) {
-        return null; // tenue invalide
-      }
-      continue;
-    }
-
-    const shuffled = [...vetementsZone].sort(() => 0.5 - Math.random());
-
-    const selection = [];
-    const sousCategories = new Set();
-
-    for (const vetement of shuffled) {
-      if (selection.length >= zone.max_elements) {
-        break;
-      }
-
-      if (sousCategories.has(vetement.id_sous_categorie)) {
-        continue;
-      }
-
-      selection.push(vetement);
-      sousCategories.add(vetement.id_sous_categorie);
-    }
-
-    tenueFinale.push(...selection);
-  }
-
-  return tenueFinale;
-}

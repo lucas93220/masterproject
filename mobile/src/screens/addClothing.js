@@ -25,6 +25,11 @@ import { COLORS } from "../styles/colors";
 import { SPACING } from "../styles/spacing";
 import { CARD, BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
 
+const COLOR_OPTIONS = [
+  "noir", "blanc", "gris", "bleu", "rouge", "vert", "jaune",
+  "orange", "rose", "violet", "marron", "beige"
+];
+
 export default function AddClothing({ navigation, route }) {
   const editingClothing = route?.params?.clothing || null;
 
@@ -44,7 +49,6 @@ export default function AddClothing({ navigation, route }) {
   const [categories, setCategories] = useState([]);
   const [sousCategories, setSousCategories] = useState([]);
 
-  const [idCategorie, setIdCategorie] = useState(null);
   const [idSousCategorie, setIdSousCategorie] = useState(
     editingClothing?.id_sous_categorie || null
   );
@@ -94,6 +98,10 @@ export default function AddClothing({ navigation, route }) {
   const handleSubmit = async () => {
     if (!nom || !idSousCategorie) {
       Alert.alert("Erreur", "Nom et sous-catégorie obligatoires");
+      return;
+    }
+    if (!COLOR_OPTIONS.includes(couleur)) {
+      Alert.alert("Erreur", "Choisis une couleur dans la liste");
       return;
     }
 
@@ -169,12 +177,20 @@ export default function AddClothing({ navigation, route }) {
             style={styles.input}
           />
 
-          <TextInput
-            placeholder="Couleur"
-            value={couleur}
-            onChangeText={setCouleur}
+          <TouchableOpacity
             style={styles.input}
-          />
+            onPress={() => {
+              setCurrentView("colors");
+              setModalVisible(true);
+            }}
+          >
+            <Text>
+              {COLOR_OPTIONS.includes(couleur)
+                ? `Couleur : ${couleur}`
+                : couleur ? `Couleur actuelle : ${couleur} — à remplacer`
+                  : "Choisir une couleur"}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.input}
@@ -236,7 +252,6 @@ export default function AddClothing({ navigation, route }) {
                   key={cat.id_categorie}
                   style={styles.modalItem}
                   onPress={() => {
-                    setIdCategorie(cat.id_categorie);
                     loadSousCategories(cat.id_categorie);
                   }}
                 >
@@ -267,6 +282,26 @@ export default function AddClothing({ navigation, route }) {
                   <Text>{sc.nom_sous_categorie}</Text>
                 </TouchableOpacity>
               ))}
+            </>
+          )}
+
+          {currentView === "colors" && (
+            <>
+              <Text style={styles.modalTitle}>Choisir une couleur</Text>
+              <ScrollView>
+                {COLOR_OPTIONS.map(color => (
+                  <TouchableOpacity
+                    key={color}
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setCouleur(color);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <Text>{color.charAt(0).toUpperCase() + color.slice(1)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </>
           )}
 
