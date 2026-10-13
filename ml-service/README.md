@@ -13,7 +13,7 @@ PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" -m unittest discover
 PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" demo_isolated.py
 ```
 
-La démonstration entraîne un modèle **synthétique dans un dossier temporaire** et affiche `personalized` pour le même identifiant, `fallback/no_model` pour un autre. Elle ne touche pas aux modèles de l'application. Les commandes de mesure réelle en lecture seule figurent dans `EVALUATION.md` et `../docs/rncp-bloc4/DEMO_ML.md`.
+La démonstration entraîne un modèle **synthétique dans un dossier temporaire** et affiche `personalized` pour le même identifiant, `fallback/no_model` pour un autre. Elle ne touche pas aux modèles de l'application. Les commandes de mesure réelle en lecture seule figurent dans `EVALUATION.md` et `../docs/rncp-bloc4/PREPARATION_SOUTENANCE.md`.
 
 L'entraînement de l'application passe normalement par `POST /api/ml/train` après l'enregistrement d'un avis ; Node construit le dataset de l'utilisateur authentifié et appelle `/train` côté Python. La commande manuelle suivante est documentée pour un essai **ultérieur**, sur une copie de développement avec sauvegarde du modèle concerné : elle peut remplacer `user_<id>.joblib` et **n'a pas été exécutée dans cette phase**.
 
@@ -41,7 +41,7 @@ L'ancien `model.joblib` partagé reste intact et n'est jamais utilisé par ce no
 
 ## Schéma des caractéristiques de l'étape 3B
 
-Appliquer d'abord `backend/migrations/20261013_add_evaluation_feature_snapshot.sql` sur la base cible, après sauvegarde et avant le déploiement du nouveau backend. La migration ajoute une colonne JSONB nullable ; elle n'est jamais exécutée par les tests. Chaque nouvel avis y conserve la couleur, le favori, la zone, la catégorie et la sous-catégorie des vêtements au moment de l'avis. Si cette capture échoue, l'avis continue d'être enregistré sans instantané. Les anciens avis sans instantané utilisent encore l'état actuel des vêtements, avec un risque de dérive après modification ou suppression.
+La base locale mesurée possède déjà la colonne JSONB nullable ajoutée par `backend/migrations/20261013_add_evaluation_feature_snapshot.sql`. Vérifier l'état d'une autre base et la sauvegarder avant toute migration ; les tests ne l'exécutent pas. Chaque nouvel avis y conserve la couleur, le favori, la zone, la catégorie et la sous-catégorie des vêtements au moment du vote. **Si la capture échoue, le contrôleur refuse le nouvel avis** ; les anciens avis sans instantané utilisent encore l'état actuel des vêtements, avec un risque de dérive après modification ou suppression.
 
 Le backend construit toutes les lignes d'entraînement et de prédiction avec `backend/services/outfitFeatures.js`. Les colonnes numériques sont émises dans cet ordre : `temperature`, `nb_vetements`, `nb_favoris`, `ratio_favoris`, puis les `zone_<nom>` triées, les `couleur_<palette>`, les `couleur_torse_<palette>` et `couleur_jambes_<palette>`, les 8 colonnes `categorie_00` à `categorie_07`, `categorie_autre`, `categorie_inconnue`, les 16 colonnes `sous_categorie_00` à `sous_categorie_15`, `sous_categorie_autre`, `sous_categorie_inconnue`, puis `association_torse_jambes_meme_couleur` et `association_torse_jambes_neutre_colore`.
 

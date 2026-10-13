@@ -1,50 +1,15 @@
-# Welcome to your Expo app 👋
+# Application mobile FITS
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Application React Native/Expo du parcours dressing → génération de tenue → like/dislike.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+cd mobile
+npm install
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Le projet utilise `App.js` et `src/navigation`, **pas** Expo Router. Pour un téléphone physique, le Mac qui héberge l'API et le téléphone doivent pouvoir communiquer sur le même réseau. L'adresse de l'API est actuellement fixée dans `src/services/api.js` ; la vérifier et la modifier si le Mac change de réseau, puis recharger l'application. Un tunnel Expo ne rend pas l'API Node accessible à lui seul.
 
-## Learn more
+Avant la démonstration, démarrer aussi PostgreSQL, le backend Node et le service Python avec le même `ML_SERVICE_SECRET` dans l'environnement de ces deux services. Tester connexion, ajout de vêtement, image et génération. Les actions manuelles de vote écrivent des avis et peuvent entraîner le modèle personnel du compte utilisé ; les commandes de démonstration isolée et les limites sont dans `../docs/rncp-bloc4/PREPARATION_SOUTENANCE.md`.
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Tests mobiles isolés : les scénarios sont dans `tests/`. Le dossier RNCP résume l'état technique dans `../docs/rncp-bloc4/ETAT_ACTUEL.md`.

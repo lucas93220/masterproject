@@ -43,4 +43,4 @@ PYTHONDONTWRITEBYTECODE=1 /opt/anaconda3/bin/python3 evaluate_robust.py \
   --input "$HOME/FITS-evaluations/avis-ID_UTILISATEUR.json" --splits 30
 ```
 
-L'option `--synthetic` utilise seulement des données **fictives** pour vérifier le script. Le résultat réel local du 13/10/2026, ses limites et les chiffres agrégés sont dans `../docs/rncp-bloc4/PERFORMANCES_ML.md`. Supprimer l'export privé après usage ; ne jamais le commiter.
+L'option `--synthetic` utilise seulement des données **fictives** pour vérifier le script. Le résultat réel local du 13/10/2026, ses limites et les chiffres agrégés sont dans `../docs/rncp-bloc4/ETAT_ACTUEL.md`. Supprimer l'export privé après usage ; ne jamais le commiter.
