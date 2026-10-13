@@ -8,7 +8,7 @@ import {
   Alert,
   SafeAreaView
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { getWeatherForMe, generateTenue, evaluateTenue } from "../services/api";
 
@@ -22,7 +22,10 @@ export default function Home() {
   const [tenueId, setTenueId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState(null);
+  const actionInProgress = useRef(false);
+  const isBusy = generating || evaluating;
 
   useEffect(() => {
     loadWeather();
@@ -40,7 +43,9 @@ export default function Home() {
   };
 
   const handleGenerateTenue = async () => {
-    if (!weather) return;
+    if (!weather || actionInProgress.current) return;
+
+    actionInProgress.current = true;
 
     try {
       setGenerating(true);
@@ -51,27 +56,42 @@ export default function Home() {
       Alert.alert("Erreur génération", err.message);
     } finally {
       setGenerating(false);
+      actionInProgress.current = false;
     }
   };
 
- const handleEvaluation = async (isLiked) => {
-  if (!tenueId) return;
+  const handleEvaluation = async (isLiked) => {
+    if (!tenueId || actionInProgress.current) return;
 
-  try {
-    await evaluateTenue(tenueId, isLiked);
+    actionInProgress.current = true;
+    setEvaluating(true);
 
-    if (isLiked) {
+    try {
+      try {
+        await evaluateTenue(tenueId, isLiked);
+      } catch (err) {
+        Alert.alert("Erreur d’évaluation", "Impossible d’enregistrer ton avis : " + err.message);
+        return;
+      }
+
       setTenueId(null);
-    } else {
-      const data = await generateTenue(weather.temperature);
-      setTenue(data.vetements || []);
-      setTenueId(data.id_tenue || null);
-    }
 
-  } catch (err) {
-    Alert.alert("Erreur", err.message);
-  }
-};
+      if (!isLiked) {
+        setGenerating(true);
+        try {
+          const data = await generateTenue(weather.temperature);
+          setTenue(data.vetements || []);
+          setTenueId(data.id_tenue || null);
+        } catch (err) {
+          Alert.alert("Erreur génération", "Ton avis a été enregistré, mais la génération a échoué : " + err.message);
+        }
+      }
+    } finally {
+      setEvaluating(false);
+      setGenerating(false);
+      actionInProgress.current = false;
+    }
+  };
 
   if (loading) {
     return (
@@ -143,15 +163,17 @@ export default function Home() {
 
               <TouchableOpacity
                 onPress={() => handleEvaluation(true)}
-                style={styles.likeButton}
+                disabled={isBusy}
+                style={[styles.likeButton, { opacity: isBusy ? 0.5 : 1 }]}
               >
                 <Ionicons name="heart" size={25} color="#ff0000ff" />
                 <Text style={styles.likeText}></Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={handleGenerateTenue}
-                style={styles.regenerateButton}
+                onPress={() => handleEvaluation(false)}
+                disabled={isBusy}
+                style={[styles.regenerateButton, { opacity: isBusy ? 0.5 : 1 }]}
               >
                 <Ionicons name="close" size={25} color="#333" />
               </TouchableOpacity>
@@ -164,7 +186,8 @@ export default function Home() {
         {/* BOUTON GENERATION */}
         <TouchableOpacity
           onPress={handleGenerateTenue}
-          style={[BUTTON_PRIMARY, { marginTop: SPACING.lg }]}
+          disabled={isBusy}
+          style={[BUTTON_PRIMARY, { marginTop: SPACING.lg, opacity: isBusy ? 0.5 : 1 }]}
         >
           <Text style={BUTTON_TEXT}>
             {generating ? "Génération..." : "Générer ma tenue"}
