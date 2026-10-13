@@ -15,7 +15,8 @@ import {
   deleteClothing,
   toggleFavorite,
   getCategories,
-  getSousCategoriesByCategorie
+  getSousCategoriesByCategorie,
+  resolveImageUrl
 } from "../services/api";
 
 import { COLORS } from "../styles/colors";
@@ -117,7 +118,7 @@ export default function Dressing({ navigation }) {
       <View style={styles.imageContainer}>
 
         {item.photo ? (
-          <Image source={{ uri: item.photo }} style={styles.image} />
+          <Image source={{ uri: resolveImageUrl(item.photo) }} style={styles.image} />
         ) : (
           <View style={[styles.image, styles.placeholder]}>
             <Text>📸</Text>

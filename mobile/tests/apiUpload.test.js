@@ -30,6 +30,16 @@ function createApi(token) {
 }
 
 describe('Upload mobile', () => {
+  test('réadresse une ancienne URL /uploads vers le backend actuel', () => {
+    const { api } = createApi(null);
+    expect(api.resolveImageUrl('http://10.190.5.20:3002/uploads/image.jpg'))
+      .toBe('http://192.168.1.181:3002/uploads/image.jpg');
+    expect(api.resolveImageUrl('https://example.invalid/uploads/image.jpg'))
+      .toBe('https://example.invalid/uploads/image.jpg');
+    expect(api.resolveImageUrl('file:///ancienne/photo.heic'))
+      .toBe('file:///ancienne/photo.heic');
+  });
+
   test('transmet le JWT sans fixer Content-Type du multipart', async () => {
     const { api, fetch } = createApi('jeton-fictif');
     const imageUrl = await api.uploadImage('file:///image-test.jpg');
@@ -41,6 +51,20 @@ describe('Upload mobile', () => {
     expect(options.headers.Authorization).toBe('Bearer jeton-fictif');
     expect(options.headers).not.toHaveProperty('Content-Type');
     expect(options.body.entries[0][0]).toBe('image');
+    expect(options.body.entries[0][1]).toEqual({
+      uri: 'file:///image-test.jpg', name: 'photo.jpg', type: 'image/jpeg'
+    });
+  });
+
+  test('annonce correctement un PNG et refuse un HEIC avant la requête', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    await api.uploadImage('file:///image-test.png', 'image/png');
+    expect(fetch.mock.calls[0][1].body.entries[0][1]).toEqual({
+      uri: 'file:///image-test.png', name: 'photo.png', type: 'image/png'
+    });
+    await expect(api.uploadImage('file:///image-test.heic', 'image/heic'))
+      .rejects.toThrow('Format image non pris en charge');
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   test('ne lance pas de requête sans session', async () => {

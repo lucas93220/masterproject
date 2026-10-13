@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { getWeatherForMe, generateTenue, evaluateTenue } from "../services/api";
+import { getWeatherForMe, generateTenue, evaluateTenue, resolveImageUrl } from "../services/api";
 
 import { COLORS } from "../styles/colors";
 import { SPACING } from "../styles/spacing";
@@ -149,7 +149,7 @@ export default function Home() {
               {tenue.map(item => (
               <View key={item.id_vetement} style={styles.outfitCard}>
                 <Image
-                  source={{ uri: item.photo || "https://picsum.photos/300" }}
+                  source={{ uri: resolveImageUrl(item.photo) || "https://picsum.photos/300" }}
                   style={styles.outfitImage}
                 />
                 <Text style={styles.itemName}>{item.nom}</Text>

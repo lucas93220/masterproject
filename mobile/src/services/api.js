@@ -1,6 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_URL = "http://192.168.1.181:3002/api";
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+
+export function resolveImageUrl(uri) {
+  if (typeof uri !== "string") return uri;
+  const match = /^https?:\/\/([^/]+)(\/uploads\/[^/?#]+\.(?:jpe?g|png|webp))(?:[?#].*)?$/i.exec(uri);
+  if (!match) return uri;
+  const host = match[1].replace(/:\d+$/, "");
+  if (!/^(?:localhost$|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/i.test(host)) {
+    return uri;
+  }
+  return `${API_ORIGIN}${match[2]}`;
+}
 
 async function apiRequest(endpoint, method = "GET", body = null) {
   const token = await AsyncStorage.getItem("token");
@@ -116,15 +128,24 @@ export function evaluateTenue(id_tenue, is_liked) {
   });
 }
 
-export const uploadImage = async (uri) => {
+export const uploadImage = async (uri, mimeType) => {
   const token = await AsyncStorage.getItem("token");
   if (!token) throw new Error("Connexion requise pour envoyer une image");
+  const extension = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(uri)?.[1]?.toLowerCase();
+  const formats = {
+    jpg: { name: "photo.jpg", type: "image/jpeg" },
+    jpeg: { name: "photo.jpg", type: "image/jpeg" },
+    png: { name: "photo.png", type: "image/png" },
+    webp: { name: "photo.webp", type: "image/webp" }
+  };
+  const format = formats[extension] || Object.values(formats).find(item => item.type === mimeType);
+  if (!format) throw new Error("Format image non pris en charge : choisir JPEG, PNG ou WebP");
   const formData = new FormData();
 
   formData.append("image", {
     uri,
-    name: "photo.jpg",
-    type: "image/jpeg",
+    name: format.name,
+    type: format.type,
   });
 
   const response = await fetch(`${API_URL}/upload`, {

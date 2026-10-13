@@ -128,7 +128,8 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     api = {
       getWeatherForMe: jest.fn().mockResolvedValue({ temperature: 18, icon: "01d" }),
       generateTenue: jest.fn().mockResolvedValue(initialTenue),
-      evaluateTenue: jest.fn().mockResolvedValue({})
+      evaluateTenue: jest.fn().mockResolvedValue({}),
+      resolveImageUrl: uri => uri
     };
     screen = createScreen(api);
   });

@@ -17,7 +17,8 @@ import {
   updateClothing,
   getCategories,
   getSousCategoriesByCategorie,
-  uploadImage
+  uploadImage,
+  resolveImageUrl
 } from "../services/api";
 
 import { COLORS } from "../styles/colors";
@@ -28,6 +29,7 @@ export default function AddClothing({ navigation, route }) {
   const editingClothing = route?.params?.clothing || null;
 
   const [photo, setPhoto] = useState(editingClothing?.photo || null);
+  const [pickedImage, setPickedImage] = useState(null);
   const [nom, setNom] = useState(editingClothing?.nom || "");
   const [marque, setMarque] = useState(editingClothing?.marque || "");
   const [couleur, setCouleur] = useState(editingClothing?.couleur || "");
@@ -84,6 +86,7 @@ export default function AddClothing({ navigation, route }) {
     });
 
     if (!result.canceled) {
+      setPickedImage(result.assets[0]);
       setPhoto(result.assets[0].uri);
     }
   };
@@ -98,8 +101,8 @@ export default function AddClothing({ navigation, route }) {
     let imageUrl = photo;
 
     // Upload uniquement si nouvelle image locale
-    if (photo && photo.startsWith("file://")) {
-      imageUrl = await uploadImage(photo);
+    if (photo && /^(?:file|content):\/\//.test(photo)) {
+      imageUrl = await uploadImage(photo, pickedImage?.mimeType);
     }
 
     const payload = {
@@ -141,7 +144,7 @@ export default function AddClothing({ navigation, route }) {
         {/* PHOTO */}
         <TouchableOpacity onPress={pickImage} style={styles.photoContainer}>
           {photo ? (
-            <Image source={{ uri: photo }} style={styles.photo} />
+            <Image source={{ uri: resolveImageUrl(photo) }} style={styles.photo} />
           ) : (
             <View style={styles.photoPlaceholder}>
               <Text>📸 Ajouter une photo</Text>
