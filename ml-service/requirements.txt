@@ -1,0 +1,9 @@
+# Versions directes observées sur l'environnement local de l'audit (Python 3.13.5).
+# Ce manifeste ne fige pas toutes les dépendances transitives.
+fastapi==0.136.0
+uvicorn==0.44.0
+pandas==2.2.3
+scikit-learn==1.6.1
+joblib==1.4.2
+pydantic==2.10.3
+httpx==0.28.1

@@ -26,8 +26,6 @@ const authController = require('../controllers/authController');
  *                 type: string
  *               password:
  *                 type: string
- *               role:
- *                 type: string
  *     responses:
  *       201:
  *         description: Compte créé

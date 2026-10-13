@@ -117,6 +117,8 @@ export function evaluateTenue(id_tenue, is_liked) {
 }
 
 export const uploadImage = async (uri) => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("Connexion requise pour envoyer une image");
   const formData = new FormData();
 
   formData.append("image", {
@@ -128,6 +130,7 @@ export const uploadImage = async (uri) => {
   const response = await fetch(`${API_URL}/upload`, {
     method: "POST",
     body: formData,
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!response.ok) {

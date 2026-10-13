@@ -1,5 +1,30 @@
 # Service ML personnalisé
 
+## Environnement reproductible
+
+`requirements.txt` fixe les versions directes observées lors de l'audit avec Python 3.13.5. Ce n'est pas un verrou complet des dépendances transitives ; créer un environnement isolé avant installation. Sur le Mac de développement :
+
+```sh
+cd '/Users/kojiro/Documents/Cours Dev/fits/ml-service'
+mkdir -p "$HOME/.venvs"
+/opt/anaconda3/bin/python3 -m venv "$HOME/.venvs/fits-ml"
+"$HOME/.venvs/fits-ml/bin/python" -m pip install -r requirements.txt
+PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" -m unittest discover -s tests -v
+PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" demo_isolated.py
+```
+
+La démonstration entraîne un modèle **synthétique dans un dossier temporaire** et affiche `personalized` pour le même identifiant, `fallback/no_model` pour un autre. Elle ne touche pas aux modèles de l'application. Les commandes de mesure réelle en lecture seule figurent dans `EVALUATION.md` et `../docs/rncp-bloc4/DEMO_ML.md`.
+
+L'entraînement de l'application passe normalement par `POST /api/ml/train` après l'enregistrement d'un avis ; Node construit le dataset de l'utilisateur authentifié et appelle `/train` côté Python. La commande manuelle suivante est documentée pour un essai **ultérieur**, sur une copie de développement avec sauvegarde du modèle concerné : elle peut remplacer `user_<id>.joblib` et **n'a pas été exécutée dans cette phase**.
+
+```sh
+curl -X POST http://127.0.0.1:3002/api/ml/train \
+  -H "Authorization: Bearer $FITS_TEST_JWT" \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+Ne pas saisir le JWT en clair dans l'historique du terminal. Pour prouver l'entraînement sans cet effet, utiliser `demo_isolated.py`.
+
 Le backend Node.js envoie à `/train` et `/predict` l'identifiant issu de son utilisateur authentifié. Le service Python exige deux en-têtes internes : `X-FITS-USER-ID` et `X-FITS-ML-SECRET`. Le secret doit être identique dans l'environnement du backend et celui du service Python. Ne l'exposez pas au mobile et ne publiez pas le service Python directement sur Internet ; limitez son écoute à `127.0.0.1` ou à un réseau privé. Si les services sont sur deux hôtes, utilisez un transport privé ou TLS pour protéger le secret.
 
 Configuration :
