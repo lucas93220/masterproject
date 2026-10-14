@@ -157,6 +157,9 @@ journey("génération → dislike → snapshot → dataset → modèles isolés 
       .set("Authorization", tokenFor(1))
       .send({ id_tenue: generated.body.id_tenue, is_liked: false });
     expect(disliked.status).toBe(201);
+    expect(evaluations[0].feature_snapshot.version).toBe(2);
+    expect(evaluations[0].feature_snapshot.garments.map(item => item.id_vetement))
+      .toEqual(generated.body.vetements.map(item => item.id_vetement));
     expect(evaluations[0].feature_snapshot.garments[0].couleur).toBe("bleu");
     expect(mlCalls.find(call => call.endpoint === "train").payload.data).toHaveLength(1);
 

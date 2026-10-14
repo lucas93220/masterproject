@@ -46,7 +46,7 @@ Lors d'une suppression de compte, Node appelle l'endpoint interne `POST /delete-
 
 ## Schéma des caractéristiques de l'étape 3B
 
-La base locale mesurée possède déjà la colonne JSONB nullable ajoutée par `backend/migrations/20261013_add_evaluation_feature_snapshot.sql`. Vérifier l'état d'une autre base et la sauvegarder avant toute migration ; les tests ne l'exécutent pas. Chaque nouvel avis y conserve la couleur, le favori, la zone, la catégorie et la sous-catégorie des vêtements au moment du vote. **Si la capture échoue, le contrôleur refuse le nouvel avis** ; les anciens avis sans instantané utilisent encore l'état actuel des vêtements, avec un risque de dérive après modification ou suppression.
+La base locale mesurée possède déjà la colonne JSONB nullable ajoutée par `backend/migrations/20261013_add_evaluation_feature_snapshot.sql`. Vérifier l'état d'une autre base et la sauvegarder avant toute migration ; les tests ne l'exécutent pas. Chaque nouvel avis y conserve la couleur, le favori, la zone, la catégorie et la sous-catégorie des vêtements au moment du vote. Les nouveaux snapshots `version: 2` ajoutent aussi `id_vetement` pour chaque article ; les anciens `version: 1` restent lus sans migration. **Si la capture échoue, le contrôleur refuse le nouvel avis** ; les anciens avis sans instantané utilisent encore l'état actuel des vêtements, avec un risque de dérive après modification ou suppression.
 
 Le backend construit toutes les lignes d'entraînement et de prédiction avec `backend/services/outfitFeatures.js`. Les colonnes numériques sont émises dans cet ordre : `temperature`, `nb_vetements`, `nb_favoris`, `ratio_favoris`, puis les `zone_<nom>` triées, les `couleur_<palette>`, les `couleur_torse_<palette>` et `couleur_jambes_<palette>`, les 8 colonnes `categorie_00` à `categorie_07`, `categorie_autre`, `categorie_inconnue`, les 16 colonnes `sous_categorie_00` à `sous_categorie_15`, `sous_categorie_autre`, `sous_categorie_inconnue`, puis `association_torse_jambes_meme_couleur` et `association_torse_jambes_neutre_colore`.
 
@@ -55,3 +55,24 @@ La palette fixe est `noir`, `blanc`, `gris`, `bleu`, `rouge`, `vert`, `jaune`, `
 `feature_version` vaut `outfit-v2-<empreinte SHA-256>` des zones et vocabulaires retenus. Le service conserve cette version, le vocabulaire lisible et le modèle dans le même fichier Joblib ; il exige la même version et le même ordre de colonnes à la prédiction. Un ancien modèle Joblib, une version différente ou des colonnes incompatibles produisent le fallback ; aucun fichier de modèle n'est supprimé. Le prochain réentraînement admissible crée un modèle au nouveau format.
 
 Tests isolés, sans données réelles : depuis `ml-service`, exécuter `PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v` avec un environnement Python contenant FastAPI, httpx, pandas, scikit-learn et joblib. Les tests utilisent des répertoires temporaires.
+
+## Essai hors ligne des articles et paires
+
+`evaluate_interactions.py` vérifie une évolution possible **sans entraîner ni charger les Joblib de l'application**. Il compare, sur le même test chronologique, la majorité (probabilité issue de la fréquence d'entraînement), le RF actuel à 85 features, le RF avec identité des articles seuls, le RF avec articles **et** paires, et une régression logistique L2 régularisée avec articles et paires. L'ablation « articles seuls » distingue le gain d'identité du gain des associations. Les nouveaux articles absents de l'entraînement sont ignorés par l'encodeur appris sur la partie entraînement ; les caractéristiques générales restent disponibles. Les paramètres sont fixés dans le script et ne sont pas réglés sur le test.
+
+Depuis `backend`, après vérification de la base locale `fits` ciblée, exporter un compte dans un fichier privé **hors dépôt** :
+
+```sh
+node scripts/exportEvaluationDataset.js ID_UTILISATEUR /chemin/prive/interactions.json --interactions
+```
+
+Depuis `ml-service`, produire le rapport en lecture seule :
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 evaluate_interactions.py --input /chemin/prive/interactions.json
+PYTHONDONTWRITEBYTECODE=1 python3 evaluate_interactions.py --synthetic
+```
+
+Le mode `--interactions` garde l'export habituel inchangé. Il ajoute les identifiants, leur provenance (`snapshot` ou `composer_current`) et la date du vote ; une ligne sans identité et date utilisables est exclue, avec effectif indiqué dans l'export. Les identifiants reconstruits via `composer` pour d'anciens avis ne sont pas figés au moment du vote : lire leur résultat comme exploratoire. Le rapport [synthétique d'exemple](examples/interactions_synthetic_report.md) sert uniquement à vérifier l'outil ; ses chiffres ne décrivent pas FITS. Aucun avis réel n'a été exporté ou réentraîné par cette procédure de développement.
+
+Le protocole demande au moins 50 avis dont 20 par classe avant séparation, puis au moins 40 avis d'entraînement et 15 de test avec les deux classes. Il purge de l'entraînement les tenues, compositions et vecteurs `outfit-v2` identiques à ceux du test. Des articles et paires individuels peuvent apparaître des deux côtés : c'est précisément la capacité de réutilisation recherchée. Ce test unique ne mesure pas le classement des cinq candidats car seul le candidat affiché est évalué. Ne pas publier l'export individuel ni interpréter une seule séparation comme preuve de gain généralisable.

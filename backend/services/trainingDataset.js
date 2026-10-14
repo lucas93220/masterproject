@@ -8,11 +8,18 @@ const { loadFeatureSchema, extractFeatures } = require('./outfitFeatures');
 
 function hasSnapshot(evaluation) {
   const snapshot = evaluation.feature_snapshot;
-  return snapshot?.version === 1 && Array.isArray(snapshot.garments) &&
+  return [1, 2].includes(snapshot?.version) && Array.isArray(snapshot.garments) &&
     snapshot.garments.length > 0;
 }
 
-async function buildTrainingDataset(userId, providedSchema, { includeTenueId = false } = {}) {
+function validGarmentIds(ids, expectedLength) {
+  return Array.isArray(ids) && ids.length === expectedLength &&
+    ids.every(id => Number.isInteger(id) && id > 0 && id <= 2147483647) &&
+    new Set(ids).size === ids.length;
+}
+
+async function buildTrainingDataset(userId, providedSchema,
+  { includeTenueId = false, includeInteractionMetadata = false } = {}) {
   const evaluations = await Evaluation.findAll({
     where: { id_utilisateur: userId }
   });
@@ -75,9 +82,29 @@ async function buildTrainingDataset(userId, providedSchema, { includeTenueId = f
       if (clothes.some(item => !item)) continue;
     }
 
+    let interactionMetadata = {};
+    if (includeInteractionMetadata) {
+      const snapshotIds = evaluation.feature_snapshot?.version === 2 &&
+        clothes.map(item => item.id_vetement);
+      const currentIds = vetementIdsByTenue.get(evaluation.id_tenue);
+      const fromSnapshot = validGarmentIds(snapshotIds, clothes.length);
+      const garmentIds = fromSnapshot ? snapshotIds : currentIds;
+      if (!(evaluation.date_avis instanceof Date) &&
+          typeof evaluation.date_avis !== 'string') continue;
+      const reviewedAt = new Date(evaluation.date_avis);
+      if (!validGarmentIds(garmentIds, clothes.length) ||
+          !Number.isFinite(reviewedAt.getTime())) continue;
+      interactionMetadata = {
+        garment_ids: [...garmentIds].sort((a, b) => a - b),
+        garment_ids_source: fromSnapshot ? 'snapshot' : 'composer_current',
+        reviewed_at: reviewedAt.toISOString()
+      };
+    }
+
     dataset.push({ ...extractFeatures(clothes, evaluation.temperature, schema),
       is_liked: evaluation.is_liked ? 1 : 0,
-      ...(includeTenueId ? { id_tenue: evaluation.id_tenue } : {}) });
+      ...(includeTenueId || includeInteractionMetadata ? { id_tenue: evaluation.id_tenue } : {}),
+      ...interactionMetadata });
   }
 
   return dataset;

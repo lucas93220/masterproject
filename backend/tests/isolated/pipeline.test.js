@@ -108,6 +108,17 @@ test('parcours réel SQL/HTTP : génération, avis, 85 features figées, entraî
   expect((await authenticated(request(server).post('/api/evaluation'))
     .send({ id_tenue: outfit, is_liked: false })).status).toBe(201);
 
+  const stored = await db.query('SELECT feature_snapshot FROM evaluation WHERE id_tenue=$1',
+    [outfit]);
+  expect(stored.rows[0].feature_snapshot.version).toBe(2);
+  expect(stored.rows[0].feature_snapshot.garments.map(item => item.id_vetement).sort())
+    .toEqual(generated.body.vetements.map(item => item.id_vetement).sort());
+  const interactionRows = await buildTrainingDataset(1, schema,
+    { includeInteractionMetadata: true });
+  expect(interactionRows[0].garment_ids_source).toBe('snapshot');
+  expect(interactionRows[0].garment_ids).toEqual(
+    generated.body.vetements.map(item => item.id_vetement).sort());
+
   const before = await buildTrainingDataset(1, schema);
   expect(before).toEqual([{ ...candidate, is_liked: 0 }]);
   await db.query("UPDATE vetement SET couleur='rouge',favori=true WHERE id_vetement=1");

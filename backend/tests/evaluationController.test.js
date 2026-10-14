@@ -63,7 +63,8 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
       is_liked: isLiked,
       temperature: 18,
       date_avis: expect.any(Date),
-      feature_snapshot: { version: 1, garments: [snapshotGarment.mock.results[0].value] }
+      feature_snapshot: { version: 2, garments: [{ id_vetement: 101,
+        ...snapshotGarment.mock.results[0].value }] }
     };
     expect(Tenue.findByPk).toHaveBeenCalledWith(10);
     expect(Evaluation.upsert).toHaveBeenCalledTimes(1);
@@ -88,7 +89,8 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     await controller.create(req, res, next);
 
     expect(Evaluation.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      feature_snapshot: { version: 1, garments: [snapshotGarment.mock.results[0].value] }
+      feature_snapshot: { version: 2, garments: [{ id_vetement: 101,
+        ...snapshotGarment.mock.results[0].value }] }
     }));
     expect(Vetement.findAll).toHaveBeenCalledWith(expect.objectContaining({
       where: { id_vetement: [101] }

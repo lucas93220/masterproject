@@ -16,7 +16,7 @@ Les [visuels](visuels/) sont datés et décrits dans les fiches. Le graphique RF
 
 ## Démo isolée et tests sûrs
 
-**Vérification finale du 14/10/2026 : 211 tests réussis** : 154 backend (22 suites), six scénarios avec vrais stockages temporaires, 29 Python et 22 mobile. Un essai intermédiaire du pont Python a atteint son délai de 60 s ; relancé seul puis dans la suite finale, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Aucun test n'a ciblé les données applicatives.
+**Vérification finale du 14/10/2026 : 222 tests réussis** : 159 backend (22 suites), six scénarios avec vrais stockages temporaires, 35 Python et 22 mobile. Un essai intermédiaire antérieur du pont Python a atteint son délai de 60 s ; relancé seul puis dans les suites finales, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Les tests n'ont pas modifié les données applicatives ; l'essai d'interactions local décrit dans la [fiche C2](preuves/C2_MODELE.md) est en lecture seule.
 
 Les fichiers npm `package.json`/`package-lock.json` ne sont plus ignorés par Git. Après récupération du dépôt, installer avec `npm ci` dans `backend` et `mobile`. Sur le Mac utilisé :
 

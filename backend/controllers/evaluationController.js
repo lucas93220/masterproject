@@ -53,8 +53,9 @@ exports.create = async (req, res, next) => {
       if (!ids.every(id => byId.has(id))) {
         return res.status(409).json({ message: "Composition de tenue invalide" });
       }
-      featureSnapshot = { version: 1,
-        garments: ids.map(id => snapshotGarment(byId.get(id), schema)) };
+      featureSnapshot = { version: 2,
+        garments: ids.map(id => ({ id_vetement: id,
+          ...snapshotGarment(byId.get(id), schema) })) };
     } catch (snapshotError) {
       return res.status(503).json({ message: "Évaluation temporairement indisponible" });
     }

@@ -76,3 +76,26 @@ test('refuse un chemin dans le dépôt ou une cible distante avant toute connexi
   await expect(main()).rejects.toThrow('réservé à la base');
   expect(sequelize.query).not.toHaveBeenCalled();
 });
+
+test('le mode interactions exporte des identifiants privés sans changer le mode historique', async () => {
+  const output = path.join(temporaryDirectory, 'interactions.json');
+  process.argv = ['node', 'script', '7', output, '--interactions'];
+  buildTrainingDataset.mockImplementation(async (_userId, _schema, options) =>
+    options.includeInteractionMetadata ? [{ temperature: 18, is_liked: 1, id_tenue: 12,
+      garment_ids: [101, 102], garment_ids_source: 'snapshot',
+      reviewed_at: '2026-10-14T08:00:00.000Z' }] : [
+      { temperature: 18, is_liked: 1, id_tenue: 12 },
+      { temperature: 19, is_liked: 0, id_tenue: 13 }
+    ]);
+  const log = jest.spyOn(console, 'log').mockImplementation();
+  try { await main(); } finally { log.mockRestore(); }
+
+  expect(buildTrainingDataset).toHaveBeenCalledWith(7, { version: 'outfit-v2-test' },
+    { includeTenueId: true, includeInteractionMetadata: true });
+  expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toEqual(expect.objectContaining({
+    format: 'fits-interactions-v1', user_id: 7,
+    n_v2_rows: 2, n_excluded_for_interactions: 1,
+    data: [expect.objectContaining({ garment_ids: [101, 102] })]
+  }));
+  expect(fs.statSync(output).mode & 0o777).toBe(0o600);
+});

@@ -7,9 +7,11 @@ async function main() {
   require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
   const userId = Number(process.argv[2]);
   const output = process.argv[3] && path.resolve(process.argv[3]);
+  const interactions = process.argv[4] === '--interactions';
   const repoRoot = path.resolve(__dirname, '..', '..');
-  if (!Number.isSafeInteger(userId) || userId <= 0 || userId > 2147483647 || !output) {
-    throw new Error('Usage : node scripts/exportEvaluationDataset.js <id_utilisateur> <fichier.json>');
+  if (!Number.isSafeInteger(userId) || userId <= 0 || userId > 2147483647 || !output ||
+      (process.argv[4] && !interactions) || process.argv.length > 5) {
+    throw new Error('Usage : node scripts/exportEvaluationDataset.js <id_utilisateur> <fichier.json> [--interactions]');
   }
   if (output === repoRoot || output.startsWith(`${repoRoot}${path.sep}`)) {
     throw new Error('Enregistrez les données utilisateur hors du dépôt Git.');
@@ -33,12 +35,19 @@ async function main() {
     }
     const startedAt = performance.now();
     const schema = await loadFeatureSchema();
-    const data = await buildTrainingDataset(userId, schema, { includeTenueId: true });
+    const data = await buildTrainingDataset(userId, schema, {
+      includeTenueId: true, ...(interactions ? { includeInteractionMetadata: true } : {})
+    });
+    const v2Rows = interactions ? await buildTrainingDataset(userId, schema,
+      { includeTenueId: true }) : null;
     const preparationMs = performance.now() - startedAt;
     const payload = {
       source: 'Export de la base locale fits ; provenance des avis à confirmer',
       user_id: userId,
       feature_version: schema.version,
+      ...(interactions ? { format: 'fits-interactions-v1',
+        n_v2_rows: v2Rows.length,
+        n_excluded_for_interactions: v2Rows.length - data.length } : {}),
       data
     };
     await fs.writeFile(output, JSON.stringify(payload, null, 2), { flag: 'wx', mode: 0o600 });

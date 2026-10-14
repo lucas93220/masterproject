@@ -155,6 +155,72 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
     expect(Vetement.findAll).not.toHaveBeenCalled();
   });
 
+  test("l'export d'interactions privilégie les identifiants figés et ne change pas les features de production", async () => {
+    const reviewedAt = new Date('2026-10-14T08:00:00.000Z');
+    Evaluation.findAll.mockResolvedValue([{
+      id_utilisateur: 1, id_tenue: 10, is_liked: false, temperature: 18,
+      date_avis: reviewedAt,
+      feature_snapshot: { version: 2, garments: [{
+        id_vetement: 101, couleur: 'bleu', favori: true, zone_name: 'torse',
+        category_name: 'hauts', subcategory_name: 't-shirt'
+      }] }
+    }]);
+    Composer.findAll.mockResolvedValue([]);
+    Vetement.findAll.mockResolvedValue([]);
+
+    const schema = await loadFeatureSchema();
+    const [production] = await buildTrainingDataset(1, schema);
+    const [exported] = await buildTrainingDataset(1, schema,
+      { includeInteractionMetadata: true });
+
+    expect(exported).toEqual({ ...production, id_tenue: 10,
+      garment_ids: [101], garment_ids_source: 'snapshot',
+      reviewed_at: reviewedAt.toISOString() });
+    expect(Object.keys(production)).not.toContain('garment_ids');
+  });
+
+  test("l'export historique distingue les identifiants reconstruits de ceux figés", async () => {
+    Evaluation.findAll.mockResolvedValue([{
+      id_utilisateur: 1, id_tenue: 10, is_liked: true, temperature: 18,
+      date_avis: new Date('2026-10-14T08:00:00.000Z'),
+      feature_snapshot: { version: 1, garments: [{
+        couleur: 'bleu', favori: true, zone_name: 'torse',
+        category_name: 'hauts', subcategory_name: 't-shirt'
+      }, {
+        couleur: 'bleu', favori: false, zone_name: 'jambes',
+        category_name: 'bas', subcategory_name: 'pantalon'
+      }] }
+    }]);
+    const [row] = await buildTrainingDataset(1, undefined,
+      { includeInteractionMetadata: true });
+    expect(row.garment_ids).toEqual([101, 102]);
+    expect(row.garment_ids_source).toBe('composer_current');
+  });
+
+  test("l'export d'interactions écarte une composition historique impossible à relier au snapshot", async () => {
+    Evaluation.findAll.mockResolvedValue([{
+      id_utilisateur: 1, id_tenue: 10, is_liked: true, temperature: 18,
+      date_avis: new Date('2026-10-14T08:00:00.000Z'),
+      feature_snapshot: { version: 1, garments: [{
+        couleur: 'bleu', favori: true, zone_name: 'torse',
+        category_name: 'hauts', subcategory_name: 't-shirt'
+      }] }
+    }]);
+    expect(await buildTrainingDataset(1)).toHaveLength(1);
+    expect(await buildTrainingDataset(1, undefined,
+      { includeInteractionMetadata: true })).toEqual([]);
+  });
+
+  test("l'export d'interactions n'invente pas une date absente", async () => {
+    Evaluation.findAll.mockResolvedValue([{
+      id_utilisateur: 1, id_tenue: 10, is_liked: true, temperature: 18,
+      date_avis: null
+    }]);
+    expect(await buildTrainingDataset(1)).toHaveLength(1);
+    expect(await buildTrainingDataset(1, undefined,
+      { includeInteractionMetadata: true })).toEqual([]);
+  });
+
   test("ne crée aucune ligne négative pour une tenue sans évaluation", async () => {
     Tenue.findAll.mockResolvedValue([
       { id_utilisateur: 1, id_tenue: 10, temperature: 18 },

@@ -9,7 +9,7 @@
 3. [Python](../../../ml-service/app.py) sélectionne le modèle de l'utilisateur identifié par Node, ou répond par un fallback explicite ; [rankCandidates.js](../../../backend/services/rankCandidates.js) classe les candidats. En cas de panne ML, tout le lot utilise la même règle de secours.
 4. Le mobile attend l'écriture du like/dislike avant une autre génération ; [Node](../../../backend/controllers/evaluationController.js) fige un snapshot puis déclenche le réentraînement personnel.
 
-Le [test d'intégration isolé](../../../backend/tests/isolated/pipeline.test.js) traverse les vrais endpoints Node et FastAPI, avec PostgreSQL et MongoDB temporaires : génération, vote, snapshot, dataset, deux modèles distincts, prédiction, panne et fallback. La [démo Python isolée](../../../ml-service/demo_isolated.py) utilise des données fictives et des modèles temporaires. La vérification finale documentée du 14/10/2026 compte **211 tests réussis** sur backend, intégration isolée, Python et mobile ; les commandes sont dans le [guide pratique](../PREPARATION_SOUTENANCE.md#démo-isolée-et-tests-sûrs).
+Le [test d'intégration isolé](../../../backend/tests/isolated/pipeline.test.js) traverse les vrais endpoints Node et FastAPI, avec PostgreSQL et MongoDB temporaires : génération, vote, snapshot, dataset, deux modèles distincts, prédiction, panne et fallback. La [démo Python isolée](../../../ml-service/demo_isolated.py) utilise des données fictives et des modèles temporaires. La vérification finale documentée du 14/10/2026 compte **222 tests réussis** sur backend, intégration isolée, Python et mobile ; les commandes sont dans le [guide pratique](../PREPARATION_SOUTENANCE.md#démo-isolée-et-tests-sûrs).
 
 ## Limites et preuve à compléter
 

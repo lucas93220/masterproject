@@ -5,12 +5,12 @@ Cette trame s'appuie sur [l'état actuel](ETAT_ACTUEL.md), les [cinq fiches de p
 | Temps indicatif | Diapo | Preuve à afficher et phrase juste |
 |---:|---|---|
 | 0:45 | 1. Besoin — C1 | Projet personnel : gagner du temps le matin, découvrir des associations et des vêtements oubliés. Aucun gain utilisateur encore mesuré. [C1](preuves/C1_BESOIN.md). |
-| 1:00 | 2. Sources et 3V — C1 | Météo, dressing SQL, avis/snapshots, logs et images ; dernier relevé local : 385 tenues et 171 avis, 233 logs Mongo sur un relevé antérieur. Variété observée, volume massif absent. |
+| 1:00 | 2. Sources et 3V — C1 | Météo, dressing SQL, avis/snapshots, logs et images ; 385 tenues au relevé du 13/10, 182 avis au relevé du 14/10 et 233 logs Mongo sur un relevé antérieur. Variété observée, volume massif absent. |
 | 1:15 | 3. ETL et qualité — C3 | Historique : 69 avis → 64 lignes utilisables, cinq températures absentes, trois snapshots ; compte récent : 100/100 snapshots. Montrer le [visuel historique](visuels/qualite_avis.png) sans mélanger les comptes. [C3](preuves/C3_DONNEES.md). |
 | 1:00 | 4. Stockage — C4 | Relations SQL, snapshot JSONB ; index étudié sur 100 000 tenues **fictives** : 2,081 → 0,139 ms, coût 728 Kio, sans migration réelle. [C4](preuves/C4_STOCKAGE.md). |
 | 1:45 | 5. Programme — C5 | Jusqu'à cinq candidats admissibles, 85 features, modèle personnel ou fallback, vote et snapshot. Montrer la sortie de [demo_isolated.py](../../ml-service/demo_isolated.py) si utile. [C5](preuves/C5_PROGRAMME.md). |
 | 1:30 | 6. Résultat ML — C2 | Ancien compte : RF 58,2 % contre majorité 63,8 %. Compte récent séparé : RF 62,4 % contre majorité 65,9 % sur 30 splits recouvrants. **Aucun gain prédictif démontré.** [C2](preuves/C2_MODELE.md). |
-| 1:15 | 7. Protection et limites — C3/C5 | Images privées, contrôle de session, suppression et reprise testées sur moteurs temporaires ; ancien historique et sauvegardes réelles restent à traiter. Les 211 tests sont une preuve fonctionnelle, pas une conformité complète. |
+| 1:15 | 7. Protection et limites — C3/C5 | Images privées, contrôle de session, suppression et reprise testées sur moteurs temporaires ; ancien historique et sauvegardes réelles restent à traiter. Les 222 tests sont une preuve fonctionnelle, pas une conformité complète. |
 | 1:30 | 8. Décision — C1/C2 | Conserver le RF comme référence expérimentale ; recueillir des retours d'usage et des avis sincères, variés, avec snapshots, puis refaire une évaluation fixée à l'avance. Ne pas promettre un gain non mesuré. |
 
 ## Réponses courtes aux questions probables
