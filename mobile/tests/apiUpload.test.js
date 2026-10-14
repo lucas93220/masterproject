@@ -29,7 +29,18 @@ function createApi(token) {
   return { api: exports, fetch, getItem };
 }
 
-describe('Upload mobile', () => {
+describe('API mobile', () => {
+  test('transmet le code météo lors de la génération sans rompre l’ancien appel', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    await api.generateTenue(9, '01d');
+    await api.generateTenue(9);
+    expect(fetch.mock.calls[0][0]).toBe(
+      'http://192.168.1.181:3002/api/tenue/generate?temperature=9&weatherIcon=01d');
+    expect(fetch.mock.calls[1][0]).toBe(
+      'http://192.168.1.181:3002/api/tenue/generate?temperature=9');
+    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer jeton-fictif');
+  });
+
   test('les images privées portent le JWT ; aucun jeton ne part vers une URL externe', async () => {
     const { api } = createApi('jeton-fictif');
     expect(await api.imageSource('/uploads/test.jpg')).toEqual({

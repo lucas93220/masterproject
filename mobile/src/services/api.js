@@ -83,11 +83,13 @@ export function getCategories() {
   return apiRequest("/categorie");
 }
 
-export async function generateTenue(temperature) {
+export async function generateTenue(temperature, weatherIcon = null) {
   const token = await AsyncStorage.getItem("token");
+  const query = `temperature=${encodeURIComponent(temperature)}` +
+    (weatherIcon ? `&weatherIcon=${encodeURIComponent(weatherIcon)}` : '');
 
   const response = await fetch(
-    `${API_URL}/tenue/generate?temperature=${temperature}`,
+    `${API_URL}/tenue/generate?${query}`,
     {
       headers: {
         Authorization: `Bearer ${token}`

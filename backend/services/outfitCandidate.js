@@ -5,6 +5,7 @@ const { colorBucket } = require('./clothingColors');
 const WARM_WEATHER = 20;
 const LAYERING_WEATHER = 15;
 const HEAVY_OUTER_WEATHER = 12;
+const SUNNY_ICONS = new Set(['01d', '02d']);
 const NEUTRAL_COLORS = new Set(['noir', 'blanc', 'gris', 'marron', 'beige']);
 
 function normalize(value) {
@@ -16,13 +17,26 @@ function isWarmTop(item) {
   return /\b(pull|pulls|sweat|sweats|polaire|gilet|gilets)\b/.test(description);
 }
 
+function isBaseTop(item) {
+  const description = normalize(`${item.sous_categorie?.nom_sous_categorie || ''} ${item.nom || ''}`);
+  return /\b(t-shirts?|tee-shirts?|debardeurs?)\b/.test(description);
+}
+
+function isShirt(item) {
+  const description = normalize(`${item.sous_categorie?.nom_sous_categorie || ''} ${item.nom || ''}`);
+  return /\bchemises?\b/.test(description);
+}
+
 function isHeavyOuter(item) {
   const name = normalize(item.nom);
   return /\b(doudoune|doudounes|manteau|manteaux|parka|parkas|laine)\b/.test(name);
 }
 
-function isTooWarmAccessory(item, zoneName, temperature) {
+function isTooWarmAccessory(item, zoneName, temperature, weatherIcon) {
   const description = normalize(`${item.sous_categorie?.nom_sous_categorie || ''} ${item.nom || ''}`);
+  if (zoneName === 'yeux' && /\blunettes? de soleil\b/.test(description)) {
+    return !SUNNY_ICONS.has(weatherIcon);
+  }
   if (zoneName === 'mains') return temperature > HEAVY_OUTER_WEATHER;
   if (zoneName === 'tete') return temperature > HEAVY_OUTER_WEATHER &&
     /\b(bonnet|bonnets)\b/.test(description);
@@ -41,7 +55,8 @@ function keepsColorSimple(outfit, item) {
   return accents.size <= 2;
 }
 
-function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.random) {
+function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.random,
+  weatherIcon = null) {
   const tenue = [];
   let warmTopChosen = false;
   // Les zones obligatoires sont choisies avant les accessoires pour éviter
@@ -51,6 +66,8 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
 
   for (const zone of orderedZones) {
     const zoneName = normalize(zone.nom_zone);
+    const requiredColdOuter = zoneName === 'exterieur' &&
+      temperature <= HEAVY_OUTER_WEATHER;
     const maxElements = Number(zone.max_elements);
     let options = vetementsFiltres.filter(item =>
       item.sous_categorie?.zone?.id_zone === zone.id_zone);
@@ -62,7 +79,8 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
       }
       if (temperature >= 16 && warmTopChosen) continue;
     } else if (!zone.obligatoire) {
-      options = options.filter(item => !isTooWarmAccessory(item, zoneName, temperature));
+      options = options.filter(item => !isTooWarmAccessory(item, zoneName, temperature,
+        weatherIcon));
     }
 
     if (!options.length || maxElements < 1) {
@@ -72,14 +90,16 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
 
     const colorCompatible = options.filter(item => keepsColorSimple(tenue, item));
     if (colorCompatible.length) options = colorCompatible;
-    else if (!zone.obligatoire) continue;
+    else if (!zone.obligatoire && !requiredColdOuter) continue;
 
-    if (!zone.obligatoire && random() >= 0.5) continue;
+    if (!zone.obligatoire && !requiredColdOuter && random() >= 0.5) continue;
 
     if (zoneName === 'torse') {
       const lightTops = options.filter(item => !isWarmTop(item));
-      const firstOptions = temperature >= WARM_WEATHER && lightTops.length
-        ? lightTops : options;
+      const baseTops = options.filter(isBaseTop);
+      let firstOptions = options;
+      if (temperature <= HEAVY_OUTER_WEATHER && baseTops.length) firstOptions = baseTops;
+      else if (temperature >= WARM_WEATHER && lightTops.length) firstOptions = lightTops;
       const first = pick(firstOptions, random);
       tenue.push(first);
       warmTopChosen = isWarmTop(first);
@@ -87,7 +107,14 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
       if (temperature <= LAYERING_WEATHER && maxElements > 1) {
         let secondOptions = options.filter(item =>
           item.id_sous_categorie !== first.id_sous_categorie &&
-          isWarmTop(item) !== warmTopChosen);
+          (isWarmTop(item) !== warmTopChosen ||
+            (temperature <= HEAVY_OUTER_WEATHER &&
+              ((isBaseTop(first) && isShirt(item)) ||
+                (isShirt(first) && isBaseTop(item))))));
+        if (temperature <= HEAVY_OUTER_WEATHER && isBaseTop(first)) {
+          const warmSeconds = secondOptions.filter(isWarmTop);
+          if (warmSeconds.length) secondOptions = warmSeconds;
+        }
         const colorCompatibleSecond = secondOptions.filter(item => keepsColorSimple(tenue, item));
         if (colorCompatibleSecond.length) secondOptions = colorCompatibleSecond;
         if (secondOptions.length) tenue.push(pick(secondOptions, random));
@@ -99,7 +126,7 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
     while (options.length && selectedSubcategories.size < maxElements) {
       const colorCompatibleNext = options.filter(item => keepsColorSimple(tenue, item));
       if (colorCompatibleNext.length) options = colorCompatibleNext;
-      else if (!zone.obligatoire) break;
+      else if (!zone.obligatoire && !requiredColdOuter) break;
       const chosen = pick(options, random);
       tenue.push(chosen);
       selectedSubcategories.add(chosen.id_sous_categorie);

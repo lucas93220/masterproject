@@ -10,7 +10,7 @@ Cette trame s'appuie sur [l'état actuel](ETAT_ACTUEL.md), les [cinq fiches de p
 | 1:00 | 4. Stockage — C4 | Relations SQL, snapshot JSONB ; index étudié sur 100 000 tenues **fictives** : 2,081 → 0,139 ms, coût 728 Kio, sans migration réelle. [C4](preuves/C4_STOCKAGE.md). |
 | 1:45 | 5. Programme — C5 | Jusqu'à cinq candidats admissibles, 85 features, modèle personnel ou fallback, vote et snapshot. Montrer la sortie de [demo_isolated.py](../../ml-service/demo_isolated.py) si utile. [C5](preuves/C5_PROGRAMME.md). |
 | 1:30 | 6. Résultat ML — C2 | Ancien compte : RF 58,2 % contre majorité 63,8 %. Compte récent séparé : RF 62,4 % contre majorité 65,9 % sur 30 splits recouvrants. **Aucun gain prédictif démontré.** [C2](preuves/C2_MODELE.md). |
-| 1:15 | 7. Protection et limites — C3/C5 | Images privées, contrôle de session, suppression et reprise testées sur moteurs temporaires ; ancien historique et sauvegardes réelles restent à traiter. Les 206 tests sont une preuve fonctionnelle, pas une conformité complète. |
+| 1:15 | 7. Protection et limites — C3/C5 | Images privées, contrôle de session, suppression et reprise testées sur moteurs temporaires ; ancien historique et sauvegardes réelles restent à traiter. Les 211 tests sont une preuve fonctionnelle, pas une conformité complète. |
 | 1:30 | 8. Décision — C1/C2 | Conserver le RF comme référence expérimentale ; recueillir des retours d'usage et des avis sincères, variés, avec snapshots, puis refaire une évaluation fixée à l'avance. Ne pas promettre un gain non mesuré. |
 
 ## Réponses courtes aux questions probables

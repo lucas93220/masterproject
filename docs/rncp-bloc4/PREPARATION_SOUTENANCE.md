@@ -16,7 +16,7 @@ Les [visuels](visuels/) sont datés et décrits dans les fiches. Le graphique RF
 
 ## Démo isolée et tests sûrs
 
-**Vérification finale du 14/10/2026 : 206 tests réussis** : 150 backend (22 suites), six scénarios avec vrais stockages temporaires, 29 Python et 21 mobile. Un essai intermédiaire du pont Python a atteint son délai de 60 s ; relancé seul puis dans la suite finale, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Aucun test n'a ciblé les données applicatives.
+**Vérification finale du 14/10/2026 : 211 tests réussis** : 154 backend (22 suites), six scénarios avec vrais stockages temporaires, 29 Python et 22 mobile. Un essai intermédiaire du pont Python a atteint son délai de 60 s ; relancé seul puis dans la suite finale, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Aucun test n'a ciblé les données applicatives.
 
 Les fichiers npm `package.json`/`package-lock.json` ne sont plus ignorés par Git. Après récupération du dépôt, installer avec `npm ci` dans `backend` et `mobile`. Sur le Mac utilisé :
 
@@ -81,7 +81,7 @@ child.on('exit', code => { process.exitCode = code || 0; });
 JS
 ```
 
-Vérifier ensuite la connexion, les photos du dressing, l'aperçu de modification, les images de la tenue et les boutons avec VoiceOver si disponible. Les anciennes URL `/uploads` demandent maintenant l'authentification : les ouvrir directement dans un navigateur sans JWT doit donner `401`. Les images du compte connecté doivent rester visibles dans l'application mise à jour. Un ancien client ne transmettant pas ces en-têtes ne convient plus. Un vote manuel écrit un avis et peut réentraîner le modèle de ce compte ; utiliser un compte de test prévu pour cette session.
+Vérifier ensuite la connexion, les photos du dressing, l'aperçu de modification, les images de la tenue et les boutons avec VoiceOver si disponible. Les anciennes URL `/uploads` demandent maintenant l'authentification : les ouvrir directement dans un navigateur sans JWT doit donner `401`. Les images du compte connecté doivent rester visibles dans l'application mise à jour. À 9 °C, une couche extérieure disponible doit apparaître ; les lunettes de soleil ne sont proposées que pour un code météo `01d` ou `02d`. Ces règles sont aussi testées avec des données fictives ; vérifier leur rendu sur l'appareil. Un ancien client ne transmettant pas ces en-têtes ou le code météo ne convient plus à la démonstration complète. Un vote manuel écrit un avis et peut réentraîner le modèle de ce compte ; utiliser un compte de test prévu pour cette session.
 
 **Exploitation C3 retenue, pas encore exécutée sur les données réelles :**
 

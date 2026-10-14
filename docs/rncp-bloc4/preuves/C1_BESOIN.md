@@ -7,6 +7,7 @@
 - Le besoin formulé par le candidat est de gagner du temps le matin, découvrir des associations de vêtements et remettre en usage des pièces oubliées. Le parcours observable va du dressing et de la météo à une tenue proposée, puis à un avis. [État actuel](../ETAT_ACTUEL.md#c1--besoin-sources-et-3v) ; [parcours mobile](../../../mobile/src/screens/home.js).
 - Le relevé local du **13/10/2026** compte 385 tenues, 2 210 compositions et 171 avis dans PostgreSQL ; l'ancien relevé Mongo compte 233 logs. Les trois V, leurs périmètres et leurs limites sont détaillés dans l'état actuel. [Diagnostic PostgreSQL](../../../backend/scripts/diagnosePostgres.js) ; [diagnostic MongoDB](../../../backend/scripts/diagnoseMongo.js). Cela décrit un petit prototype, pas un volume massif de Big Data.
 - Trois indicateurs métier ont été fixés **avant les essais** : temps jusqu'à une tenue acceptable, suggestions jugées nouvelles et utiles, et tenues acceptées réutilisant un vêtement préalablement déclaré oublié. Le [protocole et les tableaux à remplir](../PREPARATION_SOUTENANCE.md) prévoient aussi les échecs et incidents.
+- Retour du concepteur du **14/10/2026** : une chemise seule à 9 °C ne lui paraît pas portable, et des lunettes de soleil proposées sans soleil lui semblent mal placées. Ces observations ont conduit à deux tests et règles de génération ciblés ; elles ne remplacent pas les essais des volontaires.
 
 ## Preuve manquante et décision
 

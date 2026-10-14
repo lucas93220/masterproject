@@ -19,6 +19,7 @@ exports.generateTenue = async (req, res, next) => {
     if (temperature === null) {
       return res.status(400).json({ message: "Température requise" });
     }
+    const weatherIcon = typeof req.query.weatherIcon === 'string' ? req.query.weatherIcon : null;
 
     const dressing = await Dressing.findOne({
       where: { id_utilisateur: req.user.id }
@@ -62,7 +63,8 @@ exports.generateTenue = async (req, res, next) => {
     const candidateKeys = new Set();
 
     for (let i = 0; i < 15 && candidates.length < 5; i++) {
-      const candidate = buildRandomTenue(vetementsFiltres, zones, temperature);
+      const candidate = buildRandomTenue(vetementsFiltres, zones, temperature,
+        Math.random, weatherIcon);
 
       if (candidate) {
         const key = candidate.map(item => item.id_vetement).sort((a, b) => a - b).join(',');

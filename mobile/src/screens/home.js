@@ -50,7 +50,7 @@ export default function Home() {
 
     try {
       setGenerating(true);
-      const data = await generateTenue(weather.temperature);
+      const data = await generateTenue(weather.temperature, weather.icon);
       setTenue(data.vetements || []);
       setTenueId(data.id_tenue || null);
     } catch (err) {
@@ -80,7 +80,7 @@ export default function Home() {
       if (!isLiked) {
         setGenerating(true);
         try {
-          const data = await generateTenue(weather.temperature);
+          const data = await generateTenue(weather.temperature, weather.icon);
           setTenue(data.vetements || []);
           setTenueId(data.id_tenue || null);
         } catch (err) {

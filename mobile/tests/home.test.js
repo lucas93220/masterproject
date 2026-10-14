@@ -154,7 +154,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     expect(api.getWeatherForMe).toHaveBeenCalledTimes(1);
     await buttons(screen.render()).generate.props.onPress();
 
-    expect(api.generateTenue).toHaveBeenCalledWith(18);
+    expect(api.generateTenue).toHaveBeenCalledWith(18, "01d");
     expect(api.evaluateTenue).not.toHaveBeenCalled();
     expect(text(screen.render())).toContain("Pull fictif");
     expect(buttons(screen.render()).like).toBeDefined();
@@ -191,7 +191,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     save.resolve({});
     await flush();
     expect(api.generateTenue).toHaveBeenCalledTimes(1);
-    expect(api.generateTenue).toHaveBeenCalledWith(18);
+    expect(api.generateTenue).toHaveBeenCalledWith(18, "01d");
     expect(buttons(screen.render()).generate.props.disabled).toBe(true);
     generation.resolve(nextTenue);
     await pending;
