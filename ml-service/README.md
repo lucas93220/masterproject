@@ -13,7 +13,7 @@ PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" -m unittest discover
 PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" demo_isolated.py
 ```
 
-La démonstration entraîne un modèle **synthétique dans un dossier temporaire** et affiche `personalized` pour le même identifiant, `fallback/no_model` pour un autre. Elle ne touche pas aux modèles de l'application. Les commandes de mesure réelle en lecture seule figurent dans `EVALUATION.md` et `../docs/rncp-bloc4/PREPARATION_SOUTENANCE.md`.
+La démonstration entraîne un modèle **synthétique dans un dossier temporaire** et affiche `personalized` pour le même identifiant, `fallback/no_model` pour un autre. Elle ne touche pas aux modèles de l'application. La méthode et les commandes d'évaluation hors ligne figurent dans la [fiche C2](../docs/rncp-bloc4/preuves/C2_MODELE.md) ; les commandes de démonstration sont dans la [préparation](../docs/rncp-bloc4/PREPARATION_SOUTENANCE.md).
 
 L'entraînement de l'application passe normalement par `POST /api/ml/train` après l'enregistrement d'un avis ; Node construit le dataset de l'utilisateur authentifié et appelle `/train` côté Python. La commande manuelle suivante est documentée pour un essai **ultérieur**, sur une copie de développement avec sauvegarde du modèle concerné : elle peut remplacer `user_<id>.joblib` et **n'a pas été exécutée dans cette phase**.
 

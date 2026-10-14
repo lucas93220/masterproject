@@ -1,0 +1,22 @@
+# C2 — Modèle et évaluation honnête
+
+**Critère de la grille validée :** concevoir et évaluer un modèle adapté au besoin métier. Le modèle personnel FITS est un `RandomForestClassifier(random_state=42)` qui estime la probabilité de like d'une tenue admissible. Le [service Python](../../../ml-service/app.py) l'utilise à partir de 20 avis dont au moins cinq de chaque classe ; ce seuil technique ne garantit aucune qualité prédictive.
+
+## Preuves disponibles
+
+- L'encodeur [outfitFeatures.js](../../../backend/services/outfitFeatures.js) produit 85 colonnes `outfit-v2` identiques en entraînement et en prédiction. Les [tests isolés](../../../backend/tests/isolated/pipeline.test.js) vérifient l'alignement, les snapshots et deux utilisateurs séparés.
+- [evaluate_robust.py](../../../ml-service/evaluate_robust.py) compare hors ligne RF, majorité et régression logistique avec 30 séparations groupées. Une même tenue ou un vecteur strictement identique ne traverse pas entraînement et test ; les modèles sont ajustés sur l'entraînement seulement. Les séparations se recouvrent : leurs écarts-types sont descriptifs, pas des intervalles de confiance indépendants. [audit_final_ml.py](../../../ml-service/audit_final_ml.py) examine les features et une ablation fixée ; [evaluate.py](../../../ml-service/evaluate.py) conserve le contrôle simple sur une séparation.
+- **Ancien compte, 64 avis exploitables :** RF `0,582 ± 0,073` en accuracy, majorité `0,638 ± 0,059`, RF supérieur sur `0/30` séparations. Seulement 29 vecteurs distincts, 66 snapshots historiques absents et des votes parfois aléatoires. [Graphique](../visuels/accuracy_rf_baseline.png).
+- **Compte récent, mesuré séparément :** 100 avis, 100 snapshots valides, 67 likes/33 dislikes ; RF `0,624 ± 0,090`, majorité `0,659 ± 0,065`, régression logistique exploratoire `0,655 ± 0,096`. RF supérieur sur `4/30` séparations. Les 100 avis sont tous à 19 °C. L'attribution de ce compte SQL 6 au candidat reste à confirmer. [Tableaux et limites](../ETAT_ACTUEL.md#c2--modèle-données-et-performance-mesurée).
+
+**Conclusion mesurée :** aucun avantage du RF sur la majorité n'est établi sur ces comptes. L'AUC calculée sur les seules tenues affichées ne mesure pas le classement des cinq candidats : les candidats non affichés n'ont pas de jugement. Les 85 colonnes comprennent de nombreuses constantes ou redondances ; cela ne prouve pas à soi seul qu'une autre architecture serait meilleure.
+
+## Reproduire une évaluation ultérieure sans toucher aux Joblib
+
+Depuis `backend`, après vérification de la base locale visée, exporter **un seul compte** vers un dossier privé hors Git avec `node scripts/exportEvaluationDataset.js ID_UTILISATEUR /chemin/prive/avis.json`. Le script refuse une base PostgreSQL autre que `fits` en local et charge la configuration backend, qui peut aussi contacter MongoDB. Le fichier contient des préférences individuelles et doit être supprimé après analyse. Depuis `ml-service`, lancer `PYTHONDONTWRITEBYTECODE=1 python3 evaluate_robust.py --input /chemin/prive/avis.json --splits 30`. Les scripts ne chargent ni ne remplacent les Joblib applicatifs. Leur entrée est `{ "feature_version": "outfit-v2-...", "data": [...] }`, avec les colonnes numériques, `is_liked` et `id_tenue` pour chaque ligne. L'outil exige au moins **50 avis et 20 de chaque classe**, puis cinq de chaque classe en test ; sinon il indique que les métriques ne sont pas calculées. Ces seuils évitent une mesure manifestement trop petite, sans garantir sa fiabilité. `evaluate.py --synthetic` et `evaluate_robust.py --synthetic` ne servent qu'à vérifier les outils avec des données fictives.
+
+## Ce qui pourrait améliorer C2
+
+Recueillir des avis **sincères et variés** sur des tenues, températures et dressings distincts ; noter la version du générateur et garder les comptes séparés. Ne pas forcer artificiellement l'équilibre like/dislike. Fixer **avant** de consulter les nouveaux scores le protocole de séparation et la baseline ; réévaluer chaque compte seulement s'il possède assez de groupes indépendants et des deux classes. Pour mesurer le classement d'un lot, il faudrait juger plusieurs candidats du **même** lot selon un protocole distinct ; les avis actuels ne le permettent pas.
+
+Changer les features, régler le RF ou remplacer son algorithme sur les mêmes petits jeux déjà examinés risquerait de sélectionner une amélioration apparente. Aucun nouveau modèle n'est promu avant une preuve sur des données indépendantes ; le RF et les Joblib actuels restent la référence expérimentale.
