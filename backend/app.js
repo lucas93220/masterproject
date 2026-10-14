@@ -2,13 +2,11 @@ require('dotenv').config();
 require('./models');
 
 const express = require('express');
-const path = require('node:path');
 const cors = require('cors');
 const { sequelize } = require('./config/db');
 const errorHandler = require('./utils/errorHandler');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger/swaggerConfig');
-const { onlyImageFiles } = require('./middlewares/imageUpload');
 
 
 const app = express();
@@ -42,10 +40,7 @@ app.use('/api/photo', photoRoutes);
 app.use('/api/meteo', meteoRoutes);
 app.use('/api/zone', zoneRoutes);
 app.use('/api/sous-categorie', sousCategorieRoutes);
-app.use('/uploads', onlyImageFiles, express.static(path.resolve(process.env.FITS_UPLOAD_DIR ||
-  path.join(__dirname, 'uploads')), {
-  setHeaders: res => res.setHeader('X-Content-Type-Options', 'nosniff')
-}));
+app.use('/uploads', require('./routes/privateImageRoutes'));
 app.use('/api/upload', uploadRoutes);
 app.use("/api/ml", require("./routes/mlRoutes"));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

@@ -188,8 +188,25 @@ class MlServiceTests(unittest.TestCase):
         self.assertEqual(self.post("/delete-model", 1).status_code, 200)
         self.assertFalse(first.exists())
         self.assertTrue(second.exists())
-        self.assertEqual(self.post("/predict", 1, {"ratio_favoris": 0}).json()["reason"],
-                         "no_model")
+        self.assertEqual(self.post("/predict", 1, {"ratio_favoris": 0}).status_code, 410)
+        self.assertEqual(self.post("/train", 1, {"data": rows()}).status_code, 410)
+        self.assertFalse(first.exists())
+
+    def test_late_training_cannot_recreate_deleted_model(self):
+        import threading
+        from app import _lock_for
+        started = threading.Event()
+        def late_train():
+            started.set()
+            return self.post('/train', 1, {'data': rows()})
+        # La demande attend un verrou détenu par la suppression.
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with _lock_for(1):
+                pending = pool.submit(late_train)
+                self.assertTrue(started.wait(timeout=2))
+                (Path(self.directory.name) / 'user_1.deleted').touch()
+            self.assertEqual(pending.result(timeout=5).status_code, 410)
+        self.assertFalse((Path(self.directory.name) / 'user_1.joblib').exists())
 
     def test_delete_model_removes_symlink_without_touching_target(self):
         self.post("/train", 1, {"data": rows()})

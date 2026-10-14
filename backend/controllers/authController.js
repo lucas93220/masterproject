@@ -4,6 +4,7 @@ const Dressing = require('../models/dressing');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
+const { hasErasureReceipt } = require('../services/erasureReceipts');
 
 
 // Inscription
@@ -54,6 +55,9 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: "Email ou mot de passe incorrect" });
     }
 
+    if (await hasErasureReceipt(user.id_utilisateur)) {
+      return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+    }
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       await logAction({

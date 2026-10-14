@@ -5,7 +5,7 @@ const API_KEY = process.env.WEATHER_API_KEY;
 exports.getWeatherByCity = async (city) => {
   try {
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&units=metric&appid=${API_KEY}&lang=fr`;
-    const { data } = await axios.get(url);
+    const { data } = await axios.get(url, { timeout: 5000 });
     return {
       temperature: data.main.temp,
       temperature_min: data.main.temp_min,

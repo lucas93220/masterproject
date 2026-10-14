@@ -64,3 +64,18 @@ test('mise à jour : une couleur hors palette est refusée avant écriture', asy
   expect(res.status).toHaveBeenCalledWith(400);
   expect(garment.save).not.toHaveBeenCalled();
 });
+
+test('une mise à jour ne modifie pas la clé primaire et refuse la photo d’un autre compte', async () => {
+  const garment = { id_vetement: 10, favori: false, save: jest.fn() };
+  Vetement.findByPk.mockResolvedValue(garment);
+  const next = jest.fn();
+  await controller.update({ user: { id: 1 }, params: { id: '10' },
+    body: { id_vetement: 99, favori: true } }, response(), next);
+  expect(garment.id_vetement).toBe(10);
+  expect(garment.favori).toBe(true);
+  garment.save.mockClear();
+  await controller.update({ user: { id: 1 }, params: { id: '10' },
+    body: { photo: '/uploads/u2_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg' } }, response(), next);
+  expect(next).toHaveBeenLastCalledWith(expect.objectContaining({ status: 400 }));
+  expect(garment.save).not.toHaveBeenCalled();
+});

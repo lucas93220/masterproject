@@ -1,4 +1,6 @@
 jest.mock("axios", () => ({ post: jest.fn() }));
+jest.mock('../services/erasureReceipts', () => ({ hasErasureReceipt: jest.fn(async () => false) }));
+jest.mock('../models/utilisateur', () => ({ findByPk: jest.fn(async id => ({ id_utilisateur: id, role: 'user' })) }));
 jest.mock("../services/mlClient", () => ({ postToMl: jest.fn() }));
 jest.mock("../models/dressing", () => ({ findOne: jest.fn() }));
 jest.mock("../models/contenir", () => ({ findAll: jest.fn() }));

@@ -55,7 +55,8 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
   expect(postToMl).toHaveBeenCalledTimes(1);
   expect(Tenue.create).toHaveBeenCalledWith({ id_utilisateur: 7, temperature: 18 });
   expect(Composer.create).toHaveBeenCalledWith({ id_tenue: 22, id_vetement: 12 });
-  expect(res.json).toHaveBeenCalledWith({ id_tenue: 22, vetements: [vetement] });
+  expect(res.json).toHaveBeenCalledWith({ id_tenue: 22, vetements: [vetement],
+    recommendation: { model_used: 'fallback', reason: null } });
   expect(next).not.toHaveBeenCalled();
 });
 

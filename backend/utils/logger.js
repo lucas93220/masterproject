@@ -8,6 +8,6 @@ exports.logAction = async ({ userId, action, details }) => {
       details
     });
   } catch (err) {
-    console.error("Log MongoDB failed:", err);
+    console.error('Journalisation MongoDB indisponible');
   }
 };

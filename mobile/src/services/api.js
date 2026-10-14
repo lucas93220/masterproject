@@ -5,6 +5,7 @@ const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
 export function resolveImageUrl(uri) {
   if (typeof uri !== "string") return uri;
+  if (/^\/uploads\/[^/?#]+\.(?:jpe?g|png|webp)$/i.test(uri)) return `${API_ORIGIN}${uri}`;
   const match = /^https?:\/\/([^/]+)(\/uploads\/[^/?#]+\.(?:jpe?g|png|webp))(?:[?#].*)?$/i.exec(uri);
   if (!match) return uri;
   const host = match[1].replace(/:\d+$/, "");
@@ -12,6 +13,16 @@ export function resolveImageUrl(uri) {
     return uri;
   }
   return `${API_ORIGIN}${match[2]}`;
+}
+
+export async function imageSource(uri) {
+  const resolved = resolveImageUrl(uri);
+  if (!resolved) return null;
+  // Ne jamais transmettre le JWT à une image externe, même si son chemin contient /uploads.
+  if (!resolved.startsWith(`${API_ORIGIN}/uploads/`)) return { uri: resolved };
+  const token = await AsyncStorage.getItem('token');
+  if (!token) return null;
+  return { uri: resolved, headers: { Authorization: `Bearer ${token}` }, cache: 'reload' };
 }
 
 async function apiRequest(endpoint, method = "GET", body = null) {

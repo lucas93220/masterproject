@@ -40,6 +40,10 @@ def _model_path(user_id):
     return directory / f"user_{user_id}.joblib"
 
 
+def _deletion_path(user_id):
+    return _model_path(user_id).with_suffix('.deleted')
+
+
 def _lock_for(user_id):
     with _locks_guard:
         return _locks.setdefault(user_id, threading.Lock())
@@ -105,6 +109,8 @@ def train_model(dataset: Dataset, user_id: int = Depends(_authenticated_user)):
     path = _model_path(user_id)
 
     with _lock_for(user_id):
+        if _deletion_path(user_id).exists():
+            raise HTTPException(status_code=410, detail="Compte ML supprimé")
         candidate = RandomForestClassifier(random_state=42)
         candidate.fit(X, y)
 
@@ -133,6 +139,8 @@ def _fallback(data, reason):
 
 @app.post("/predict")
 def predict(data: dict, user_id: int = Depends(_authenticated_user)):
+    if _deletion_path(user_id).exists():
+        raise HTTPException(status_code=410, detail="Compte ML supprimé")
     path = _model_path(user_id)
     if not path.is_file() and not path.is_symlink():
         return _fallback(data, "no_model")
@@ -168,5 +176,10 @@ def delete_model(user_id: int = Depends(_authenticated_user)):
     """Idempotent cleanup for an authenticated account deletion."""
     path = _model_path(user_id)
     with _lock_for(user_id):
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Empêche un réentraînement déjà en vol de recréer le modèle après effacement.
+        marker = _deletion_path(user_id)
+        descriptor = os.open(marker, os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        os.close(descriptor)
         path.unlink(missing_ok=True)
     return {"status": "deleted"}

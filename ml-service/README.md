@@ -2,13 +2,13 @@
 
 ## Environnement reproductible
 
-`requirements.txt` fixe les versions directes observées lors de l'audit avec Python 3.13.5. Ce n'est pas un verrou complet des dépendances transitives ; créer un environnement isolé avant installation. Sur le Mac de développement :
+`requirements.txt` fixe les versions directes ; `requirements-lock-macos-py313.txt` ajoute les dépendances transitives actives observées dans l'environnement testé, macOS ARM64/Python 3.13.5. Ce verrou ne prétend pas avoir été validé sur toutes les plateformes. Créer un environnement isolé avant installation. Sur le Mac de développement :
 
 ```sh
 cd '/Users/kojiro/Documents/Cours Dev/fits/ml-service'
 mkdir -p "$HOME/.venvs"
 /opt/anaconda3/bin/python3 -m venv "$HOME/.venvs/fits-ml"
-"$HOME/.venvs/fits-ml/bin/python" -m pip install -r requirements.txt
+"$HOME/.venvs/fits-ml/bin/python" -m pip install -r requirements-lock-macos-py313.txt
 PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" -m unittest discover -s tests -v
 PYTHONDONTWRITEBYTECODE=1 "$HOME/.venvs/fits-ml/bin/python" demo_isolated.py
 ```
@@ -34,12 +34,15 @@ Configuration :
 - `ML_MODELS_DIR` (Python, facultatif) : répertoire persistant des modèles ; valeur par défaut `ml-service/models`. Montez-y un volume persistant en déploiement et réservez ses droits d'écriture au service Python. Ne placez pas de fichiers non fiables dans ce dossier : `joblib` charge des objets Python sérialisés.
 - `ML_MIN_TRAIN_SAMPLES` (Python, facultatif) : minimum total, `20` par défaut.
 - `ML_MIN_SAMPLES_PER_CLASS` (Python, facultatif) : minimum de likes **et** de dislikes, `5` par défaut.
+- `ML_PREDICT_TIMEOUT_MS` / `ML_TRAIN_TIMEOUT_MS` (Node) : délais par appel, respectivement `2000` / `15000` par défaut, de 1 à 120000 ms. L'avis déjà enregistré est conservé si le réentraînement échoue. Une panne pendant le score d'un lot fait recalculer tout ce lot avec le ratio de favoris, signalé dans `recommendation`.
 
 Les seuils 20/5 sont des valeurs de départ à valider sur des données d'usage et des mesures de qualité. Un dataset vide, à classe unique ou sous ces seuils retourne `status: "insufficient_data"` avec une raison et les effectifs. Un éventuel modèle précédent reste utilisable. Un entraînement réussi écrit `user_<id>.joblib` de manière atomique. La prédiction recharge le modèle propre à cet utilisateur ; en son absence, ou si son fichier est invalide, elle retourne un score égal à `ratio_favoris` (ou `0` si absent), avec `model_used: "fallback"`.
 
 L'ancien `model.joblib` partagé reste intact et n'est jamais utilisé par ce nouveau pipeline. Il n'est pas possible de l'attribuer à un utilisateur de façon fiable ; les modèles personnalisés se créeront au fil des réentraînements existants. Conservez ce fichier comme sauvegarde tant qu'une décision de migration ou d'archivage n'a pas été prise.
 
-Lors d'une suppression de compte authentifiée, Node appelle aussi l'endpoint interne `POST /delete-model` avec l'identifiant issu du JWT et le secret de service. Python retire uniquement `user_<id>.joblib` ; l'opération est idempotente et testée dans un répertoire temporaire. Si Python est indisponible, Node conserve un manifeste privé de nettoyage à reprendre et répond `202`. Aucun endpoint de suppression de modèle n'est exposé directement au mobile et aucun Joblib réel n'a été supprimé pendant cette implémentation.
+Lors d'une suppression de compte, Node appelle l'endpoint interne `POST /delete-model`. Python marque `user_<id>.deleted`, puis retire `user_<id>.joblib`, de manière idempotente. Le marqueur refuse une prédiction ou un entraînement tardif (HTTP 410) pour cet identifiant ; le compte neuf sans modèle conserve son fallback `no_model`. Si Python est indisponible, Node garde le manifeste privé à reprendre et répond `202`. Les essais utilisent des comptes et répertoires temporaires ; aucun Joblib réel n'a été supprimé.
+
+**Exploiter avec un seul worker Python** : les verrous sont dans ce processus. Un déploiement avec plusieurs workers nécessiterait un verrou partagé à concevoir et tester. Lors d'une restauration, garder les marqueurs courants et les reçus privés Node indépendamment de l'ancienne sauvegarde ; ne pas réutiliser les identifiants effacés. Le contrôle de restauration SQL et ses limites sont décrits dans le dossier RNCP.
 
 ## Schéma des caractéristiques de l'étape 3B
 

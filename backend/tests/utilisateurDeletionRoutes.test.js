@@ -1,4 +1,5 @@
 jest.mock('../models/utilisateur', () => ({ findByPk: jest.fn() }));
+jest.mock('../services/erasureReceipts', () => ({ hasErasureReceipt: jest.fn(async () => false) }));
 jest.mock('../services/accountDeletion', () => ({ deleteAccount: jest.fn() }));
 
 const express = require('express');
@@ -24,7 +25,11 @@ describe('Routes de suppression de compte', () => {
     else process.env.JWT_SECRET = previousSecret;
   });
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    require('../models/utilisateur').findByPk.mockImplementation(async id =>
+      ({ id_utilisateur: id, role: id === 1 ? 'admin' : 'user' }));
+  });
 
   const token = (id, role = 'user') =>
     jwt.sign({ id, role }, process.env.JWT_SECRET);

@@ -10,7 +10,8 @@ import {
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { getWeatherForMe, generateTenue, evaluateTenue, resolveImageUrl } from "../services/api";
+import { getWeatherForMe, generateTenue, evaluateTenue } from "../services/api";
+import ClothingImage from '../components/ClothingImage';
 
 import { COLORS } from "../styles/colors";
 import { SPACING } from "../styles/spacing";
@@ -148,8 +149,9 @@ export default function Home() {
             <View style={styles.outfitGrid}>
               {tenue.map(item => (
               <View key={item.id_vetement} style={styles.outfitCard}>
-                <Image
-                  source={{ uri: resolveImageUrl(item.photo) || "https://picsum.photos/300" }}
+                <ClothingImage
+                  uri={item.photo}
+                  accessibilityLabel={`Photo : ${item.nom}`}
                   style={styles.outfitImage}
                 />
                 <Text style={styles.itemName}>{item.nom}</Text>
@@ -164,6 +166,9 @@ export default function Home() {
               <TouchableOpacity
                 onPress={() => handleEvaluation(true)}
                 disabled={isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="J’aime cette tenue"
+                accessibilityState={{ disabled: isBusy }}
                 style={[styles.likeButton, { opacity: isBusy ? 0.5 : 1 }]}
               >
                 <Ionicons name="heart" size={25} color="#ff0000ff" />
@@ -173,6 +178,9 @@ export default function Home() {
               <TouchableOpacity
                 onPress={() => handleEvaluation(false)}
                 disabled={isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Je n’aime pas cette tenue, en proposer une autre"
+                accessibilityState={{ disabled: isBusy }}
                 style={[styles.regenerateButton, { opacity: isBusy ? 0.5 : 1 }]}
               >
                 <Ionicons name="close" size={25} color="#333" />

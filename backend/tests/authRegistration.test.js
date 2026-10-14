@@ -1,4 +1,5 @@
 jest.mock('../models/utilisateur', () => ({ findOne: jest.fn(), create: jest.fn() }));
+jest.mock('../services/erasureReceipts', () => ({ hasErasureReceipt: jest.fn(async () => false) }));
 jest.mock('../models/dressing', () => ({ create: jest.fn() }));
 jest.mock('../utils/logger', () => ({ logAction: jest.fn() }));
 jest.mock('bcryptjs', () => ({ hash: jest.fn(), compare: jest.fn() }));
@@ -18,6 +19,7 @@ const admin = require('../middlewares/admin');
 describe('Inscription publique sans base de données', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    require('../services/erasureReceipts').hasErasureReceipt.mockResolvedValue(false);
     Utilisateur.findOne.mockResolvedValue(null);
     bcrypt.hash.mockResolvedValue('hachage-fictif');
     Utilisateur.create.mockImplementation(async data => ({
@@ -50,6 +52,16 @@ describe('Inscription publique sans base de données', () => {
     expect(res.status).toHaveBeenCalledWith(409);
     expect(Utilisateur.create).not.toHaveBeenCalled();
     expect(Dressing.create).not.toHaveBeenCalled();
+  });
+
+  test('un compte restauré malgré son effacement ne reçoit ni profil ni nouveau JWT', async () => {
+    Utilisateur.findOne.mockResolvedValue({ id_utilisateur: 12, password: 'fictif' });
+    require('../services/erasureReceipts').hasErasureReceipt.mockResolvedValue(true);
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    await controller.login({ body: { email: 'restaure@example.invalid', password: 'fictif' } }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Email ou mot de passe incorrect' });
+    expect(bcrypt.compare).not.toHaveBeenCalled();
   });
 
   test('un role=admin demandé à l’inscription donne un JWT user refusé par la route admin', async () => {

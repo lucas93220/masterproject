@@ -1,4 +1,3 @@
-const { postToMl } = require('../services/mlClient');
 const Vetement = require('../models/vetement');
 const SousCategorie = require('../models/sousCategorie');
 const Zone = require('../models/zone');
@@ -6,7 +5,8 @@ const Dressing = require('../models/dressing');
 const Contenir = require('../models/contenir');
 const Tenue = require('../models/tenue');
 const Composer = require('../models/composer');
-const { loadFeatureSchema, extractFeatures } = require('../services/outfitFeatures');
+const { loadFeatureSchema } = require('../services/outfitFeatures');
+const { rankCandidates } = require('../services/rankCandidates');
 const { buildRandomTenue } = require('../services/outfitCandidate');
 
 exports.generateTenue = async (req, res, next) => {
@@ -81,27 +81,8 @@ exports.generateTenue = async (req, res, next) => {
 
     const schema = await loadFeatureSchema();
 
-    let bestTenue = null;
-    let bestScore = -1;
-
-    for (const candidate of candidates) {
-
-      const features = extractFeatures(candidate, temperature, schema);
-      const response = await postToMl("predict", {
-        ...features,
-        feature_version: schema.version
-      }, req.user.id);
-
-      const score = response.data.probability_like;
-
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestTenue = candidate;
-      }
-    }
-
-    const tenueFinale = bestTenue;
+    const { candidate: tenueFinale, prediction } = await rankCandidates(
+      candidates, temperature, schema, req.user.id);
 
     const nouvelleTenue = await Tenue.create({
       id_utilisateur: req.user.id,
@@ -119,7 +100,8 @@ exports.generateTenue = async (req, res, next) => {
 
     return res.json({
       id_tenue: nouvelleTenue.id_tenue,
-      vetements: tenueFinale
+      vetements: tenueFinale,
+      recommendation: { model_used: prediction.model_used, reason: prediction.reason || null }
     });
 
   } catch (error) {

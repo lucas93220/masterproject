@@ -1,4 +1,6 @@
 jest.mock('../models/photo', () => ({ create: jest.fn(), findOne: jest.fn() }));
+jest.mock('../services/erasureReceipts', () => ({ hasErasureReceipt: jest.fn(async () => false) }));
+jest.mock('../models/utilisateur', () => ({ findByPk: jest.fn(async id => ({ id_utilisateur: id, role: 'user' })) }));
 jest.mock('../config/db', () => {
   throw new Error('Ce test ne doit pas ouvrir de connexion à la base');
 });
@@ -31,7 +33,7 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
     app = express();
     app.use('/api/upload', require('../routes/uploadRoutes'));
     app.use('/api/photo', require('../routes/photoRoutes'));
-    app.use('/uploads', onlyImageFiles, express.static(uploadDir));
+    app.use('/uploads', require('../routes/privateImageRoutes'));
     app.use((error, req, res, next) => res.status(500).json({ message: error.message }));
   });
 
@@ -63,9 +65,10 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
     expect(url.pathname).not.toContain('nom-client');
     const saved = await fs.readFile(path.join(uploadDir, path.basename(url.pathname)));
     expect(saved).toEqual(jpeg);
-    expect((await request(app).get(url.pathname)).status).toBe(200);
+    expect((await request(app).get(url.pathname)).status).toBe(401);
+    expect((await authorized(request(app).get(url.pathname))).status).toBe(200);
     await fs.writeFile(path.join(uploadDir, 'texte.txt'), 'non-image');
-    expect((await request(app).get('/uploads/texte.txt')).status).toBe(404);
+    expect((await authorized(request(app).get('/uploads/texte.txt'))).status).toBe(404);
   });
 
   test('refuse les fichiers absents, déguisés, inattendus ou trop volumineux', async () => {

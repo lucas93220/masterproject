@@ -148,6 +148,18 @@ async function retryCleanup(userId) {
   // Le manifeste peut avoir été écrit juste avant un rollback ou un crash.
   if (await Utilisateur.findByPk(userId)) return { complete: false, reason: 'account_exists' };
 
+  // Conserver la preuve minimale hors des sauvegardes applicatives à restaurer.
+  // Elle permet de repérer un compte effacé qui réapparaîtrait après restauration.
+  const receiptDir = path.join(jobDir, 'receipts');
+  await fs.mkdir(receiptDir, { recursive: true, mode: 0o700 });
+  try {
+    await fs.writeFile(path.join(receiptDir, `user_${userId}.json`),
+      JSON.stringify({ ...manifest, deletedAt: new Date().toISOString() }),
+      { flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+  }
+
   const pending = [];
   const operations = await Promise.allSettled([
     Photo.deleteMany({ ownerUserId: userId }),

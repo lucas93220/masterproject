@@ -4,7 +4,6 @@ import {
   TextInput,
   Alert,
   ScrollView,
-  Image,
   Switch,
   TouchableOpacity,
   Modal,
@@ -17,9 +16,9 @@ import {
   updateClothing,
   getCategories,
   getSousCategoriesByCategorie,
-  uploadImage,
-  resolveImageUrl
+  uploadImage
 } from "../services/api";
+import ClothingImage from '../components/ClothingImage';
 
 import { COLORS } from "../styles/colors";
 import { SPACING } from "../styles/spacing";
@@ -152,7 +151,7 @@ export default function AddClothing({ navigation, route }) {
         {/* PHOTO */}
         <TouchableOpacity onPress={pickImage} style={styles.photoContainer}>
           {photo ? (
-            <Image source={{ uri: resolveImageUrl(photo) }} style={styles.photo} />
+            <ClothingImage uri={photo} style={styles.photo} />
           ) : (
             <View style={styles.photoPlaceholder}>
               <Text>📸 Ajouter une photo</Text>

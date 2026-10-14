@@ -1,7 +1,7 @@
 node_modules/
 .env
-package.json
-package-lock.json
+__pycache__/
+*.py[cod]
 ml-service/models/
 backend/uploads/
 backend/private/

@@ -5,6 +5,12 @@ const SousCategorie = require('../models/sousCategorie');
 const Categorie = require('../models/categorie');
 const Zone = require('../models/zone');
 const { canonicalColor } = require('../services/clothingColors');
+const { validatePhotoAssignment } = require('../services/imageAccess');
+
+const editableFields = ['marque', 'nom', 'photo', 'couleur', 'favori',
+  'temperature_min', 'temperature_max', 'id_sous_categorie'];
+const editableValues = body => Object.fromEntries(editableFields
+  .filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]]));
 
 
 // =========================
@@ -35,6 +41,7 @@ exports.create = async (req, res, next) => {
       return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
     }
 
+    await validatePhotoAssignment(photo, req.user.id);
     const vetement = await Vetement.create({
       marque,
       nom,
@@ -167,14 +174,15 @@ exports.update = async (req, res, next) => {
     if (!vetement)
       return res.status(404).json({ message: "Vêtement non trouvé" });
 
+    await validatePhotoAssignment(req.body.photo, req.user.id, vetement.photo);
     if (req.body.couleur !== undefined) {
       const selectedColor = canonicalColor(req.body.couleur);
       if (!selectedColor) {
         return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
       }
-      Object.assign(vetement, { ...req.body, couleur: selectedColor });
+      Object.assign(vetement, { ...editableValues(req.body), couleur: selectedColor });
     } else {
-      Object.assign(vetement, req.body);
+      Object.assign(vetement, editableValues(req.body));
     }
     await vetement.save();
 
@@ -246,14 +254,15 @@ exports.updateById = async (req, res, next) => {
     if (!vetement)
       return res.status(404).json({ message: "Vêtement non trouvé" });
 
+    await validatePhotoAssignment(req.body.photo, req.user.id, vetement.photo);
     if (req.body.couleur !== undefined) {
       const selectedColor = canonicalColor(req.body.couleur);
       if (!selectedColor) {
         return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
       }
-      Object.assign(vetement, { ...req.body, couleur: selectedColor });
+      Object.assign(vetement, { ...editableValues(req.body), couleur: selectedColor });
     } else {
-      Object.assign(vetement, req.body);
+      Object.assign(vetement, editableValues(req.body));
     }
     await vetement.save();
 

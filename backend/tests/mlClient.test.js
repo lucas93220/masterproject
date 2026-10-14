@@ -26,10 +26,10 @@ describe("Client interne ML", () => {
     await postToMl("predict", { ratio_favoris: 0.5 }, 8);
 
     expect(axios.post).toHaveBeenNthCalledWith(1, "http://127.0.0.1:8000/train", { data: [] }, {
-      headers: { "X-FITS-ML-SECRET": "secret-de-test", "X-FITS-USER-ID": "7" }
+      headers: { "X-FITS-ML-SECRET": "secret-de-test", "X-FITS-USER-ID": "7" }, timeout: 15000
     });
     expect(axios.post).toHaveBeenNthCalledWith(2, "http://127.0.0.1:8000/predict", { ratio_favoris: 0.5 }, {
-      headers: { "X-FITS-ML-SECRET": "secret-de-test", "X-FITS-USER-ID": "8" }
+      headers: { "X-FITS-ML-SECRET": "secret-de-test", "X-FITS-USER-ID": "8" }, timeout: 2000
     });
   });
 

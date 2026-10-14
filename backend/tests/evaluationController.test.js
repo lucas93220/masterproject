@@ -72,7 +72,7 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     expect(res.json).toHaveBeenCalledWith(expected);
     expect(next).not.toHaveBeenCalled();
     expect(axios.post).toHaveBeenCalledWith("http://127.0.0.1:3002/api/ml/train", {}, {
-      headers: { Authorization: "Bearer token-fictif" }
+      headers: { Authorization: "Bearer token-fictif" }, timeout: 16000
     });
     expect(Evaluation.upsert.mock.invocationCallOrder[0])
       .toBeLessThan(axios.post.mock.invocationCallOrder[0]);
@@ -234,7 +234,7 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     try {
       await controller.create(req, res, next);
       expect(axios.post).toHaveBeenCalledWith("http://127.0.0.1:43210/api/ml/train", {}, {
-        headers: { Authorization: "Bearer token-fictif" }
+        headers: { Authorization: "Bearer token-fictif" }, timeout: 16000
       });
     } finally {
       if (previousPort === undefined) delete process.env.PORT;

@@ -62,6 +62,7 @@ function createScreen(api) {
     "react-native": native,
     "@expo/vector-icons": { Ionicons: "Ionicons" },
     "../services/api": api,
+    "../components/ClothingImage": { default: 'ClothingImage' },
     "../styles/colors": { COLORS: {} },
     "../styles/spacing": { SPACING: {} },
     "../styles/components": { CARD: {}, BUTTON_PRIMARY: {}, BUTTON_TEXT: {} }

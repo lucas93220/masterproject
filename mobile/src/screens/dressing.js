@@ -2,7 +2,6 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   TouchableOpacity,
   Alert,
   Modal,
@@ -15,9 +14,9 @@ import {
   deleteClothing,
   toggleFavorite,
   getCategories,
-  getSousCategoriesByCategorie,
-  resolveImageUrl
+  getSousCategoriesByCategorie
 } from "../services/api";
+import ClothingImage from '../components/ClothingImage';
 
 import { COLORS } from "../styles/colors";
 import { SPACING } from "../styles/spacing";
@@ -118,7 +117,7 @@ export default function Dressing({ navigation }) {
       <View style={styles.imageContainer}>
 
         {item.photo ? (
-          <Image source={{ uri: resolveImageUrl(item.photo) }} style={styles.image} />
+          <ClothingImage uri={item.photo} style={styles.image} accessibilityLabel={`Photo : ${item.nom}`} />
         ) : (
           <View style={[styles.image, styles.placeholder]}>
             <Text>📸</Text>

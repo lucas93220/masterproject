@@ -34,6 +34,8 @@ exports.getPhoto = async (req, res, next) => {
       return res.status(415).json({ message: 'Format image non pris en charge' });
     }
     res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Cache-Control', 'private, no-store');
+    res.vary('Authorization');
     res.set('Content-Type', photo.contentType);
     res.send(photo.data);
   } catch (error) {

@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { mlTimeout } = require('./mlTimeout');
 
 function postToMl(endpoint, payload, userId, { timeout } = {}) {
   if (!Number.isSafeInteger(userId) || userId <= 0 || userId > 2147483647) {
@@ -16,7 +17,7 @@ function postToMl(endpoint, payload, userId, { timeout } = {}) {
       'X-FITS-ML-SECRET': secret,
       'X-FITS-USER-ID': String(userId)
     },
-    ...(Number.isInteger(timeout) && timeout > 0 ? { timeout } : {})
+    timeout: Number.isInteger(timeout) && timeout > 0 ? timeout : mlTimeout(endpoint)
   });
 }
 

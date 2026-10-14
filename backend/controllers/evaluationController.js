@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { mlTimeout } = require('../services/mlTimeout');
 const Evaluation = require("../models/evaluation");
 const Tenue = require("../models/tenue");
 const Composer = require("../models/composer");
@@ -69,6 +70,7 @@ exports.create = async (req, res, next) => {
 
     try {
       const trainResponse = await axios.post(`http://127.0.0.1:${process.env.PORT || 3002}/api/ml/train`, {}, {
+        timeout: mlTimeout('train') + 1000,
         headers: {
           Authorization: req.headers.authorization
         }

@@ -30,6 +30,17 @@ function createApi(token) {
 }
 
 describe('Upload mobile', () => {
+  test('les images privées portent le JWT ; aucun jeton ne part vers une URL externe', async () => {
+    const { api } = createApi('jeton-fictif');
+    expect(await api.imageSource('/uploads/test.jpg')).toEqual({
+      uri: 'http://192.168.1.181:3002/uploads/test.jpg',
+      headers: { Authorization: 'Bearer jeton-fictif' }, cache: 'reload'
+    });
+    expect(await api.imageSource('https://example.invalid/uploads/test.jpg'))
+      .toEqual({ uri: 'https://example.invalid/uploads/test.jpg' });
+    expect(await api.imageSource('file:///photo.jpg')).toEqual({ uri: 'file:///photo.jpg' });
+    expect(await createApi(null).api.imageSource('/uploads/test.jpg')).toBeNull();
+  });
   test('réadresse une ancienne URL /uploads vers le backend actuel', () => {
     const { api } = createApi(null);
     expect(api.resolveImageUrl('http://10.190.5.20:3002/uploads/image.jpg'))
