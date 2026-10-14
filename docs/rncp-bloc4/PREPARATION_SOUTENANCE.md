@@ -1,13 +1,13 @@
 # FITS — Préparation pratique de la soutenance
 
-Ce guide regroupe les commandes sûres, la démo et le protocole des volontaires. Les faits et métriques sont dans [l'état actuel](ETAT_ACTUEL.md), les pièces à montrer dans les [fiches C1–C5](preuves/) et la trame orale dans [SOUTENANCE.md](SOUTENANCE.md). Ne montrer ni `.env`, JWT, secret ML, e-mail, export individuel, ni photographie privée.
+Ce guide regroupe les commandes sûres, la démo, le protocole des volontaires et la trame orale. Les faits et métriques sont dans [l'état actuel](ETAT_ACTUEL.md) et les pièces à montrer dans les [fiches C1–C5](preuves/). Ne montrer ni `.env`, JWT, secret ML, e-mail, export individuel, ni photographie privée.
 
 ## Preuves par compétence
 
 | Axe | Pièce à montrer | Phrase juste et limite |
 |---|---|---|
-| C1 — besoin/3V | [Fiche C1](preuves/C1_BESOIN.md) | Finalités définies ; effets encore non mesurés auprès de volontaires. |
-| C2 — conception/évaluation ML | [Fiche C2](preuves/C2_MODELE.md) | RF sous la baseline majoritaire dans les deux comptes évalués séparément. |
+| C1 — besoin/3V | [Fiche C1](preuves/C1_BESOIN.md) | Finalités définies ; auto-essai personnel estimatif documenté, effets encore non mesurés auprès de volontaires. |
+| C2 — conception/évaluation ML | [Fiche C2](preuves/C2_MODELE.md) | RF sous la baseline sur les anciens relevés ; signal différent sur 82 avis v2 à 18 °C, sans généralisation démontrée. |
 | C3 — ETL/qualité/protection | [Fiche C3](preuves/C3_DONNEES.md) | Snapshots et protections testés ; exploitation réelle de l'historique et des sauvegardes incomplète. |
 | C4 — bases de données | [Fiche C4](preuves/C4_STOCKAGE.md) | Index mesuré sur données fictives, sans migration réelle. |
 | C5 — programme IA | [Fiche C5](preuves/C5_PROGRAMME.md) | Pipeline, isolation et fallback testés ; bénéfice métier non prouvé par ces tests. |
@@ -16,7 +16,7 @@ Les [visuels](visuels/) sont datés et décrits dans les fiches. Le graphique RF
 
 ## Démo isolée et tests sûrs
 
-**Vérification finale du 14/10/2026 : 222 tests réussis** : 159 backend (22 suites), six scénarios avec vrais stockages temporaires, 35 Python et 22 mobile. Un essai intermédiaire antérieur du pont Python a atteint son délai de 60 s ; relancé seul puis dans les suites finales, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Les tests n'ont pas modifié les données applicatives ; l'essai d'interactions local décrit dans la [fiche C2](preuves/C2_MODELE.md) est en lecture seule.
+**Dernière exécution complète documentée du 14/10/2026 : 222 tests réussis** : 159 backend (22 suites), six scénarios avec vrais stockages temporaires, 35 Python et 22 mobile. Lors du tri documentaire, 81 tests backend sans ouverture de port, 35 tests Python et 22 tests mobile ont été relancés avec succès ; le sandbox a refusé le port requis par la suite backend complète. Un essai intermédiaire antérieur du pont Python a atteint son délai de 60 s ; relancé seul puis dans les suites finales, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Les tests n'ont pas modifié les données applicatives ; l'essai d'interactions local décrit dans la [fiche C2](preuves/C2_MODELE.md) est en lecture seule.
 
 Les fichiers npm `package.json`/`package-lock.json` ne sont plus ignorés par Git. Après récupération du dépôt, installer avec `npm ci` dans `backend` et `mobile`. Sur le Mac utilisé :
 
@@ -125,7 +125,7 @@ Rapporter le nombre de tâches réussies **sur celles effectivement tentées** e
 
 ## Répétition sur le réseau de l’oral
 
-La [trame de huit diapositives et les réponses aux questions](SOUTENANCE.md) sont dans un document séparé. Si le téléphone ou le réseau local échoue, montrer la sortie vérifiée de `ml-service/demo_isolated.py` et les graphiques sans lancer d’entraînement réel sous stress. Le mobile utilise encore une IP LAN fixe dans `mobile/src/services/api.js` : relever l’adresse du Mac sur le réseau utilisé, adapter cette configuration, puis vérifier connexion, images et génération avant l’oral. Le backend charge `backend/.env` ; Python reçoit `ML_SERVICE_SECRET` de son processus. Les deux valeurs doivent coïncider sans être affichées. Vérifier PostgreSQL, MongoDB, Python, Node et la météo. Les votes manuels écrivent des avis et peuvent réentraîner le modèle du compte : utiliser un compte de démonstration prévu pour cela.
+La trame de huit diapositives et les réponses aux questions figurent ci-dessous. Si le téléphone ou le réseau local échoue, montrer la sortie vérifiée de `ml-service/demo_isolated.py` et les graphiques sans lancer d’entraînement réel sous stress. Le mobile utilise encore une IP LAN fixe dans `mobile/src/services/api.js` : relever l’adresse du Mac sur le réseau utilisé, adapter cette configuration, puis vérifier connexion, images et génération avant l’oral. Le backend charge `backend/.env` ; Python reçoit `ML_SERVICE_SECRET` de son processus. Les deux valeurs doivent coïncider sans être affichées. Vérifier PostgreSQL, MongoDB, Python, Node et la météo. Les votes manuels écrivent des avis et peuvent réentraîner le modèle du compte : utiliser un compte de démonstration prévu pour cela.
 
 **Contrôle technique rapide sur le Mac, sans vote ni entraînement :** depuis la racine du dépôt, exécuter les commandes ci-dessous dans le Terminal. `pg_isready` vérifie PostgreSQL ; les deux `curl` interrogent des pages publiques locales sans toucher aux modèles. Si un test échoue, démarrer le service concerné puis le relancer. Enfin, comparer l'adresse `API_URL` affichée avec l'adresse IPv4 actuelle du Mac sur le réseau utilisé par le téléphone ; l'accès au backend depuis le téléphone reste à essayer manuellement. Ne pas ouvrir `.env` devant le jury.
 
@@ -141,4 +141,30 @@ Ces vérifications établissent la disponibilité des ports locaux et la cohére
 
 **Contrôle effectué le 13/10/2026 vers 19:57 UTC depuis le Mac :** PostgreSQL local acceptait les connexions ; `/api-docs/` côté Node et `/openapi.json` côté Python répondaient chacun HTTP 200. Ce constat est local et daté ; il faudra le refaire sur le réseau de l'oral.
 
-**Avant remise :** confirmer le code du bloc avec l’établissement, vérifier que le dépôt et les fixtures fictives sont accessibles au jury, puis ajouter uniquement les retours utilisateurs réellement recueillis aux fiches de preuves. Les questions et réponses sont dans [SOUTENANCE.md](SOUTENANCE.md).
+## Trame de huit diapositives, dix minutes
+
+La grille validée demande cinq décisions « valide / non valide », sans barème officiel sur 20. Le candidat a indiqué qu'aucun dossier REX séparé n'est demandé pour son rattrapage ; conserver les preuves réparties dans les cinq fiches.
+
+| Durée | Diapo et message à défendre |
+|---:|---|
+| 0:45 | 1. Besoin C1 : projet personnel pour gagner du temps, découvrir des associations et des vêtements oubliés ; [auto-essai estimatif](preuves/C1_BESOIN.md), aucun gain externe mesuré. |
+| 1:00 | 2. Sources et 3V C1 : météo, dressing SQL, avis/snapshots, logs et images ; petits volumes locaux, variété réelle, aucun Big Data massif. |
+| 1:15 | 3. ETL C3 : cohorte historique 69 avis → 64 lignes, cinq températures manquantes et trois snapshots valides ; présenter séparément les votes récents avec snapshots. [Visuel historique](visuels/qualite_avis.png). |
+| 1:00 | 4. Stockage C4 : relations SQL et snapshot JSONB ; benchmark sur 100 000 tenues **fictives** : 2,081 → 0,139 ms, index de 728 Kio ; aucune migration réelle. |
+| 1:45 | 5. Programme C5 : jusqu'à cinq candidats, 85 features, modèle personnel ou fallback, vote et snapshot ; démo isolée en secours. |
+| 1:30 | 6. Résultat C2 : ancien compte RF 58,2 % contre majorité 63,8 % ; sur 82 nouveaux votes v2 à 18 °C, RF 50,2 % contre majorité 42,9 % sur 30 découpages groupés recouvrants. [C2](preuves/C2_MODELE.md) distingue les cohortes et les limites ; aucune mesure du classement des cinq candidats. |
+| 1:15 | 7. Protection C3/C5 : accès privés et suppression/reprise testés avec des stockages temporaires ; sauvegardes réelles et ancien historique restent à traiter. |
+| 1:30 | 8. Décision : conserver le RF comme référence expérimentale ; recueillir des retours indépendants et des avis variés, puis évaluer un protocole fixé à l'avance. |
+
+## Réponses courtes aux questions probables
+
+- **Pourquoi les scores du RF changent-ils ?** Les jeux et conditions diffèrent : anciens snapshots manquants, votes historiques parfois aléatoires, nouveaux avis v2 sincères mais tous à 18 °C. Les petits tests varient selon leur découpage ; aucune cause unique ni gain général n'est démontré.
+- **Le modèle sert-il ?** Un modèle compatible calcule un score personnel pour classer les candidats admissibles. Son avantage prédictif et la qualité du classement présenté ne sont pas établis ; le fallback sert en absence de modèle ou en cas de panne.
+- **Pourquoi ne pas promouvoir les variantes testées ?** Les mêmes petits jeux ont déjà servi aux explorations. Il faut un test indépendant fixé avant collecte pour éviter de retenir un résultat fortuit.
+- **La fuite est-elle éliminée ?** Les tests séparent tenues et vecteurs identiques. Le partage de vêtements et la reconstruction des anciens avis laissent des risques résiduels.
+- **Pourquoi aucune métrique de classement des cinq ?** Seule la tenue affichée reçoit un avis ; l'AUC des tenues exposées n'est pas un NDCG@5.
+- **Pourquoi deux bases ?** PostgreSQL porte les relations et transactions ; MongoDB porte logs et voie photo. Son avantage à ce volume n'est pas démontré et la suppression entre stockages est plus complexe.
+- **RGPD et accessibilité ?** Contrôles techniques testés, mais sauvegardes réelles, historique, revue juridique et audit d'accessibilité restent à faire. Le prototype LAN utilise HTTP.
+- **Retours utilisateurs ?** Aucun retour externe documenté ; l'auto-essai du concepteur est détaillé dans C1. Ajouter seulement les observations réellement recueillies.
+
+**Avant remise :** confirmer le code du bloc avec l’établissement (la grille validée mentionne BC04B et une cellule BC04A), vérifier que le dépôt et les fixtures fictives sont accessibles au jury, relire les contributions personnelles, puis ajouter uniquement les retours utilisateurs réellement recueillis aux fiches de preuves.
