@@ -9,7 +9,7 @@ const compiled = ts.transpileModule(fs.readFileSync(sourcePath, 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
 });
 
-function createApi(token) {
+function createApi(token, { hostUri = '192.168.1.17:8081', publicApiUrl } = {}) {
   const fetch = jest.fn().mockResolvedValue({
     ok: true, json: async () => ({ imageUrl: 'http://example.invalid/uploads/image.jpg' })
   });
@@ -20,31 +20,51 @@ function createApi(token) {
   }
   const exports = {};
   vm.runInNewContext(compiled.outputText, {
-    exports, FormData, fetch,
+    exports, FormData, fetch, process: { env: { EXPO_PUBLIC_API_URL: publicApiUrl } },
     require: name => {
-      if (name !== '@react-native-async-storage/async-storage') throw new Error(name);
-      return { default: { getItem } };
+      if (name === '@react-native-async-storage/async-storage') return { default: { getItem } };
+      if (name === 'expo-constants') return { default: { expoConfig: { hostUri } } };
+      throw new Error(name);
     }
   }, { filename: sourcePath });
   return { api: exports, fetch, getItem };
 }
 
 describe('API mobile', () => {
+  test('supprime le compte authentifié et accepte un nettoyage différé', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 202,
+      json: async () => ({ message: 'Compte supprimé ; nettoyage annexe en attente.' })
+    });
+    await expect(api.deleteMyAccount()).resolves.toEqual({
+      message: 'Compte supprimé ; nettoyage annexe en attente.'
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      'http://192.168.1.17:3002/api/utilisateur/me',
+      expect.objectContaining({
+        method: 'DELETE',
+        headers: expect.objectContaining({ Authorization: 'Bearer jeton-fictif' })
+      })
+    );
+  });
+
   test('transmet le code météo lors de la génération sans rompre l’ancien appel', async () => {
     const { api, fetch } = createApi('jeton-fictif');
     await api.generateTenue(9, '01d');
     await api.generateTenue(9);
     expect(fetch.mock.calls[0][0]).toBe(
-      'http://192.168.1.181:3002/api/tenue/generate?temperature=9&weatherIcon=01d');
+      'http://192.168.1.17:3002/api/tenue/generate?temperature=9&weatherIcon=01d');
     expect(fetch.mock.calls[1][0]).toBe(
-      'http://192.168.1.181:3002/api/tenue/generate?temperature=9');
+      'http://192.168.1.17:3002/api/tenue/generate?temperature=9');
     expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer jeton-fictif');
   });
 
   test('les images privées portent le JWT ; aucun jeton ne part vers une URL externe', async () => {
     const { api } = createApi('jeton-fictif');
     expect(await api.imageSource('/uploads/test.jpg')).toEqual({
-      uri: 'http://192.168.1.181:3002/uploads/test.jpg',
+      uri: 'http://192.168.1.17:3002/uploads/test.jpg',
       headers: { Authorization: 'Bearer jeton-fictif' }, cache: 'reload'
     });
     expect(await api.imageSource('https://example.invalid/uploads/test.jpg'))
@@ -55,11 +75,34 @@ describe('API mobile', () => {
   test('réadresse une ancienne URL /uploads vers le backend actuel', () => {
     const { api } = createApi(null);
     expect(api.resolveImageUrl('http://10.190.5.20:3002/uploads/image.jpg'))
-      .toBe('http://192.168.1.181:3002/uploads/image.jpg');
+      .toBe('http://192.168.1.17:3002/uploads/image.jpg');
+    expect(api.resolveImageUrl('http://192.168.1.181:3002/uploads/1760961600000-abcde.jpg'))
+      .toBe('http://192.168.1.17:3002/uploads/1760961600000-abcde.jpg');
     expect(api.resolveImageUrl('https://example.invalid/uploads/image.jpg'))
       .toBe('https://example.invalid/uploads/image.jpg');
     expect(api.resolveImageUrl('file:///ancienne/photo.heic'))
       .toBe('file:///ancienne/photo.heic');
+  });
+
+  test('suit l’adresse du serveur Expo après un changement de réseau', async () => {
+    const { api, fetch } = createApi(null, { hostUri: '192.168.50.24:8081' });
+    await api.loginUser('test@example.invalid', 'fictif');
+    expect(fetch.mock.calls[0][0]).toBe('http://192.168.50.24:3002/api/auth/login');
+  });
+
+  test('permet une adresse API explicite quand Expo utilise un tunnel', async () => {
+    const { api, fetch } = createApi(null, {
+      hostUri: 'abc.exp.direct:8081',
+      publicApiUrl: 'https://api.example.invalid/api'
+    });
+    await api.loginUser('test@example.invalid', 'fictif');
+    expect(fetch.mock.calls[0][0]).toBe('https://api.example.invalid/api/auth/login');
+  });
+
+  test('ne déduit pas une adresse API du domaine d’un tunnel Expo', async () => {
+    const { api, fetch } = createApi(null, { hostUri: 'abc.exp.direct:8081' });
+    await api.loginUser('test@example.invalid', 'fictif');
+    expect(fetch.mock.calls[0][0]).toBe('http://192.168.1.17:3002/api/auth/login');
   });
 
   test('transmet le JWT sans fixer Content-Type du multipart', async () => {

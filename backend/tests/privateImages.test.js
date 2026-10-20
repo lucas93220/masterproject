@@ -12,6 +12,7 @@ const { sequelize } = require('../config/db');
 const { canReadImage } = require('../services/imageAccess');
 const filename = 'u1_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg';
 const legacy = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
+const timestampLegacy = '1760961600000-abcde.jpg';
 let app, root;
 const originalDir = process.env.FITS_UPLOAD_DIR, originalSecret = process.env.JWT_SECRET;
 beforeAll(async () => {
@@ -20,6 +21,7 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'private-images-test';
   await fs.writeFile(path.join(root, filename), 'fixture-image');
   await fs.writeFile(path.join(root, legacy), 'legacy-fixture');
+  await fs.writeFile(path.join(root, timestampLegacy), 'timestamp-legacy-fixture');
   app = express();
   app.use('/uploads', require('../routes/privateImageRoutes'));
 });
@@ -55,9 +57,20 @@ test('une ancienne image requiert une relation SQL appartenant au compte', async
     replacements: { userId: 1, suffix: `%/uploads/${legacy}` }
   }));
 });
+test('un ancien nom horodaté reste privé et lisible seulement via le dressing', async () => {
+  expect((await request(app).get(`/uploads/${timestampLegacy}`)).status).toBe(401);
+  sequelize.query.mockResolvedValue([]);
+  expect((await get(timestampLegacy, 2)).status).toBe(404);
+  sequelize.query.mockResolvedValue([{ '?column?': 1 }]);
+  expect((await get(timestampLegacy)).status).toBe(200);
+  expect(sequelize.query).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+    replacements: { userId: 1, suffix: `%/uploads/${timestampLegacy}` }
+  }));
+});
 test('refuse les chemins et liens symboliques sans lire leur cible', async () => {
   expect(await canReadImage(1, '../secret.jpg')).toBe(false);
   expect(await canReadImage(1, 'u1_not-an-uuid.jpg')).toBe(false);
+  expect(await canReadImage(1, '1760961600000-abcde.jpg.bak')).toBe(false);
   const link = 'u1_cccccccc-cccc-cccc-cccc-cccccccccccc.jpg';
   await fs.symlink(path.join(root, filename), path.join(root, link));
   expect((await get(link)).status).toBe(404);

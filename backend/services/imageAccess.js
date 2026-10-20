@@ -1,6 +1,7 @@
 const { QueryTypes } = require('sequelize');
 
-const imageName = /^(?:u([1-9]\d*)_)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(?:jpe?g|png|webp)$/i;
+// Ancien format horodaté sans identifiant : son accès exige la relation SQL ci-dessous.
+const imageName = /^(?:(?:u([1-9]\d*)_)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|\d{13}-[a-z]{5})\.(?:jpe?g|png|webp)$/i;
 
 function localImageName(value) {
   if (typeof value !== 'string') return null;

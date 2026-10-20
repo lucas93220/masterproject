@@ -14,7 +14,8 @@ const jobDir = path.resolve(process.env.FITS_DELETION_DIR ||
 if (jobDir === uploadDir || jobDir.startsWith(`${uploadDir}${path.sep}`)) {
   throw new Error('Le dossier des suppressions ne doit pas être public');
 }
-const imageName = /^(?:u[1-9]\d*_)?[a-f0-9-]{36}\.(?:jpe?g|png|webp)$/i;
+// Inclure aussi les anciens uploads horodatés référencés par les vêtements du compte.
+const imageName = /^(?:(?:u[1-9]\d*_)?[a-f0-9-]{36}|\d{13}-[a-z]{5})\.(?:jpe?g|png|webp)$/i;
 
 function jobPath(userId) {
   if (!Number.isSafeInteger(userId) || userId <= 0 || userId > 2147483647) {

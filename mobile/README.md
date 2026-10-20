@@ -8,7 +8,7 @@ npm ci
 npm start
 ```
 
-Le projet utilise `App.js` et `src/navigation`, **pas** Expo Router. Pour un téléphone physique, le Mac qui héberge l'API et le téléphone doivent pouvoir communiquer sur le même réseau. L'adresse de l'API est actuellement fixée dans `src/services/api.js` ; la vérifier et la modifier si le Mac change de réseau, puis recharger l'application. Un tunnel Expo ne rend pas l'API Node accessible à lui seul.
+Le projet utilise `App.js` et `src/navigation`, **pas** Expo Router. Pour un téléphone physique, le Mac qui héberge l'API et le téléphone doivent pouvoir communiquer sur le même réseau. En développement local, `src/services/api.js` reprend l'hôte LAN indiqué par Expo et utilise le port Node `3002` ; redémarrer Expo si le Mac change de réseau. Si Expo ne fournit pas d'hôte LAN utilisable, l'adresse locale de secours est `192.168.1.17`. On peut définir `EXPO_PUBLIC_API_URL` dans `mobile/.env.local` pour une autre adresse complète, par exemple `http://<adresse-du-Mac>:3002/api` ; ce fichier est ignoré par Git et ne doit contenir aucun secret. Un tunnel Expo ne rend pas l'API Node accessible à lui seul. L'écran de connexion distingue maintenant un refus d'identifiants d'une panne réseau ou du serveur.
 
 Avant la démonstration, démarrer aussi PostgreSQL, le backend Node et le service Python avec le même `ML_SERVICE_SECRET` dans l'environnement de ces deux services. Tester connexion, ajout de vêtement, image et génération. Les actions manuelles de vote écrivent des avis et peuvent entraîner le modèle personnel du compte utilisé ; les commandes de démonstration isolée et les limites sont dans `../docs/rncp-bloc4/PREPARATION_SOUTENANCE.md`.
 

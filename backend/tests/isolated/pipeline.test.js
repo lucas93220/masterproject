@@ -164,6 +164,13 @@ test('suppression avec vraies cascades SQL, images privées, Joblib, reprise Mon
   await db.query('UPDATE vetement SET photo=$1 WHERE id_vetement=2', [`http://192.168.2.1:3002/uploads/${legacy}`]);
   expect((await authenticated(request(server).get(`/uploads/${legacy}`))).status).toBe(200);
   expect((await authenticated(request(server).get(`/uploads/${legacy}`), 2)).status).toBe(404);
+  const timestampLegacy = '1760961600000-abcde.jpg';
+  await fs.writeFile(path.join(root, 'uploads', timestampLegacy), jpeg);
+  await db.query('UPDATE vetement SET photo=$1 WHERE id_vetement=3',
+    [`http://192.168.1.181:3002/uploads/${timestampLegacy}`]);
+  expect((await request(server).get(`/uploads/${timestampLegacy}`)).status).toBe(401);
+  expect((await authenticated(request(server).get(`/uploads/${timestampLegacy}`))).status).toBe(200);
+  expect((await authenticated(request(server).get(`/uploads/${timestampLegacy}`), 2)).status).toBe(404);
   // Une relation historique partagée doit rester intacte chez le second compte.
   await db.query('INSERT INTO contenir VALUES (1,4)');
   const generated = await authenticated(request(server).get('/api/tenue/generate?temperature=18'));
@@ -190,6 +197,7 @@ test('suppression avec vraies cascades SQL, images privées, Joblib, reprise Mon
   const receipt = JSON.parse(await fs.readFile(path.join(root, 'jobs/receipts/user_1.json'), 'utf8'));
   expect(receipt.userId).toBe(1);
   expect(receipt.files).toContain(legacy);
+  expect(receipt.files).toContain(timestampLegacy);
 });
 
 test('échec après suppression SQL : rollback effectif du compte et de ses relations', async () => {

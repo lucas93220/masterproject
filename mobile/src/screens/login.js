@@ -30,9 +30,12 @@ export default function Login({ navigation }) {
       await AsyncStorage.setItem("token", data.token);
       navigation.replace("Main");
     } catch (error) {
+      const message = ["Network request failed", "Failed to fetch"].includes(error?.message)
+        ? "Impossible de joindre le serveur. Vérifie le réseau et l'adresse de l'API."
+        : error?.message || "Connexion impossible. Réessaie.";
       Alert.alert(
         "Erreur de connexion",
-        "Email ou mot de passe incorrect"
+        message
       );
     } finally {
       setLoading(false);

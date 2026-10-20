@@ -1,6 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
-const API_URL = "http://192.168.1.181:3002/api";
+const expoHost = (Constants.expoConfig?.hostUri || Constants.expoGoConfig?.debuggerHost || "")
+  .match(/^(?:[a-z]+:\/\/)?([\w.-]+)(?::\d+)?$/i)?.[1];
+const localExpoHost = /^(?:localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)$/i
+  .test(expoHost || "") ? expoHost : null;
+const API_URL = process.env.EXPO_PUBLIC_API_URL ||
+  `http://${localExpoHost || "192.168.1.17"}:3002/api`;
 const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
 export function resolveImageUrl(uri) {
@@ -72,6 +78,10 @@ export function getProfile() {
 
 export function updateProfile(profileData) {
   return apiRequest("/utilisateur/me", "PUT", profileData);
+}
+
+export function deleteMyAccount() {
+  return apiRequest("/utilisateur/me", "DELETE");
 }
 
 export function getMyDressing() {

@@ -125,15 +125,14 @@ Rapporter le nombre de tâches réussies **sur celles effectivement tentées** e
 
 ## Répétition sur le réseau de l’oral
 
-La trame de huit diapositives et les réponses aux questions figurent ci-dessous. Si le téléphone ou le réseau local échoue, montrer la sortie vérifiée de `ml-service/demo_isolated.py` et les graphiques sans lancer d’entraînement réel sous stress. Le mobile utilise encore une IP LAN fixe dans `mobile/src/services/api.js` : relever l’adresse du Mac sur le réseau utilisé, adapter cette configuration, puis vérifier connexion, images et génération avant l’oral. Le backend charge `backend/.env` ; Python reçoit `ML_SERVICE_SECRET` de son processus. Les deux valeurs doivent coïncider sans être affichées. Vérifier PostgreSQL, MongoDB, Python, Node et la météo. Les votes manuels écrivent des avis et peuvent réentraîner le modèle du compte : utiliser un compte de démonstration prévu pour cela.
+La trame de huit diapositives et les réponses aux questions figurent ci-dessous. Si le téléphone ou le réseau local échoue, montrer la sortie vérifiée de `ml-service/demo_isolated.py` et les graphiques sans lancer d’entraînement réel sous stress. En développement LAN, le mobile reprend l'hôte fourni par Expo pour appeler Node sur le port 3002 ; redémarrer Expo après un changement de réseau. Sans hôte LAN utilisable, il reste une adresse de secours locale ; `EXPO_PUBLIC_API_URL` dans `mobile/.env.local` permet de fixer explicitement l'URL complète. Vérifier connexion, images et génération depuis le téléphone avant l’oral. Le backend charge `backend/.env` ; Python reçoit `ML_SERVICE_SECRET` de son processus. Les deux valeurs doivent coïncider sans être affichées. Vérifier PostgreSQL, MongoDB, Python, Node et la météo. Les votes manuels écrivent des avis et peuvent réentraîner le modèle du compte : utiliser un compte de démonstration prévu pour cela.
 
-**Contrôle technique rapide sur le Mac, sans vote ni entraînement :** depuis la racine du dépôt, exécuter les commandes ci-dessous dans le Terminal. `pg_isready` vérifie PostgreSQL ; les deux `curl` interrogent des pages publiques locales sans toucher aux modèles. Si un test échoue, démarrer le service concerné puis le relancer. Enfin, comparer l'adresse `API_URL` affichée avec l'adresse IPv4 actuelle du Mac sur le réseau utilisé par le téléphone ; l'accès au backend depuis le téléphone reste à essayer manuellement. Ne pas ouvrir `.env` devant le jury.
+**Contrôle technique rapide sur le Mac, sans vote ni entraînement :** depuis la racine du dépôt, exécuter les commandes ci-dessous dans le Terminal. `pg_isready` vérifie PostgreSQL ; les deux `curl` interrogent des pages publiques locales sans toucher aux modèles. Si un test échoue, démarrer le service concerné puis le relancer. Vérifier que l'hôte affiché par Expo correspond au réseau du téléphone et à l'adresse IPv4 actuelle du Mac ; l'accès au backend depuis le téléphone reste à essayer manuellement. Ne pas ouvrir `.env` devant le jury.
 
 ```sh
 pg_isready -h 127.0.0.1 -p 5432
 curl -fsS http://127.0.0.1:3002/api-docs/ >/dev/null && echo 'API Node joignable'
 curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null && echo 'Service Python joignable'
-rg -n 'const API_URL' mobile/src/services/api.js
 ifconfig | rg 'inet '
 ```
 
