@@ -2,16 +2,16 @@
 
 Ce guide correspond au **fonctionnement courant** décrit dans [l'état actuel](ETAT_ACTUEL.md) : modèle personnel **articles/paires pour tous les comptes**, Random Forest conservé comme **référence comparative**. Les pièces détaillées sont [C1](preuves/C1_BESOIN.md), [C2](preuves/C2_MODELE.md), [C3](preuves/C3_DONNEES.md), [C4](preuves/C4_STOCKAGE.md) et [C5](preuves/C5_PROGRAMME.md). La grille fournie et validée par l'établissement décide « valide / non valide » pour chaque axe ; aucun dossier REX séparé n'est demandé selon le candidat.
 
-Ne montrer au jury ni `.env`, JWT, secret ML, e-mail, photographie privée, export de préférences individuelles ou identifiant de vêtement d'un compte réel. Les graphiques historiques et le benchmark fictif portent leur population et leur date : ne pas les faire passer pour les performances du modèle courant.
+Ne montrer au jury ni `.env`, JWT, secret ML, e-mail, photographie privée, export de préférences individuelles ou identifiant de vêtement d'un compte réel. **Dernier relevé local en lecture seule, le 21/10/2026 à 20:25 UTC : 657 tenues, 433 avis dont 362 sur le compte récent ; 251 snapshots v2 pour l'étude du modèle courant.** Les graphiques historiques et le benchmark fictif portent leur population et leur date : ne pas les faire passer pour les performances du modèle courant.
 
 ## Ce qu'il faut montrer par axe
 
 | Axe | Pièce et phrase défendable | Ce qui manque |
 |---|---|---|
 | **C1** | Besoin personnel, parcours et 3V ; auto-essai du concepteur comme estimation. | Retours indépendants de 2–3 volontaires et gain de temps chronométré. |
-| **C2** | Score courant articles/paires, RF et classe majoritaire comparés **hors ligne** ; sessions du 21/10 séparées. | Une cohorte future indépendante et des jugements sur plusieurs candidats d'un même lot. |
-| **C3** | Snapshot v2, ETL par utilisateur, exclusion expliquée des cinq températures historiques, suppression testée sur stockages temporaires. | Historique non attribuable, sauvegardes et rétention réelle à opérer ; aucune conformité RGPD complète. |
-| **C4** | Schéma SQL/JSONB et benchmark d'index à 100 000 tenues **fictives**, avec coût de 728 Kio. | Charge représentative, coût d'écriture et justification d'une migration réelle. |
+| **C2** | Sur le même test hors ligne de 63 avis : **42,9 % d'accuracy articles/paires contre 28,6 % RF v2 et 22,2 % majorité apprise** ; les sessions réelles montrent **40,3 % puis 66,0 %** de likes, comparaison descriptive seulement. | Une cohorte future indépendante et des jugements sur plusieurs candidats d'un même lot. |
+| **C3** | **367 snapshots valides sur 433 avis**, dont 251 v2 ; ETL par compte, cinq températures historiques exclues, suppression testée sur stockages temporaires. | 66 anciens snapshots absents, sauvegardes et rétention réelle à opérer ; aucune conformité RGPD complète. |
+| **C4** | Schéma SQL/JSONB, mesures sur **657 tenues réelles** et benchmark d'index à 100 000 tenues **fictives**, avec coût de 728 Kio. | Charge représentative, coût d'écriture et justification d'une migration réelle. |
 | **C5** | Génération → score personnel ou fallback → avis → réentraînement ; deux utilisateurs et panne testés. | Répétition sur iPhone et réseau de l'oral ; tests techniques ≠ utilité prédictive. |
 
 ## Tests et démonstrations sans données réelles
@@ -104,11 +104,11 @@ Les logs de diagnostic et les sauvegardes privées ont une rétention **proposé
 | Temps | Message et preuve |
 |---:|---|
 | 0:45 | **1 — C1, besoin.** Projet personnel : gagner du temps et redécouvrir son dressing. Auto-essai estimatif, aucun volontaire à ce jour. |
-| 1:00 | **2 — C1, données et 3V.** Météo, dressing SQL, avis/snapshots, photos/logs ; petits volumes, pas de Big Data massif. |
-| 1:15 | **3 — C3, qualité.** Ancien relevé **69 avis → 64**, cinq températures absentes et seulement trois snapshots ; nouveau compte avec snapshots v2 distinct. [Visuel daté](visuels/qualite_avis.png). |
-| 1:00 | **4 — C4, stockage.** SQL relationnel + JSONB ; à 100 000 tenues **fictives**, requête 2,081 → 0,139 ms avec index de 728 Kio ; aucune migration réelle. |
+| 1:00 | **2 — C1, données et 3V.** Relevé local actuel : **657 tenues, 433 avis**, météo, dressing SQL, snapshots, photos/logs ; volume de prototype, pas de Big Data massif. |
+| 1:15 | **3 — C3, qualité.** **367/433 snapshots valides, dont 251 v2** ; cinq températures et 66 snapshots historiques manquants. Le [visuel 69 → 64](visuels/qualite_avis.png) concerne seulement le premier relevé de l'ancien compte. |
+| 1:00 | **4 — C4, stockage.** SQL relationnel + JSONB, mesures en lecture seule sur 657 tenues ; à 100 000 tenues **fictives**, requête 2,081 → 0,139 ms avec index de 728 Kio ; aucune migration réelle. |
 | 1:45 | **5 — C5, programme.** Jusqu'à cinq candidats plausibles, 85 features, modèle articles/paires personnel pour tous, fallback, vote et réentraînement ; démo fictive de secours. |
-| 1:30 | **6 — C2, résultats.** RF historique sous la majorité : 58,2 % contre 63,8 % sur l'ancienne cohorte. Le 21/10, 40,3 % puis 66,0 % de likes sur deux sessions **non comparables causalement**. Sur un seul test chronologique de 63 avis, accuracy logistique articles/paires **42,9 %**, RF **28,6 %**, majorité **22,2 %** ; petit test déséquilibré et déjà exploré, sans validation indépendante. |
+| 1:30 | **6 — C2, résultats.** Montrer le [graphique du test récent](visuels/comparaison_modeles_20261021.svg) : sur les **mêmes 63 avis**, modèle courant **42,9 %**, RF v2 **28,6 %**, majorité apprise **22,2 %** d'accuracy, soit **+14,3 points face au RF**. Test unique, déséquilibré et déjà exploré. Dans l'usage du 21/10, **40,3 % puis 66,0 %** des tenues affichées ont été likées sous deux conditions différentes : indice descriptif, pas preuve causale. |
 | 1:15 | **7 — C3/C5, sécurité.** Session, images privées, suppression/reprise testées en fixtures ; sauvegardes réelles et historique incomplet restent ouverts. |
 | 1:30 | **8 — Décision.** Articles/paires adopté comme choix produit ; avantage prédictif général et qualité du classement non prouvés. Prochaines preuves : volontaires et cohorte future indépendante. |
 
@@ -116,6 +116,7 @@ Les logs de diagnostic et les sauvegardes privées ont une rétention **proposé
 
 - **Pourquoi avoir adopté articles/paires malgré l'incertitude ?** Il encode enfin l'identité des vêtements voulue par le candidat et fonctionne de bout en bout. Le choix est produit ; les données actuelles ne prouvent pas qu'il battra la baseline pour d'autres comptes.
 - **40,3 % contre 66,0 %, est-ce une accuracy ?** Non, c'est la part de tenues affichées aimées dans deux sessions à températures différentes. La version utilisée n'est pas enregistrée par avis ; le changement de modèle n'est pas la seule explication possible.
+- **Le nouveau modèle bat-il le RF ?** **Oui sur le test chronologique hors ligne décrit**, de 42,9 % contre 28,6 % d'accuracy sur les mêmes 63 avis, soit +14,3 points. Un seul test déséquilibré et déjà exploré ne suffit pas à garantir cet écart sur de nouveaux comptes ou températures.
 - **Que devient le RF ?** Référence d'évaluation et anciens Joblib conservés, pas un secours caché au classement. En absence du modèle courant : fallback au ratio de favoris.
 - **Une paire rejetée est-elle bannie ?** Non. Le vote concerne toute la tenue ; le modèle apprend des associations statistiques sur plusieurs avis, et les goûts peuvent évoluer.
 - **Pourquoi pas NDCG@5 ?** Seule la tenue affichée est jugée ; les quatre autres candidats n'ont pas de label.

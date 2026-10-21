@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="390" viewBox="0 0 880 390" role="img" aria-labelledby="title desc">
+  <title id="title">Accuracy des modèles sur le test chronologique du 21 octobre 2026</title>
+  <desc id="desc">Sur les mêmes 63 avis de test, majorité apprise sur l'entraînement 22,2 %, Random Forest outfit-v2 28,6 %, modèle courant logistique articles et paires 42,9 %. Test unique déjà exploré, non indépendant.</desc>
+  <rect width="880" height="390" rx="18" fill="#f8f7f4"/>
+  <text x="42" y="52" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#1e2932">Modèle courant face aux références</text>
+  <text x="42" y="80" font-family="Arial, sans-serif" font-size="15" fill="#57636b">Accuracy · même test chronologique hors ligne · 63 avis réels du compte récent</text>
+  <g stroke="#d9ddde" stroke-width="1">
+    <line x1="290" y1="106" x2="290" y2="289"/>
+    <line x1="413" y1="106" x2="413" y2="289"/>
+    <line x1="535" y1="106" x2="535" y2="289"/>
+    <line x1="658" y1="106" x2="658" y2="289"/>
+    <line x1="780" y1="106" x2="780" y2="289"/>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="14" fill="#66737b" text-anchor="middle">
+    <text x="290" y="309">0 %</text><text x="413" y="309">25 %</text><text x="535" y="309">50 %</text><text x="658" y="309">75 %</text><text x="780" y="309">100 %</text>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="17" fill="#1e2932">
+    <text x="42" y="141">Majorité apprise</text>
+    <text x="42" y="203">Random Forest v2</text>
+    <text x="42" y="265" font-weight="700">Articles + paires</text>
+  </g>
+  <rect x="290" y="116" width="109" height="37" rx="7" fill="#b9c1c5"/>
+  <rect x="290" y="178" width="140" height="37" rx="7" fill="#71848d"/>
+  <rect x="290" y="240" width="210" height="37" rx="7" fill="#14675e"/>
+  <g font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#1e2932">
+    <text x="412" y="141">22,2 %</text>
+    <text x="443" y="203">28,6 %</text>
+    <text x="513" y="265">42,9 %</text>
+  </g>
+  <text x="42" y="347" font-family="Arial, sans-serif" font-size="14" fill="#57636b">49 likes / 14 dislikes au test ; un seul découpage déjà exploré, pas de validation indépendante.</text>
+</svg>
