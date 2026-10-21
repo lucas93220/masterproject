@@ -1,90 +1,7 @@
 /* global __dirname, jest, describe, beforeEach, test, expect */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
-const ts = require("../node_modules/typescript");
-
-// Exécuter le vrai composant avec des hooks et composants natifs simulés.
-// TypeScript est déjà installé : aucune dépendance de rendu ou connexion réelle.
-const sourcePath = path.join(__dirname, "../src/screens/home.js");
-const compiled = ts.transpileModule(fs.readFileSync(sourcePath, "utf8"), {
-  fileName: "home.jsx",
-  compilerOptions: {
-    module: ts.ModuleKind.CommonJS,
-    jsx: ts.JsxEmit.ReactJSX,
-    target: ts.ScriptTarget.ES2020
-  },
-  reportDiagnostics: true
-});
-if (compiled.diagnostics.length) {
-  throw new Error(ts.formatDiagnosticsWithColorAndContext(compiled.diagnostics, {
-    getCanonicalFileName: name => name,
-    getCurrentDirectory: () => __dirname,
-    getNewLine: () => "\n"
-  }));
-}
-
-function createScreen(api) {
-  const hooks = [];
-  const effects = [];
-  let cursor = 0;
-  const react = {
-    useState(initial) {
-      const index = cursor++;
-      if (!(index in hooks)) hooks[index] = initial;
-      return [hooks[index], value => {
-        hooks[index] = typeof value === "function" ? value(hooks[index]) : value;
-      }];
-    },
-    useRef(initial) {
-      const index = cursor++;
-      if (!(index in hooks)) hooks[index] = { current: initial };
-      return hooks[index];
-    },
-    useEffect(callback) {
-      const index = cursor++;
-      if (!(index in hooks)) {
-        hooks[index] = true;
-        effects.push(callback);
-      }
-    }
-  };
-  const alert = jest.fn();
-  const native = { Alert: { alert } };
-  for (const name of ["View", "Text", "ActivityIndicator", "Image", "ScrollView", "TouchableOpacity", "SafeAreaView"]) {
-    native[name] = name;
-  }
-  const element = (type, props) => ({ type, props });
-  const dependencies = {
-    react,
-    "react/jsx-runtime": { jsx: element, jsxs: element },
-    "react-native": native,
-    "@expo/vector-icons": { Ionicons: "Ionicons" },
-    "../services/api": api,
-    "../components/ClothingImage": { default: 'ClothingImage' },
-    "../styles/colors": { COLORS: {} },
-    "../styles/spacing": { SPACING: {} },
-    "../styles/components": { CARD: {}, BUTTON_PRIMARY: {}, BUTTON_TEXT: {} }
-  };
-  const exports = {};
-  vm.runInNewContext(compiled.outputText, {
-    exports,
-    require: name => {
-      if (!(name in dependencies)) throw new Error("Dépendance non simulée : " + name);
-      return dependencies[name];
-    }
-  }, { filename: sourcePath });
-
-  return {
-    alert,
-    effects,
-    render() {
-      cursor = 0;
-      return exports.default();
-    }
-  };
-}
+const { createScreenHarness } = require("./helpers/screenHarness");
+const createScreen = api => createScreenHarness("home", api);
 
 function nodes(tree) {
   if (Array.isArray(tree)) return tree.flatMap(nodes);
@@ -311,4 +228,16 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     await retry.like.props.onPress();
     expect(api.evaluateTenue).toHaveBeenCalledWith(10, true);
   });
+});
+
+test('propose une reprise météo sans générer ni enregistrer d’avis', async () => {
+  const { button } = require('./helpers/screenHarness');
+  const api = { getWeatherForMe: jest.fn().mockRejectedValueOnce(new Error('Hors ligne')).mockResolvedValue({ temperature: 9, icon: '04d' }),
+    generateTenue: jest.fn(), evaluateTenue: jest.fn() };
+  const screen = createScreen(api);
+  screen.render(); screen.effects.forEach(effect => effect()); await flush();
+  expect(text(screen.render())).toContain('Hors ligne');
+  await button(screen.render(), 'Réessayer').props.onPress();
+  expect(button(screen.render(), 'Générer ma tenue')).toBeDefined();
+  expect(api.generateTenue).not.toHaveBeenCalled(); expect(api.evaluateTenue).not.toHaveBeenCalled();
 });

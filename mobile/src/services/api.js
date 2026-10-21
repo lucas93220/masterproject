@@ -165,11 +165,15 @@ export const uploadImage = async (uri, mimeType) => {
   if (!format) throw new Error("Format image non pris en charge : choisir JPEG, PNG ou WebP");
   const formData = new FormData();
 
-  formData.append("image", {
-    uri,
-    name: format.name,
-    type: format.type,
-  });
+  if (/^(?:blob:|data:image\/)/i.test(uri)) {
+    // La photothèque web fournit une URL locale ; le navigateur attend un Blob.
+    // Aucun jeton n'est envoyé lors de la lecture de cette ressource locale.
+    const localImage = await fetch(uri);
+    if (!localImage.ok) throw new Error("Impossible de lire la photo sélectionnée");
+    formData.append("image", await localImage.blob(), format.name);
+  } else {
+    formData.append("image", { uri, name: format.name, type: format.type });
+  }
 
   const response = await fetch(`${API_URL}/upload`, {
     method: "POST",

@@ -139,3 +139,20 @@ describe('API mobile', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+test('envoie un Blob de photothèque web en multipart, sans JWT sur sa lecture locale', async () => {
+  const { api, fetch } = createApi('jeton-fictif');
+  const blob = { type: 'image/png', fixture: true };
+  fetch.mockResolvedValueOnce({ ok: true, blob: async () => blob });
+  await api.uploadImage('blob:http://localhost/fixture', 'image/png');
+  expect(fetch.mock.calls[0]).toEqual(['blob:http://localhost/fixture']);
+  expect(fetch.mock.calls[1][1].body.entries[0]).toEqual(['image', blob, 'photo.png']);
+  expect(fetch.mock.calls[1][1].headers).toEqual({ Authorization: 'Bearer jeton-fictif' });
+});
+
+test('ne téléverse pas une photo web illisible', async () => {
+  const { api, fetch } = createApi('jeton-fictif');
+  fetch.mockResolvedValueOnce({ ok: false });
+  await expect(api.uploadImage('blob:http://localhost/fixture', 'image/jpeg')).rejects.toThrow('Impossible de lire');
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

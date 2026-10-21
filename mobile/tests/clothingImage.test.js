@@ -19,6 +19,7 @@ function component(platform, resolved) {
       useEffect: callback => { effect = callback; } },
     'react/jsx-runtime': { jsx: elements, jsxs: elements },
     'react-native': { Image: 'Image', View: 'View', Text: 'Text', Platform: { OS: platform } },
+    '../styles/colors': { COLORS: {} },
     '../services/api': { imageSource: jest.fn().mockResolvedValue(resolved) }
   };
   const exports = {};

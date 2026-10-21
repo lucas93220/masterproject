@@ -1,23 +1,12 @@
-import {
-  View,
-  Text,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  ActivityIndicator
-} from "react-native";
-import { useState } from "react";
+import { View, Text, Alert } from "react-native";
+import { useRef, useState } from "react";
 import { registerUser } from "../services/api";
-
-import { COLORS } from "../styles/colors";
-import { SPACING } from "../styles/spacing";
-import { BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
+import { Screen, Heading, Field, Button, IconButton, layout } from "../components/ui";
+import { TYPE } from "../styles/theme";
 
 export default function Register({ navigation }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const pending = useRef(false);
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [ville, setVille] = useState("");
@@ -28,6 +17,8 @@ export default function Register({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
+    if (pending.current) return;
+    pending.current = true;
     try {
       setLoading(true);
 
@@ -47,155 +38,36 @@ export default function Register({ navigation }) {
     } catch (error) {
       Alert.alert("Erreur", error.message);
     } finally {
+      pending.current = false;
       setLoading(false);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.card}>
-
-            <Text style={styles.title}>
-              Inscription
-            </Text>
-
-            <TextInput
-              placeholder="Nom"
-              value={nom}
-              onChangeText={setNom}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Prénom"
-              value={prenom}
-              onChangeText={setPrenom}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Ville"
-              value={ville}
-              onChangeText={setVille}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Téléphone"
-              value={telephone}
-              onChangeText={setTelephone}
-              keyboardType="phone-pad"
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Code postal"
-              value={codePostal}
-              onChangeText={setCodePostal}
-              keyboardType="numeric"
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Mot de passe"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TouchableOpacity
-              style={[
-                BUTTON_PRIMARY,
-                { marginTop: SPACING.md, opacity: loading ? 0.7 : 1 }
-              ]}
-              onPress={handleRegister}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={BUTTON_TEXT}>
-                  Créer le compte
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{ marginTop: SPACING.md }}
-              onPress={() => navigation.navigate("Login")}
-            >
-              <Text style={styles.loginText}>
-                Déjà un compte ? Se connecter
-              </Text>
-            </TouchableOpacity>
-
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+  return <Screen scroll keyboard edges={["top", "bottom"]}>
+    <View style={layout.row}><IconButton icon="arrow-back" label="Retour à la connexion" disabled={loading}
+      onPress={() => navigation.navigate("Login")} /><Text style={TYPE.eyebrow}>BIENVENUE CHEZ FITS</Text></View>
+    <Heading title="Ton style commence ici." subtitle="Crée ton compte, ajoute tes pièces et explore les possibilités." />
+    <View style={layout.card}>
+      <Text style={layout.sectionLabel}>01 · TOI</Text>
+      <Field label="Prénom" placeholder="Ton prénom" value={prenom} onChangeText={setPrenom} autoComplete="given-name" editable={!loading} />
+      <Field label="Nom" placeholder="Ton nom" value={nom} onChangeText={setNom} autoComplete="family-name" editable={!loading} />
+      <Field label="Téléphone" placeholder="Ton numéro" value={telephone} onChangeText={setTelephone} keyboardType="phone-pad" autoComplete="tel" editable={!loading} />
+    </View>
+    <View style={layout.card}>
+      <Text style={layout.sectionLabel}>02 · TA MÉTÉO</Text>
+      <Text style={TYPE.caption}>Ta ville nous permet d’adapter les suggestions à la météo.</Text>
+      <Field label="Ville" placeholder="Ta ville" value={ville} onChangeText={setVille} autoComplete="address-level2" editable={!loading} />
+      <Field label="Code postal" placeholder="Ton code postal" value={codePostal} onChangeText={setCodePostal} keyboardType="number-pad" autoComplete="postal-code" editable={!loading} />
+    </View>
+    <View style={layout.card}>
+      <Text style={layout.sectionLabel}>03 · TES IDENTIFIANTS</Text>
+      <Field label="Adresse e-mail" placeholder="toi@exemple.fr" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" editable={!loading} />
+      <Field label="Mot de passe" placeholder="Choisis un mot de passe" value={password} onChangeText={setPassword}
+        secureTextEntry={!showPassword} autoCapitalize="none" autoComplete="new-password" editable={!loading}
+        trailing={<IconButton icon={showPassword ? "eye-off-outline" : "eye-outline"} label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+          onPress={() => setShowPassword(!showPassword)} />} />
+    </View>
+    <Button title="Créer le compte" onPress={handleRegister} loading={loading} icon="arrow-forward" />
+    <Button title="Déjà un compte ? Se connecter" variant="secondary" disabled={loading} onPress={() => navigation.navigate("Login")} />
+  </Screen>;
 }
-
-const styles = {
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: SPACING.lg
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    padding: SPACING.lg,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "600",
-    marginBottom: SPACING.lg,
-    color: COLORS.text
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: SPACING.md,
-    backgroundColor: "#fff"
-  },
-  loginText: {
-    textAlign: "center",
-    color: COLORS.muted,
-    fontSize: 14
-  }
-};

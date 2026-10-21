@@ -1,24 +1,15 @@
-import {
-  View,
-  Text,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-  SafeAreaView
-} from "react-native";
+import { View, Text, Alert, Platform, ActivityIndicator } from "react-native";
 import { useEffect, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteMyAccount, getProfile, updateProfile } from "../services/api";
-
+import { Screen, Heading, Field, Button, EmptyState, layout } from "../components/ui";
 import { COLORS } from "../styles/colors";
-import { SPACING } from "../styles/spacing";
-import { BUTTON_PRIMARY, BUTTON_TEXT } from "../styles/components";
+import { TYPE } from "../styles/theme";
 
 export default function Profile({ navigation }) {
+  const [loadError, setLoadError] = useState(null);
+  const savingRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -31,26 +22,21 @@ export default function Profile({ navigation }) {
   const [telephone, setTelephone] = useState("");
   const [codePostal, setCodePostal] = useState("");
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const user = await getProfile();
-        setNom(user.nom || "");
-        setPrenom(user.prenom || "");
-        setVille(user.ville || "");
-        setTelephone(user.telephone || "");
-        setCodePostal(user.code_postal || "");
-      } catch {
-        Alert.alert("Erreur", "Impossible de charger le profil");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, []);
+  const loadProfile = async () => {
+    setLoading(true); setLoadError(null);
+    try {
+      const user = await getProfile();
+      setNom(user.nom || ""); setPrenom(user.prenom || "");
+      setVille(user.ville || ""); setTelephone(user.telephone || "");
+      setCodePostal(user.code_postal || "");
+    } catch { setLoadError("Impossible de charger le profil. Réessaie pour retrouver tes informations."); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void loadProfile(); }, []);
 
   const handleSave = async () => {
-    if (deletingRef.current) return;
+    if (deletingRef.current || savingRef.current || loadError) return;
+    savingRef.current = true;
     try {
       setSaving(true);
       await updateProfile({
@@ -64,13 +50,17 @@ export default function Profile({ navigation }) {
     } catch {
       Alert.alert("Erreur", "Impossible de sauvegarder");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem("token");
-    navigation.getParent()?.reset({ index: 0, routes: [{ name: "Login" }] });
+    if (savingRef.current || deletingRef.current) return;
+    try {
+      await AsyncStorage.removeItem("token");
+      navigation.getParent()?.reset({ index: 0, routes: [{ name: "Login" }] });
+    } catch { Alert.alert("Déconnexion impossible", "Réessaie pour fermer ta session."); }
   };
 
   const showDeletionMessage = (title, message) => {
@@ -112,7 +102,7 @@ export default function Profile({ navigation }) {
   };
 
   const handleDelete = () => {
-    if (saving || deletingRef.current || confirmationOpenRef.current) return;
+    if (savingRef.current || deletingRef.current || confirmationOpenRef.current) return;
     const title = "Supprimer mon compte ?";
     const message = "Cette action est définitive. Ton profil, ton dressing et tes avis seront supprimés.";
     if (Platform.OS === "web") {
@@ -139,168 +129,45 @@ export default function Profile({ navigation }) {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+  if (loading) return <Screen><View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+    <ActivityIndicator size="large" color={COLORS.primary} /></View></Screen>;
+  if (loadError) return <Screen scroll><Heading eyebrow="TON ESPACE" title="Mon profil." />
+    <EmptyState icon="person-outline" title="Profil indisponible" description={loadError}
+      action={<Button title="Réessayer" onPress={loadProfile} />} />
+    <Button title="Déconnexion" variant="secondary" onPress={handleLogout} />
+  </Screen>;
+  const disabled = saving || deleting;
+  const initials = `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase() || "F";
+  return <Screen scroll keyboard>
+    <Heading eyebrow="TON ESPACE" title="À ton image." subtitle="Tes informations, ton dressing, tes choix." />
+    <View style={{ ...layout.row, backgroundColor: COLORS.primary, padding: 24, borderRadius: 26, gap: 18 }}>
+      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.accent, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: COLORS.primary, fontWeight: "600", fontSize: 24 }}>{initials}</Text>
       </View>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.content}>
-
-          <View style={styles.card}>
-            <Text style={styles.title}>Mon profil</Text>
-
-            <TextInput
-              placeholder="Nom"
-              value={nom}
-              onChangeText={setNom}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Prénom"
-              value={prenom}
-              onChangeText={setPrenom}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Ville"
-              value={ville}
-              onChangeText={setVille}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Téléphone"
-              value={telephone}
-              onChangeText={setTelephone}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TextInput
-              placeholder="Code postal"
-              value={codePostal}
-              onChangeText={setCodePostal}
-              style={styles.input}
-              placeholderTextColor={COLORS.muted}
-            />
-
-            <TouchableOpacity
-              style={[
-                BUTTON_PRIMARY,
-                { marginTop: SPACING.md, opacity: saving || deleting ? 0.7 : 1 }
-              ]}
-              onPress={handleSave}
-              disabled={saving || deleting}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={BUTTON_TEXT}>Enregistrer</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{ marginTop: SPACING.md }}
-              onPress={handleLogout}
-              disabled={deleting}
-            >
-              <Text style={styles.logoutText}>
-                Déconnexion
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={handleDelete}
-              disabled={saving || deleting}
-              accessibilityRole="button"
-              accessibilityLabel="Supprimer mon compte"
-              accessibilityHint="Supprime définitivement le compte après confirmation"
-            >
-              {deleting ? (
-                <ActivityIndicator color={styles.deleteText.color} />
-              ) : (
-                <Text style={styles.deleteText}>Supprimer mon compte</Text>
-              )}
-            </TouchableOpacity>
-
-          </View>
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text style={{ ...TYPE.title, color: "#fff" }}>{prenom || "Mon profil"}</Text>
+        <Text style={{ ...TYPE.caption, color: "#EDF2E8" }}>{ville || "Ta ville reste à renseigner"}</Text>
+      </View>
+    </View>
+    <View style={layout.card}>
+      <Text style={layout.sectionLabel}>MES INFORMATIONS</Text>
+      <Field label="Prénom" placeholder="Ton prénom" value={prenom} onChangeText={setPrenom} editable={!disabled} autoComplete="given-name" />
+      <Field label="Nom" placeholder="Ton nom" value={nom} onChangeText={setNom} editable={!disabled} autoComplete="family-name" />
+      <Field label="Téléphone" placeholder="Ton numéro" value={telephone} onChangeText={setTelephone} editable={!disabled} keyboardType="phone-pad" autoComplete="tel" />
+    </View>
+    <View style={layout.card}>
+      <View style={layout.row}><Ionicons name="location-outline" size={20} color={COLORS.primary} /><Text style={layout.sectionLabel}>MA MÉTÉO LOCALE</Text></View>
+      <Text style={TYPE.caption}>Ta ville permet de récupérer la météo utilisée pour les suggestions.</Text>
+      <Field label="Ville" placeholder="Ta ville" value={ville} onChangeText={setVille} editable={!disabled} autoComplete="address-level2" />
+      <Field label="Code postal" placeholder="Ton code postal" value={codePostal} onChangeText={setCodePostal} editable={!disabled} keyboardType="number-pad" autoComplete="postal-code" />
+    </View>
+    <Button title="Enregistrer" loading={saving} disabled={disabled} icon="checkmark-outline" onPress={handleSave} />
+    <View style={{ gap: 12 }}>
+      <Text style={layout.sectionLabel}>MON COMPTE</Text>
+      <Button title="Déconnexion" variant="secondary" icon="log-out-outline" disabled={disabled} onPress={handleLogout} />
+      <Button title="Supprimer mon compte" variant="danger" icon="trash-outline" loading={deleting} disabled={disabled}
+        accessibilityHint="Supprime définitivement le compte après confirmation" onPress={handleDelete} />
+      <Text style={[TYPE.caption, { textAlign: "center" }]}>La suppression est définitive et nécessite ta confirmation.</Text>
+    </View>
+  </Screen>;
 }
-
-const styles = {
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: SPACING.lg
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    padding: SPACING.lg,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "600",
-    marginBottom: SPACING.lg,
-    color: COLORS.text
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: SPACING.md,
-    backgroundColor: "#fff"
-  },
-  logoutText: {
-    textAlign: "center",
-    color: COLORS.muted,
-    fontSize: 14
-  },
-  deleteButton: {
-    marginTop: SPACING.lg,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#b42318",
-    borderRadius: 12
-  },
-  deleteText: {
-    textAlign: "center",
-    color: "#b42318",
-    fontSize: 14,
-    fontWeight: "600"
-  }
-};

@@ -15,3 +15,17 @@ Avant la démonstration, démarrer aussi PostgreSQL, le backend Node et le servi
 Les images `/uploads` requièrent désormais un JWT et le bon propriétaire. `ClothingImage` transmet le jeton uniquement à l'origine de l'API ; sur le web, l'image est téléchargée avec authentification puis affichée via une URL blob temporaire. Sur iOS/Android, les en-têtes sont portés par la source native. Une ancienne image sans relation au dressing/à une tenue reste inaccessible ; aucune photo existante n'a été supprimée par ce changement. Mettre à jour le mobile et redémarrer Node ensemble pour éviter des images refusées sur un ancien client.
 
 Tests isolés, depuis `mobile` après `npm ci` dans les deux dossiers : `../backend/node_modules/.bin/jest --runInBand tests`. Ils simulent les composants natifs : vérifier aussi les photos sur le téléphone/navigateur réel. L'état technique et les preuves sont dans `../docs/rncp-bloc4/ETAT_ACTUEL.md`.
+
+L’interface partage ses composants dans `src/components/ui.js` et ses couleurs/typographies dans `src/styles`. Le dressing propose une recherche par nom ou marque, des filtres combinables (catégorie, couleur, favoris), un tri local et une actualisation par glissement. Les photos s’affichent entières ; sur l’accueil, un appui ouvre l’aperçu. Les filtres du dressing ne changent pas les recommandations. Les formulaires conservent les contrats API, affichent les valeurs existantes et bloquent les doubles soumissions. Le retrait d’un vêtement est aussi accessible dans sa fiche, avec confirmation.
+
+Contrôle visuel reproductible sur macOS, avec Chrome et Node 24, **sans les services FITS** :
+
+```sh
+# Depuis mobile ; utiliser les dépendances déjà installées.
+CI=1 EXPO_NO_TELEMETRY=1 ./node_modules/.bin/expo export --platform web --output-dir /private/tmp/fits-ui-web
+node scripts/smokeUi.cjs /private/tmp/fits-ui-web
+```
+
+Ce parcours démarre un serveur sur loopback et un profil Chrome temporaire, remplace l’API par des fixtures et bloque les requêtes externes de l’application. Il contrôle connexion, génération/avis, aperçu, dressing/filtres, ajout/modification/catégories et profil. Les captures fictives sont écrites dans le dossier temporaire indiqué ; le profil Chrome est supprimé à la fin. Il ne remplace pas l’essai sur appareil : photothèque et permissions, clavier, VoiceOver/TalkBack, grandes polices, images privées réelles et sauvegarde sur un compte de test restent à vérifier.
+
+Le web est exporté comme application monopage React Navigation. L’ancienne configuration Expo Router inutilisée et la référence au favicon vide ont été retirées. Les autres fichiers d’icônes natifs du dépôt sont encore vides : les exports de bundles ne valident pas l’habillage d’un binaire destiné aux stores.
