@@ -20,7 +20,9 @@ describe("Envoi du dataset au service ML", () => {
   test("conserve le contrat POST /train et la réponse existante", async () => {
     const data = [{
       temperature: 18, nb_vetements: 2, nb_favoris: 1, ratio_favoris: 0.5,
-      zone_torse: 1, zone_jambes: 1, is_liked: 0
+      zone_torse: 1, zone_jambes: 1, is_liked: 0,
+      garment_ids: [1, 2], garment_ids_source: 'snapshot',
+      id_tenue: 10, reviewed_at: '2026-01-01T00:00:00Z'
     }];
     buildTrainingDataset.mockResolvedValue(data);
     postToMl.mockResolvedValue({ data: { status: "model trained" } });
@@ -32,9 +34,12 @@ describe("Envoi du dataset au service ML", () => {
 
     expect(buildTrainingDataset).toHaveBeenCalledWith(7, expect.objectContaining({
       version: "outfit-v2-test"
-    }));
+    }), { includeInteractionMetadata: true });
     expect(postToMl).toHaveBeenCalledWith("train", {
-      data, feature_version: "outfit-v2-test",
+      data: [{ temperature: 18, nb_vetements: 2, nb_favoris: 1,
+        ratio_favoris: 0.5, zone_torse: 1, zone_jambes: 1,
+        is_liked: 0, garment_ids: [1, 2] }],
+      feature_version: "outfit-v2-test", representation_version: 'items-pairs-v1',
       feature_catalog: { zones: [], categories: [], subcategories: [] }
     }, 7);
     expect(res.json).toHaveBeenCalledWith({ message: "Model trained successfully" });
@@ -49,7 +54,7 @@ describe("Envoi du dataset au service ML", () => {
     await trainModel({ user: { id: 7 } }, res, jest.fn());
 
     expect(postToMl).toHaveBeenCalledWith("train", {
-      data: [], feature_version: "outfit-v2-test",
+      data: [], feature_version: "outfit-v2-test", representation_version: 'items-pairs-v1',
       feature_catalog: { zones: [], categories: [], subcategories: [] }
     }, 7);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
@@ -75,7 +80,8 @@ describe("Envoi du dataset au service ML", () => {
     const res = { json: jest.fn() };
     await predict({ user: { id: 7 }, body: { ratio_favoris: 0.5, user_id: 99 } }, res, jest.fn());
     expect(postToMl).toHaveBeenCalledWith("predict", {
-      ratio_favoris: 0.5, user_id: 99, feature_version: "outfit-v2-test"
+      ratio_favoris: 0.5, user_id: 99, feature_version: "outfit-v2-test",
+      representation_version: 'items-pairs-v1'
     }, 7);
     expect(res.json).toHaveBeenCalledWith({ probability_like: 0.7 });
   });

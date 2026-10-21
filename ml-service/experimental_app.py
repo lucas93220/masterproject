@@ -1,4 +1,4 @@
-"""Opt-in service. Separate artifacts; never loads or trains the reference RF."""
+"""Default articles/pairs service. Separate artifacts from the reference RF."""
 
 import fcntl
 import os
@@ -18,7 +18,7 @@ from app import _authenticated_user, _fallback, _lock_for, _setting
 from interaction_model import (REPRESENTATION_VERSION, fit_candidate,
                                predict_candidates, validate_observation)
 
-app = FastAPI(title='FITS — expérimentation articles et paires')
+app = FastAPI(title='FITS — recommandation articles et paires')
 
 
 class TrainingRequest(BaseModel):
@@ -36,29 +36,29 @@ class PredictionRequest(BaseModel):
 def _directory():
     configured = os.getenv('ML_EXPERIMENTAL_MODELS_DIR')
     if not configured or not Path(configured).is_absolute():
-        raise HTTPException(503, 'Répertoire expérimental absolu requis')
+        raise HTTPException(503, 'Répertoire des modèles articles/paires absolu requis')
     directory = Path(configured).resolve()
     repo = Path(__file__).resolve().parent.parent
     reference = Path(os.getenv('ML_MODELS_DIR', repo / 'ml-service' / 'models')).resolve()
     if (directory == reference or directory in reference.parents or reference in directory.parents
             or directory == repo or repo in directory.parents or directory in repo.parents):
-        raise HTTPException(503, 'Le stockage expérimental doit être séparé du dépôt et des modèles de référence')
+        raise HTTPException(503, 'Le stockage articles/paires doit être séparé du dépôt et des modèles de référence')
     # Provision only a new or empty private directory; never adopt an existing model store.
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     marker = directory / '.fits-items-pairs-v1'
     with _lock_for('experiment-directory'):
         if marker.is_symlink():
-            raise HTTPException(503, 'Marqueur expérimental invalide')
+            raise HTTPException(503, 'Marqueur de modèle invalide')
         if not marker.exists():
             if any(directory.iterdir()):
-                raise HTTPException(503, 'Répertoire expérimental non vide et non initialisé')
+                raise HTTPException(503, 'Répertoire de modèles non vide et non initialisé')
             try:
                 with marker.open('x') as stream:
                     stream.write(REPRESENTATION_VERSION)
             except FileExistsError:
                 pass
         if marker.read_text() != REPRESENTATION_VERSION:
-            raise HTTPException(503, 'Marqueur expérimental incompatible')
+            raise HTTPException(503, 'Marqueur de modèle incompatible')
     return directory
 
 
@@ -84,7 +84,7 @@ def _check_request(feature_version, representation_version):
 
 def _check_deleted(path):
     if path.with_suffix('.deleted').exists():
-        raise HTTPException(410, 'Compte ML expérimental supprimé')
+        raise HTTPException(410, 'Compte ML supprimé')
 
 
 @app.post('/train')
@@ -92,7 +92,7 @@ def train(request: TrainingRequest, user_id: int = Depends(_authenticated_user))
     _check_request(request.feature_version, request.representation_version)
     rows = request.data
     if len(rows) > 50000:
-        raise HTTPException(422, 'Dataset trop volumineux pour cet essai local')
+        raise HTTPException(422, 'Dataset trop volumineux')
     try:
         names = validate_observation(rows[0], training=True) if rows else []
         for row in rows:
@@ -124,7 +124,7 @@ def train(request: TrainingRequest, user_id: int = Depends(_authenticated_user))
                 temporary.unlink(missing_ok=True)
         except Exception as error:
             # Never expose dataset contents or serializer details to the client.
-            raise HTTPException(503, 'Entraînement expérimental indisponible ; modèle précédent conservé') from error
+            raise HTTPException(503, 'Entraînement indisponible ; modèle précédent conservé') from error
     return {'status': 'model trained', 'model_variant': REPRESENTATION_VERSION,
             'model_revision': revision, **summary}
 

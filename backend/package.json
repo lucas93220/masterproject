@@ -12,6 +12,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
+    "ml:services": "node scripts/startMlServices.js",
     "test": "jest",
     "test:isolated": "node scripts/runIsolatedChecks.js"
   },

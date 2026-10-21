@@ -8,7 +8,7 @@ jest.mock('../services/outfitFeatures', () => ({
 jest.mock('../config/db', () => { throw new Error('Aucune base réelle autorisée'); });
 
 const axios = require('axios');
-const { experimentFor, experimentalUrl } = require('../services/mlExperiment');
+const { experimentalUrl } = require('../services/mlExperiment');
 const { postToMl } = require('../services/mlClient');
 const { buildTrainingDataset } = require('../services/trainingDataset');
 const { loadFeatureSchema } = require('../services/outfitFeatures');
@@ -26,7 +26,6 @@ beforeEach(() => {
   for (const key of keys) delete process.env[key];
   process.env.ML_SERVICE_SECRET = 'fake-test-secret';
   process.env.ML_EXPERIMENTAL_URL = 'http://127.0.0.1:8001';
-  process.env.ML_EXPERIMENTAL_USER_ID = '7';
   loadFeatureSchema.mockResolvedValue(schema);
 });
 afterAll(() => {
@@ -36,19 +35,18 @@ afterAll(() => {
   }
 });
 
-test('opt-in limité au compte serveur ; le corps ne peut choisir le modèle d’autrui', async () => {
+test('articles/paires est le modèle normal de chaque compte authentifié', async () => {
   axios.post.mockResolvedValue({ data: {} });
-  expect(experimentFor(7)).toBe(true);
-  expect(experimentFor(8)).toBe(false);
+  expect(experimentalUrl()).toBe('http://127.0.0.1:8001');
   await postToMl('train', { user_id: 8 }, 7);
   await postToMl('train', { user_id: 7 }, 8);
   expect(axios.post.mock.calls[0][0]).toBe('http://127.0.0.1:8001/train');
   expect(axios.post.mock.calls[0][2].headers['X-FITS-USER-ID']).toBe('7');
-  expect(axios.post.mock.calls[1][0]).toBe('http://127.0.0.1:8000/train');
-  delete process.env.ML_EXPERIMENTAL_USER_ID;
-  expect(experimentFor(7)).toBe(false);
+  expect(axios.post.mock.calls[1][0]).toBe('http://127.0.0.1:8001/train');
+  expect(axios.post.mock.calls[1][2].headers['X-FITS-USER-ID']).toBe('8');
+  delete process.env.ML_EXPERIMENTAL_URL;
   await postToMl('train', {}, 7);
-  expect(axios.post.mock.calls[2][0]).toBe('http://127.0.0.1:8000/train');
+  expect(axios.post.mock.calls[2][0]).toBe('http://127.0.0.1:8001/train');
 });
 
 test.each(['http://127.0.0.1:8000', 'http://remote.test:8001',
@@ -58,18 +56,18 @@ test.each(['http://127.0.0.1:8000', 'http://remote.test:8001',
   expect(experimentalUrl).toThrow();
 });
 
-test('une configuration partielle, un identifiant ambigu ou la production sont refusés', () => {
+test('le service normal reste disponible en production et sans option de compte', () => {
   process.env.NODE_ENV = 'production';
-  expect(() => experimentFor(7)).toThrow();
+  expect(experimentalUrl()).toBe('http://127.0.0.1:8001');
   delete process.env.NODE_ENV;
   process.env.ML_EXPERIMENTAL_USER_ID = '07';
-  expect(() => experimentFor(7)).toThrow();
+  expect(experimentalUrl()).toBe('http://127.0.0.1:8001');
   delete process.env.ML_EXPERIMENTAL_URL;
-  expect(() => experimentFor(7)).toThrow();
+  expect(experimentalUrl()).toBe('http://127.0.0.1:8001');
   expect(axios.post).not.toHaveBeenCalled();
 });
 
-test('l’entraînement expérimental garde uniquement les identités figées du compte', async () => {
+test('l’entraînement courant garde uniquement les identités figées du compte', async () => {
   buildTrainingDataset.mockResolvedValue([
     { temperature: 18, is_liked: 1, garment_ids: [1, 4], garment_ids_source: 'snapshot',
       id_tenue: 100, reviewed_at: '2026-01-01T00:00:00Z' },
@@ -91,8 +89,8 @@ test('l’entraînement expérimental garde uniquement les identités figées du
 
 test('la génération fournit les identités serveur dans un seul lot et retient le meilleur score', async () => {
   axios.post.mockResolvedValue({ data: { predictions: [
-    { probability_like: 0.2, model_used: 'personalized', model_revision: 'one' },
-    { probability_like: 0.8, model_used: 'personalized', model_revision: 'one' }
+    { probability_like: 0.2, model_used: 'personalized', model_variant: 'items-pairs-v1', model_revision: 'one' },
+    { probability_like: 0.8, model_used: 'personalized', model_variant: 'items-pairs-v1', model_revision: 'one' }
   ] } });
   const result = await rankCandidates(candidates, 18, schema, 7);
   expect(result.candidate).toBe(candidates[1]);
@@ -104,8 +102,8 @@ test('la génération fournit les identités serveur dans un seul lot et retient
 test.each([
   [], [{ probability_like: 0.9, model_used: 'personalized' }],
   [{ probability_like: NaN }, { probability_like: 0.5 }],
-  [{ probability_like: 0.9, model_used: 'personalized', model_revision: 'old' },
-    { probability_like: 0.7, model_used: 'personalized', model_revision: 'new' }]
+  [{ probability_like: 0.9, model_used: 'personalized', model_variant: 'items-pairs-v1', model_revision: 'old' },
+    { probability_like: 0.7, model_used: 'personalized', model_variant: 'items-pairs-v1', model_revision: 'new' }]
 ])('lot invalide : fallback complet, sans appel au modèle de référence', async (...predictions) => {
   axios.post.mockResolvedValue({ data: { predictions } });
   const result = await rankCandidates(candidates, 18, schema, 7);
@@ -125,7 +123,7 @@ test('un candidat sans identité fiable ne part pas au ML', async () => {
   expect(axios.post).not.toHaveBeenCalled();
 });
 
-test('suppression des deux modèles même après désactivation ; échec signalé pour la reprise', async () => {
+test('suppression des deux modèles, y compris RF historique ; échec signalé pour la reprise', async () => {
   delete process.env.ML_EXPERIMENTAL_USER_ID;
   axios.post.mockResolvedValue({ data: { status: 'deleted' } });
   await postToMl('delete-model', {}, 7);

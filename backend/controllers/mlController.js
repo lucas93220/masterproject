@@ -1,23 +1,21 @@
 const { buildTrainingDataset } = require("../services/trainingDataset");
 const { postToMl } = require("../services/mlClient");
 const { loadFeatureSchema } = require("../services/outfitFeatures");
-const { experimentFor, REPRESENTATION_VERSION } = require('../services/mlExperiment');
+const { REPRESENTATION_VERSION } = require('../services/mlExperiment');
 
 exports.trainModel = async (req, res, next) => {
   try {
     const schema = await loadFeatureSchema();
-    const experimental = experimentFor(req.user.id);
-    const source = experimental
-      ? await buildTrainingDataset(req.user.id, schema, { includeInteractionMetadata: true })
-      : await buildTrainingDataset(req.user.id, schema);
-    // Reconstructed historical identities are never used to train the experiment.
-    const dataset = experimental ? source.filter(row => row.garment_ids_source === 'snapshot')
-      .map(({ id_tenue, garment_ids_source, reviewed_at, ...row }) => row) : source;
+    const source = await buildTrainingDataset(req.user.id, schema,
+      { includeInteractionMetadata: true });
+    // Reconstructed historical identities are never used to train the current model.
+    const dataset = source.filter(row => row.garment_ids_source === 'snapshot')
+      .map(({ id_tenue, garment_ids_source, reviewed_at, ...row }) => row);
 
     const response = await postToMl("train", {
       data: dataset,
       feature_version: schema.version,
-      ...(experimental ? { representation_version: REPRESENTATION_VERSION } : {}),
+      representation_version: REPRESENTATION_VERSION,
       feature_catalog: {
         zones: schema.zoneNames,
         categories: schema.categoryVocabulary,
@@ -46,7 +44,7 @@ exports.predict = async (req, res, next) => {
     const response = await postToMl("predict", {
       ...features,
       feature_version: schema.version,
-      ...(experimentFor(req.user.id) ? { representation_version: REPRESENTATION_VERSION } : {})
+      representation_version: REPRESENTATION_VERSION
     }, req.user.id);
 
     res.json(response.data);

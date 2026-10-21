@@ -68,7 +68,7 @@ beforeEach(async () => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
   jest.spyOn(console, 'error').mockImplementation(() => {});
   await db.query('TRUNCATE utilisateur, categorie, zone RESTART IDENTITY CASCADE');
-  for (const name of ['uploads', 'models', 'jobs']) {
+  for (const name of ['uploads', 'models', 'interactions', 'jobs']) {
     await fs.rm(path.join(root, name), { recursive: true, force: true });
     await fs.mkdir(path.join(root, name), { mode: 0o700 });
   }
@@ -140,12 +140,18 @@ test('parcours réel SQL/HTTP : génération, avis, 85 features figées, entraî
   }
   expect(await buildTrainingDataset(1, schema)).toHaveLength(20);
   expect(await buildTrainingDataset(2, schema)).toHaveLength(20);
-  const response1 = await postToMl('predict', { ...candidate, feature_version: schema.version }, 1);
-  const response2 = await postToMl('predict', { ...candidate, feature_version: schema.version }, 2);
+  const prediction = { ...candidate, feature_version: schema.version,
+    representation_version: 'items-pairs-v1',
+    garment_ids: generated.body.vetements.map(item => item.id_vetement).sort((a, b) => a - b) };
+  const response1 = await postToMl('predict', prediction, 1);
+  const response2 = await postToMl('predict', prediction, 2);
   expect(response1.data.model_used).toBe('personalized');
   expect(response2.data.model_used).toBe('personalized');
   expect(response2.data.probability_like).toBeGreaterThan(response1.data.probability_like);
-  expect((await fs.readdir(path.join(root, 'models'))).sort()).toEqual(['user_1.joblib', 'user_2.joblib']);
+  const artifacts = await fs.readdir(path.join(root, 'interactions'));
+  expect(artifacts).toContain('user_1.joblib');
+  expect(artifacts).toContain('user_2.joblib');
+  expect(await fs.readdir(path.join(root, 'models'))).toEqual([]);
   const generatedAgain = await authenticated(request(server).get('/api/tenue/generate?temperature=18'));
   expect(generatedAgain.body.recommendation.model_used).toBe('personalized');
 });
@@ -248,9 +254,9 @@ test('sauvegarde/restauration PostgreSQL fictive : un compte effacé réapparu r
 test('service ML qui ne répond plus : génération bornée et fallback explicite via HTTP réel', async () => {
   const hanging = http.createServer(() => {});
   await new Promise(resolve => hanging.listen(0, '127.0.0.1', resolve));
-  const originalUrl = process.env.ML_SERVICE_URL;
+  const originalUrl = process.env.ML_EXPERIMENTAL_URL;
   const originalTimeout = process.env.ML_PREDICT_TIMEOUT_MS;
-  process.env.ML_SERVICE_URL = `http://127.0.0.1:${hanging.address().port}`;
+  process.env.ML_EXPERIMENTAL_URL = `http://127.0.0.1:${hanging.address().port}`;
   process.env.ML_PREDICT_TIMEOUT_MS = '40';
   try {
     const result = await authenticated(request(server).get('/api/tenue/generate?temperature=18')).timeout(3000);
@@ -258,7 +264,7 @@ test('service ML qui ne répond plus : génération bornée et fallback explicit
     expect(result.body.vetements).toHaveLength(3);
     expect(result.body.recommendation).toEqual({ model_used: 'fallback', reason: 'ml_unavailable' });
   } finally {
-    process.env.ML_SERVICE_URL = originalUrl;
+    process.env.ML_EXPERIMENTAL_URL = originalUrl;
     if (originalTimeout === undefined) delete process.env.ML_PREDICT_TIMEOUT_MS;
     else process.env.ML_PREDICT_TIMEOUT_MS = originalTimeout;
     hanging.closeAllConnections();

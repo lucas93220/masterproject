@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { mlTimeout } = require('./mlTimeout');
-const { experimentFor, experimentalUrl } = require('./mlExperiment');
+const { experimentalUrl } = require('./mlExperiment');
 
 function postToMl(endpoint, payload, userId, { timeout } = {}) {
   if (!Number.isSafeInteger(userId) || userId <= 0 || userId > 2147483647) {
@@ -20,16 +20,15 @@ function postToMl(endpoint, payload, userId, { timeout } = {}) {
     },
     timeout: Number.isInteger(timeout) && timeout > 0 ? timeout : mlTimeout(endpoint)
   };
-  // Deletion covers both stores even after disabling the account experiment.
-  // Keep ML_EXPERIMENTAL_URL configured until its private store is retired.
-  if (endpoint === 'delete-model' && experimentalUrl()) {
+  const interactionUrl = experimentalUrl();
+  // Delete both the active interaction model and any legacy RF artifact.
+  if (endpoint === 'delete-model') {
     return Promise.all([
       axios.post(`${baseUrl}/${endpoint}`, payload, options),
-      axios.post(`${experimentalUrl()}/${endpoint}`, payload, options)
+      axios.post(`${interactionUrl}/${endpoint}`, payload, options)
     ]).then(([response]) => response);
   }
-  const target = experimentFor(userId) ? experimentalUrl() : baseUrl;
-  return axios.post(`${target}/${endpoint}`, payload, options);
+  return axios.post(`${interactionUrl}/${endpoint}`, payload, options);
 }
 
 module.exports = { postToMl };

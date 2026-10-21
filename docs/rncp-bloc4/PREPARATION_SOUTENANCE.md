@@ -1,169 +1,125 @@
-# FITS — Préparation pratique de la soutenance
+# FITS — Préparation de la soutenance RNCP bloc 4
 
-Ce guide regroupe les commandes sûres, la démo, le protocole des volontaires et la trame orale. Les faits et métriques sont dans [l'état actuel](ETAT_ACTUEL.md) et les pièces à montrer dans les [fiches C1–C5](preuves/). Ne montrer ni `.env`, JWT, secret ML, e-mail, export individuel, ni photographie privée.
+Ce guide correspond au **fonctionnement courant** décrit dans [l'état actuel](ETAT_ACTUEL.md) : modèle personnel **articles/paires pour tous les comptes**, Random Forest conservé comme **référence comparative**. Les pièces détaillées sont [C1](preuves/C1_BESOIN.md), [C2](preuves/C2_MODELE.md), [C3](preuves/C3_DONNEES.md), [C4](preuves/C4_STOCKAGE.md) et [C5](preuves/C5_PROGRAMME.md). La grille fournie et validée par l'établissement décide « valide / non valide » pour chaque axe ; aucun dossier REX séparé n'est demandé selon le candidat.
 
-## Preuves par compétence
+Ne montrer au jury ni `.env`, JWT, secret ML, e-mail, photographie privée, export de préférences individuelles ou identifiant de vêtement d'un compte réel. Les graphiques historiques et le benchmark fictif portent leur population et leur date : ne pas les faire passer pour les performances du modèle courant.
 
-| Axe | Pièce à montrer | Phrase juste et limite |
+## Ce qu'il faut montrer par axe
+
+| Axe | Pièce et phrase défendable | Ce qui manque |
 |---|---|---|
-| C1 — besoin/3V | [Fiche C1](preuves/C1_BESOIN.md) | Finalités définies ; auto-essai personnel estimatif documenté, effets encore non mesurés auprès de volontaires. |
-| C2 — conception/évaluation ML | [Fiche C2](preuves/C2_MODELE.md) | RF sous la baseline sur les anciens relevés ; signal différent sur 82 avis v2 à 18 °C, sans généralisation démontrée. |
-| C3 — ETL/qualité/protection | [Fiche C3](preuves/C3_DONNEES.md) | Snapshots et protections testés ; exploitation réelle de l'historique et des sauvegardes incomplète. |
-| C4 — bases de données | [Fiche C4](preuves/C4_STOCKAGE.md) | Index mesuré sur données fictives, sans migration réelle. |
-| C5 — programme IA | [Fiche C5](preuves/C5_PROGRAMME.md) | Pipeline, isolation et fallback testés ; bénéfice métier non prouvé par ces tests. |
+| **C1** | Besoin personnel, parcours et 3V ; auto-essai du concepteur comme estimation. | Retours indépendants de 2–3 volontaires et gain de temps chronométré. |
+| **C2** | Score courant articles/paires, RF et classe majoritaire comparés **hors ligne** ; sessions du 21/10 séparées. | Une cohorte future indépendante et des jugements sur plusieurs candidats d'un même lot. |
+| **C3** | Snapshot v2, ETL par utilisateur, exclusion expliquée des cinq températures historiques, suppression testée sur stockages temporaires. | Historique non attribuable, sauvegardes et rétention réelle à opérer ; aucune conformité RGPD complète. |
+| **C4** | Schéma SQL/JSONB et benchmark d'index à 100 000 tenues **fictives**, avec coût de 728 Kio. | Charge représentative, coût d'écriture et justification d'une migration réelle. |
+| **C5** | Génération → score personnel ou fallback → avis → réentraînement ; deux utilisateurs et panne testés. | Répétition sur iPhone et réseau de l'oral ; tests techniques ≠ utilité prédictive. |
 
-Les [visuels](visuels/) sont datés et décrits dans les fiches. Le graphique RF/baseline porte sur l'ancien compte ; le compte récent est documenté séparément dans C2. Ne pas mélanger leurs chiffres.
+## Tests et démonstrations sans données réelles
 
-## Démo isolée et tests sûrs
+**Après le basculement du 21/10/2026**, les suites complètes ont réussi : **179 tests backend dans 24 suites**, **51 tests Python**, **63 tests mobile dans neuf suites**, et **six scénarios d'intégration** avec PostgreSQL, MongoDB et deux FastAPI temporaires. Le pont Node → vrai Python articles/paires est inclus dans les tests backend. Le nouveau lanceur a aussi démarré les deux services sur des ports de test avec un secret fictif ; leurs pages OpenAPI ont répondu HTTP 200, puis les processus ont été arrêtés. Le lint mobile et les exports Expo web/iOS avaient réussi sur le code fusionné avant ce basculement ; aucun écran mobile n'a changé depuis. Ces vérifications prouvent le logiciel sur fixtures, pas la performance réelle des recommandations ni le rendu final sur iPhone.
 
-**Dernière exécution complète documentée du 14/10/2026 : 222 tests réussis** : 159 backend (22 suites), six scénarios avec vrais stockages temporaires, 35 Python et 22 mobile. Lors du tri documentaire, 81 tests backend sans ouverture de port, 35 tests Python et 22 tests mobile ont été relancés avec succès ; le sandbox a refusé le port requis par la suite backend complète. Un essai intermédiaire antérieur du pont Python a atteint son délai de 60 s ; relancé seul puis dans les suites finales, il a réussi sans modification du modèle. La cause de cet incident ponctuel n'a pas été établie. Les tests n'ont pas modifié les données applicatives ; l'essai d'interactions local décrit dans la [fiche C2](preuves/C2_MODELE.md) est en lecture seule.
-
-Les fichiers npm `package.json`/`package-lock.json` ne sont plus ignorés par Git. Après récupération du dépôt, installer avec `npm ci` dans `backend` et `mobile`. Sur le Mac utilisé :
+Pour les tests locaux, `backend/jest.config.js` écarte les anciens tests dangereux par défaut. Depuis `backend` :
 
 ```sh
-# Depuis backend : le fichier jest.config.js exclut les tests dangereux par défaut.
 ML_TEST_PYTHON=/opt/anaconda3/bin/python3 npm test -- --runInBand
+```
 
-# Depuis mobile : réutilise Jest déjà présent dans backend.
+La suite complète de fixtures demande `initdb`, `pg_ctl`, `pg_dump`, `pg_restore` et un binaire `mongod` de test, puis démarre **un PostgreSQL, un MongoDB et deux FastAPI temporaires** sans lire le `.env` applicatif :
+
+```sh
+ML_TEST_PYTHON=/opt/anaconda3/bin/python3 FITS_TEST_MONGOD=/chemin/vers/mongod npm run test:isolated
+```
+
+Le téléchargement facultatif du binaire Mongo est décrit dans [prepareMongoTestTool.py](../../backend/scripts/prepareMongoTestTool.py) ; le lanceur vérifie la cible et utilise des dossiers sous `/private/tmp`. Il n'est pas nécessaire de télécharger quoi que ce soit pendant l'oral. Les tests mobile depuis `mobile` utilisent Jest du backend :
+
+```sh
 ../backend/node_modules/.bin/jest --runInBand tests
+npm run lint
 ```
 
-Pour le test complet, `initdb`, `pg_ctl`, `pg_dump` et `pg_restore` (PostgreSQL 14 utilisé pour la preuve) doivent être sur le PATH. Le lanceur crée **un nouveau cluster PostgreSQL**, avec socket Unix dans son dossier privé, **un nouveau MongoDB** sur un port loopback libre et **un nouveau FastAPI** avec secret de test et dossier Joblib temporaire. Il vérifie leurs répertoires avant écriture et les arrête/nettoie à la fin ; il ne charge aucun `.env`. La fixture SQL reproduit les colonnes/nullabilités et contraintes vérifiées en lecture seule ; elle n'est pas une migration.
+Depuis `ml-service`, les démonstrations suivantes utilisent **des données synthétiques et des dossiers temporaires** ; elles ne modifient aucun compte réel ni Joblib applicatif :
 
 ```sh
-# Depuis backend ; macOS ARM64, Python 3.13 avec les dépendances du service ML.
-# Facultatif si mongod est déjà disponible : téléchargement officiel isolé du serveur.
-export FITS_TEST_MONGOD="$(/opt/anaconda3/bin/python3 scripts/prepareMongoTestTool.py)"
-ML_TEST_PYTHON=/opt/anaconda3/bin/python3 npm run test:isolated
-
-# Même test suivi du benchmark C4 ; le fichier de sortie doit ne pas exister.
-ML_TEST_PYTHON=/opt/anaconda3/bin/python3 npm run test:isolated -- \
-  --benchmark-report /private/tmp/fits-benchmark-reproduction.json
+PYTHONDONTWRITEBYTECODE=1 /opt/anaconda3/bin/python3 demo_interactions.py
+PYTHONDONTWRITEBYTECODE=1 /opt/anaconda3/bin/python3 demo_isolated.py
 ```
 
-L'outil Mongo téléchargé est la version **8.0.16**, vérifiée contre son SHA256 publié, décompressée sous `/private/tmp/fits-mongo-tool-*`, sans service système installé. Réutiliser le même binaire pour les essais ; supprimer ensuite uniquement ce dossier de téléchargement si souhaité. Le téléchargement requiert Internet ; une fois les outils installés, le test fonctionne localement. Source : [installation par archive officielle MongoDB](https://www.mongodb.com/docs/v8.0/tutorial/install-mongodb-on-os-x-tarball/). Il ne teste pas les droits, la réplication ou les sauvegardes du cluster Mongo distant existant.
+La première montre deux préférences d'associations opposées et un fallback ; la seconde prouve le parcours RF de référence et son isolation. Ne pas présenter leurs scores comme une mesure de performance réelle. Ne pas appeler manuellement `POST /api/ml/train` sur les avis réels pour une simple répétition : cela peut remplacer le modèle articles/paires du compte.
 
-Depuis la racine du dépôt, les commandes suivantes n'écrivent ni dans PostgreSQL ni dans les Joblib de l'application. Installer les dépendances du projet dans un environnement isolé si nécessaire ; `ml-service/requirements.txt` décrit les versions directes. `demo_isolated.py` utilise un secret fictif, 30 lignes synthétiques et un dossier temporaire.
+## Démonstration et contrôle du réseau
+
+Avant la répétition, vérifier quelle base PostgreSQL, quel MongoDB et quel dossier de modèles sont configurés. Démarrer les services dans trois terminaux, depuis leurs dossiers respectifs :
 
 ```sh
-cd ml-service
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-PYTHONDONTWRITEBYTECODE=1 python3 demo_isolated.py
+# Terminal 1, depuis backend : RF 8000 + modèle courant articles/paires 8001
+ML_PYTHON=/opt/anaconda3/bin/python3 npm run ml:services
+
+# Terminal 2, depuis backend
+npm run dev
+
+# Terminal 3, depuis mobile
+npm run start -- --clear
 ```
 
-Sortie attendue observée le 13/10/2026 : `train_status: model trained`, `meme_utilisateur: personalized`, `autre_utilisateur: fallback`, `raison_fallback: no_model`. Vérifier la sortie sur le Mac de présentation. Le vieux test qui écrivait dans la base de développement a été retiré ; les tests avec moteurs réels passent uniquement par le lanceur isolé. Ne pas lancer `POST /api/ml/train` sur les avis historiques pour une répétition : cela pourrait remplacer un Joblib personnel.
+Le lanceur lit le secret commun depuis `backend/.env` sans l'afficher. Il utilise par défaut `~/.fits/models/items-pairs-v1`. Sur **ce Mac**, le Joblib articles/paires du compte de test a été **copié sans écraser l'original** depuis `/private/tmp` dans ce dossier, puis la copie a été vérifiée identique ; il n'est pas suivi par Git. Sur un autre Mac ou si ce dossier est absent, préciser `ML_EXPERIMENTAL_MODELS_DIR` vers un stockage privé existant ou accepter un premier `fallback/no_model` avant réentraînement. Le port 8000 garde les anciens Joblib RF pour leur suppression, mais ne classe plus les tenues. Le port 8001 est indispensable au score courant. Le backend et la météo requièrent aussi PostgreSQL et MongoDB joignables.
 
-Pour actualiser ultérieurement les mesures agrégées **en lecture seule**, uniquement après avoir vérifié les environnements ciblés :
-
-```sh
-cd backend
-node scripts/diagnosePostgres.js
-node scripts/reportEvaluationQuality.js
-node scripts/diagnoseMongo.js
-```
-
-`diagnoseMongo.js` contacte la base Mongo distante. L'export privé (`backend/scripts/exportEvaluationDataset.js`) crée un JSON de préférences individuelles hors Git et les scripts `ml-service/evaluate.py`, `evaluate_robust.py` et `audit_final_ml.py` l'analysent sans entraîner les Joblib applicatifs. La procédure et les limites sont dans la [fiche C2](preuves/C2_MODELE.md). Ne publier que les agrégats autorisés ; les nouvelles métriques remplacent les chiffres datés uniquement avec leur protocole et leur population.
-
-## Activation locale des corrections et cycle de vie
-
-Les tests utilisent leurs propres processus. Pour essayer **l'application existante**, arrêter normalement les anciens Node/Python depuis leurs terminaux, puis redémarrer le backend (`cd backend`, `npm run dev`) et recharger Expo. Pour Python, le lancement suivant reprend les variables du `.env` backend **sans afficher le secret**, avec un seul worker ; vérifier que le port 8000 est libre avant lancement :
-
-```sh
-# Depuis backend, dans un autre terminal
-ML_PYTHON=/opt/anaconda3/bin/python3 node - <<'JS'
-require('dotenv').config({ quiet: true });
-const { spawn } = require('node:child_process');
-const child = spawn(process.env.ML_PYTHON, [
-  '-m', 'uvicorn', 'app:app', '--host', '127.0.0.1', '--port', '8000', '--workers', '1'
-], { cwd: '../ml-service', env: process.env, stdio: 'inherit' });
-child.on('error', () => { console.error('Démarrage Python impossible'); process.exitCode = 1; });
-child.on('exit', code => { process.exitCode = code || 0; });
-JS
-```
-
-Vérifier ensuite la connexion, les photos du dressing, l'aperçu de modification, les images de la tenue et les boutons avec VoiceOver si disponible. Les anciennes URL `/uploads` demandent maintenant l'authentification : les ouvrir directement dans un navigateur sans JWT doit donner `401`. Les images du compte connecté doivent rester visibles dans l'application mise à jour. À 9 °C, une couche extérieure disponible doit apparaître ; les lunettes de soleil ne sont proposées que pour un code météo `01d` ou `02d`. Ces règles sont aussi testées avec des données fictives ; vérifier leur rendu sur l'appareil. Un ancien client ne transmettant pas ces en-têtes ou le code météo ne convient plus à la démonstration complète. Un vote manuel écrit un avis et peut réentraîner le modèle de ce compte ; utiliser un compte de test prévu pour cette session.
-
-**Exploitation C3 retenue, pas encore exécutée sur les données réelles :**
-
-- Journal de diagnostic : 30 jours. `node scripts/retainLogs.js` donne un **aperçu en lecture seule**, sur le Mongo défini dans `.env` (actuellement distant). `--apply` est une purge explicite ; ne l'exécuter qu'après contrôle de la cible et validation de son inventaire. Planifier ce contrôle quotidien lors de l'exploitation ; aucun cron ni TTL n'est installé par ce travail.
-- Suppression partielle : contrôler les manifestes privés, puis `node scripts/retryAccountDeletionCleanup.js` reprend les effacements en attente. Cette commande est **destructive** sur les ressources du compte concerné, contrairement à un diagnostic.
-- Sauvegardes : inventaire privé avec date de création/expiration, rétention maximale proposée 30 jours, accès restreint et chiffrement avant transfert. Une copie manuelle oubliée n'expire pas toute seule ; sa suppression doit être opérée et tracée. Aucune sauvegarde réelle n'a été modifiée ici.
-- Avant restauration : isoler la cible du mobile, préserver le registre courant `backend/private/deletion-jobs` et les marqueurs Python `*.deleted` hors de l'ancienne sauvegarde, restaurer en copie, puis lancer `node scripts/checkRestoration.js`. `blocked` signifie qu'un compte effacé a été réintroduit ; `no_receipts` ne permet pas de conclure à l'absence de suppressions passées ; `sql_clear` ne valide **que SQL**. Vérifier également Mongo, images et Joblib avant remise en service. Ne pas réinitialiser les séquences pour réutiliser des identifiants supprimés.
-- Conserver les reçus et marqueurs tant qu'une ancienne sauvegarde peut réintroduire les comptes effacés. Les retirer seulement après inventaire des copies expirées et clôture des tâches ; aucune purge automatique de ce registre n'est prévue.
-
-Les tests prouvent la suppression entre les quatre stockages et la restauration **PostgreSQL** avec blocage du compte ressuscité. Ils ne prouvent pas une restauration complète des quatre stockages ni un effacement des anciennes images dans l'historique Git. L'accès et le cycle de vie du Mongo distant doivent aussi être vérifiés par son responsable.
-
-## Test de 2–3 volontaires : protocole encore sans résultats
-
-Le besoin confirmé est **temps gagné + découverte + réutilisation du dressing**. Fixer le protocole avant la première session et conserver tous les résultats, y compris les échecs. Un petit test d'usage n'est ni une mesure de précision ML ni une preuve de représentativité.
-
-1. Avant toute suggestion, chaque personne désigne les vêtements du dressing fictif qu'elle oublie facilement et explique ce qu'elle accepterait de porter dans la situation donnée. Pour un dressing entièrement inconnu, noter « réutilisation non mesurable ».
-2. Faire deux tâches comparables à température et contraintes fixées : choisir une tenue comme d'habitude depuis le dressing, puis choisir avec FITS. Inverser l'ordre pour le participant suivant ; utiliser une deuxième situation comparable pour limiter la mémorisation. Noter la différence de difficulté et l'effet d'ordre comme limites.
-3. Chronométrer jusqu'à **une tenue jugée acceptable**, avec un plafond fixé à **trois minutes et cinq suggestions FITS**. À la limite, noter « aucun choix acceptable » et le temps consommé ; ne pas l'éliminer de la comparaison. Si une aide est donnée ou une panne survient, la consigner séparément.
-4. Pour chaque suggestion effectivement vue, relever « acceptable ? », « intéressante et nouvelle pour toi ? », « contient un vêtement déclaré oublié ? ». Laisser les votes exprimer les vrais goûts, sans équilibrer artificiellement les classes.
-5. Rapporter les observations par participant : temps et différence descriptive, acceptations/tentatives, nouveautés utiles/propositions vues, tenues acceptées réutilisant un vêtement oublié. Avec deux ou trois personnes, ne pas annoncer de gain général ni de significativité.
-
-| Participant | Choix habituel : durée / accepté ? | FITS : durée / accepté ? / suggestions | Nouvelles et utiles / vues | Acceptées avec vêtement oublié | Ordre, aide, incident, commentaire |
-|---|---|---|---|---|---|
-| P1 | Non mesuré | Non mesuré | Non mesuré | Non mesuré | À remplir après essai |
-| P2 | Non mesuré | Non mesuré | Non mesuré | Non mesuré | À remplir après essai |
-| P3 | Non mesuré | Non mesuré | Non mesuré | Non mesuré | À remplir après essai |
-
-**Critères décidés avant collecte :** aucun accès à un autre compte ni perte d'avis ; toutes les tâches tentées rapportées ; un gain de temps n'est annoncé que pour les participants chez qui il est observé, à choix acceptable ; nouveauté et réutilisation restent des déclarations, pas des faits inférés du modèle. Ne pas diminuer ces exigences pour obtenir un résultat favorable.
-
-Chaque personne doit avoir **un compte distinct** et, si possible, le même petit dressing fictif et la même température. Vérifier d'abord que les bases configurées sont bien des environnements de test et sauvegarder les données de développement si des comptes/votes seront créés : ces actions écrivent en SQL/Mongo et un avis peut réentraîner le modèle de ce compte. Noter appareil, version et incidents réseau/météo. Recueillir l'accord pour une synthèse anonyme : P1, P2, P3 ; aucun nom, e-mail, IP, JWT, image personnelle ou citation directe sans accord.
-
-Donner sans guidage les trois mêmes tâches : **ajouter un vêtement fictif ; générer une tenue et expliquer le résultat ; rejeter la tenue et demander une autre proposition**. Pour chaque tâche, relever réussite sans aide, durée, blocages et messages d'erreur. Poser ensuite : « Qu'est-ce qui t'a aidé ? », « Qu'est-ce qui t'a gêné ? », « Utiliserais-tu cette proposition dans une situation réelle, et pourquoi ? »
-
-| Participant | Date / appareil / conditions | Ajout : réussite / temps | Génération : réussite / temps | Rejet : réussite / temps | Incidents et retour libre |
-|---|---|---|---|---|---|
-| P1 | À remplir | À remplir | À remplir | À remplir | À remplir |
-| P2 | À remplir | À remplir | À remplir | À remplir | À remplir |
-| P3, si disponible | À remplir | À remplir | À remplir | À remplir | À remplir |
-
-Rapporter le nombre de tâches réussies **sur celles effectivement tentées** et garder les pannes. Avec peu de personnes, présenter des observations individuelles anonymisées, pas une représentativité ni une accuracy ML. Garder les 69 avis historiques séparés de la nouvelle cohorte : les votes étaient parfois aléatoires, les anciennes tenues ont pu être sélectionnées par une version précédente du générateur et 66 avis manquent de snapshot. Le candidat peut aussi créer son nouveau compte, distinct des volontaires. Noter date et révision du code pour chaque session, puis voter selon une préférence réellement ressentie, sans forcer artificiellement un équilibre likes/dislikes. Pour chaque nouveau compte, résumer séparément avis bruts, likes/dislikes, températures et snapshots valides, lignes exploitables et groupes distincts. Le seuil d'entraînement 20 avis / cinq par classe n'est **pas** un seuil de preuve prédictive. S'il manque des groupes indépendants pour un test fixé à l'avance, écrire « métriques prédictives non fiables / non calculées ». Les retours d'usage ne mesurent pas le classement des cinq candidats non présentés.
-
-## Répétition sur le réseau de l’oral
-
-La trame de huit diapositives et les réponses aux questions figurent ci-dessous. Si le téléphone ou le réseau local échoue, montrer la sortie vérifiée de `ml-service/demo_isolated.py` et les graphiques sans lancer d’entraînement réel sous stress. En développement LAN, le mobile reprend l'hôte fourni par Expo pour appeler Node sur le port 3002 ; redémarrer Expo après un changement de réseau. Sans hôte LAN utilisable, il reste une adresse de secours locale ; `EXPO_PUBLIC_API_URL` dans `mobile/.env.local` permet de fixer explicitement l'URL complète. Vérifier connexion, images et génération depuis le téléphone avant l’oral. Le backend charge `backend/.env` ; Python reçoit `ML_SERVICE_SECRET` de son processus. Les deux valeurs doivent coïncider sans être affichées. Vérifier PostgreSQL, MongoDB, Python, Node et la météo. Les votes manuels écrivent des avis et peuvent réentraîner le modèle du compte : utiliser un compte de démonstration prévu pour cela.
-
-**Contrôle technique rapide sur le Mac, sans vote ni entraînement :** depuis la racine du dépôt, exécuter les commandes ci-dessous dans le Terminal. `pg_isready` vérifie PostgreSQL ; les deux `curl` interrogent des pages publiques locales sans toucher aux modèles. Si un test échoue, démarrer le service concerné puis le relancer. Vérifier que l'hôte affiché par Expo correspond au réseau du téléphone et à l'adresse IPv4 actuelle du Mac ; l'accès au backend depuis le téléphone reste à essayer manuellement. Ne pas ouvrir `.env` devant le jury.
+Vérifications en lecture seule depuis le Mac :
 
 ```sh
 pg_isready -h 127.0.0.1 -p 5432
-curl -fsS http://127.0.0.1:3002/api-docs/ >/dev/null && echo 'API Node joignable'
-curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null && echo 'Service Python joignable'
-ifconfig | rg 'inet '
+curl -fsS http://127.0.0.1:3002/api-docs/ >/dev/null && echo 'Node joignable'
+curl -fsS http://127.0.0.1:8000/openapi.json >/dev/null && echo 'RF de référence joignable'
+curl -fsS http://127.0.0.1:8001/openapi.json >/dev/null && echo 'Articles/paires joignable'
 ```
 
-Ces vérifications établissent la disponibilité des ports locaux et la cohérence probable de l'adresse mobile ; elles ne prouvent ni la communication authentifiée Node↔Python, ni le fonctionnement météo/Mongo, ni l'accès depuis le téléphone. Pour ces points, jouer le parcours réel une fois avant l'oral sur un compte de démo, après sauvegarde et vérification de l'environnement.
+Ces quatre contrôles ne prouvent ni les en-têtes secrets, ni Mongo/météo, ni l'accès depuis l'iPhone. En LAN, le mobile utilise l'hôte annoncé par Expo sur le port 3002 ; au changement de réseau, redémarrer Expo. Si nécessaire, configurer `EXPO_PUBLIC_API_URL` dans `mobile/.env.local` puis relancer Expo. Tester depuis **le téléphone** la connexion, les images privées, la recherche/édition du dressing, la génération et un vote sur un **compte de démonstration prévu pour écrire des avis**. La réponse de génération doit indiquer `model_used: personalized` et `model_variant: items-pairs-v1` si son modèle est disponible ; `fallback/no_model` est normal pour un compte encore insuffisamment alimenté. Ne pas afficher de JWT devant le jury.
 
-**Contrôle effectué le 13/10/2026 vers 19:57 UTC depuis le Mac :** PostgreSQL local acceptait les connexions ; `/api-docs/` côté Node et `/openapi.json` côté Python répondaient chacun HTTP 200. Ce constat est local et daté ; il faudra le refaire sur le réseau de l'oral.
+Une compilation Expo fraîche et les tests mobile passaient avant ce basculement. Si `TYPE.eyebrow` ou `TYPE.caption` réapparaît dans un ancien client, fermer complètement l'application et redémarrer Metro avec `npm run start -- --clear`, puis **vérifier sur l'appareil** ; ce diagnostic de cache n'est pas une validation manuelle déjà obtenue. Si réseau, météo ou ML échouent pendant l'oral, utiliser la sortie vérifiée des démos synthétiques et les preuves datées, sans lancer d'entraînement réel sous stress.
+
+## Essais de volontaires
+
+Aucun retour externe n'est encore documenté. Utiliser **un compte distinct par personne**, un petit dressing fictif comparable et une situation météo connue. Noter date, appareil et version. Fixer le protocole avant les premières sessions et conserver les échecs.
+
+1. Faire choisir une tenue acceptable sans FITS, puis avec FITS ; inverser l'ordre pour la personne suivante. Chronométrer les deux tâches jusqu'au premier choix acceptable, avec plafond **3 min et 5 suggestions FITS**. Noter explicitement tout choix non obtenu.
+2. Demander avant la suggestion quels vêtements du dressing sont facilement oubliés ; si le dressing est inconnu, noter « réutilisation non mesurable ».
+3. Pour chaque suggestion vue, relever « acceptable ? », « nouvelle et utile ? », « contient un vêtement oublié déclaré ? ». Laisser les votes refléter de vrais goûts, sans équilibrer les classes.
+4. Demander sans guider d'ajouter une pièce fictive, de retrouver une pièce avec les filtres et de générer/rejeter une tenue ; relever réussite, durée, aide et incident. Demander enfin ce qui aide ou gêne.
+
+| Participant | Sans FITS : durée / acceptable | Avec FITS : durée / nombre vu / acceptable | Nouvelles et utiles / vues | Vêtement oublié accepté | Tâches, aide, incident |
+|---|---|---|---|---|---|
+| P1 | À mesurer | À mesurer | À mesurer | À mesurer | À noter |
+| P2 | À mesurer | À mesurer | À mesurer | À mesurer | À noter |
+| P3, si possible | À mesurer | À mesurer | À mesurer | À mesurer | À noter |
+
+Recueillir l'accord pour une synthèse **anonyme**, sans e-mail, nom, image personnelle ou citation directe non autorisée. Deux ou trois personnes donnent des retours d'usage, **pas** une accuracy, une preuve de représentativité ou un gain statistiquement généralisable. L'auto-essai estimatif du concepteur reste séparé.
+
+## Cycle de vie et points à vérifier
+
+Le bouton de suppression du profil appelle un effacement coordonné de SQL, Mongo, photos attribuables et Joblib ; `202` signale une reprise nécessaire. Ne l'essayer que sur un compte fictif dédié, après avoir vérifié les environnements, car c'est une action destructive sur ce compte. Les tests isolés couvrent la reprise et le blocage après restauration SQL, pas une restauration complète des quatre stockages.
+
+Les logs de diagnostic et les sauvegardes privées ont une rétention **proposée** de 30 jours ; aucune purge périodique réelle n'est installée. `node scripts/retainLogs.js` donne un aperçu en lecture seule ; `--apply` purge effectivement le Mongo visé. `node scripts/retryAccountDeletionCleanup.js` est également destructif pour les ressources en attente. `node scripts/checkRestoration.js` vérifie SQL en lecture seule, sans suffire à valider Mongo, photos et Joblib. Préserver les reçus de suppression et les marqueurs Python lors d'une restauration ; ne pas réutiliser les identifiants effacés. Les anciennes images non attribuables, les sauvegardes réelles et HTTP LAN restent des limites à annoncer. [Preuve C3](preuves/C3_DONNEES.md).
 
 ## Trame de huit diapositives, dix minutes
 
-La grille validée demande cinq décisions « valide / non valide », sans barème officiel sur 20. Le candidat a indiqué qu'aucun dossier REX séparé n'est demandé pour son rattrapage ; conserver les preuves réparties dans les cinq fiches.
-
-| Durée | Diapo et message à défendre |
+| Temps | Message et preuve |
 |---:|---|
-| 0:45 | 1. Besoin C1 : projet personnel pour gagner du temps, découvrir des associations et des vêtements oubliés ; [auto-essai estimatif](preuves/C1_BESOIN.md), aucun gain externe mesuré. |
-| 1:00 | 2. Sources et 3V C1 : météo, dressing SQL, avis/snapshots, logs et images ; petits volumes locaux, variété réelle, aucun Big Data massif. |
-| 1:15 | 3. ETL C3 : cohorte historique 69 avis → 64 lignes, cinq températures manquantes et trois snapshots valides ; présenter séparément les votes récents avec snapshots. [Visuel historique](visuels/qualite_avis.png). |
-| 1:00 | 4. Stockage C4 : relations SQL et snapshot JSONB ; benchmark sur 100 000 tenues **fictives** : 2,081 → 0,139 ms, index de 728 Kio ; aucune migration réelle. |
-| 1:45 | 5. Programme C5 : jusqu'à cinq candidats, 85 features, modèle personnel ou fallback, vote et snapshot ; démo isolée en secours. |
-| 1:30 | 6. Résultat C2 : ancien compte RF 58,2 % contre majorité 63,8 % ; sur 82 nouveaux votes v2 à 18 °C, RF 50,2 % contre majorité 42,9 % sur 30 découpages groupés recouvrants. [C2](preuves/C2_MODELE.md) distingue les cohortes et les limites ; aucune mesure du classement des cinq candidats. |
-| 1:15 | 7. Protection C3/C5 : accès privés et suppression/reprise testés avec des stockages temporaires ; sauvegardes réelles et ancien historique restent à traiter. |
-| 1:30 | 8. Décision : conserver le RF comme référence expérimentale ; recueillir des retours indépendants et des avis variés, puis évaluer un protocole fixé à l'avance. |
+| 0:45 | **1 — C1, besoin.** Projet personnel : gagner du temps et redécouvrir son dressing. Auto-essai estimatif, aucun volontaire à ce jour. |
+| 1:00 | **2 — C1, données et 3V.** Météo, dressing SQL, avis/snapshots, photos/logs ; petits volumes, pas de Big Data massif. |
+| 1:15 | **3 — C3, qualité.** Ancien relevé **69 avis → 64**, cinq températures absentes et seulement trois snapshots ; nouveau compte avec snapshots v2 distinct. [Visuel daté](visuels/qualite_avis.png). |
+| 1:00 | **4 — C4, stockage.** SQL relationnel + JSONB ; à 100 000 tenues **fictives**, requête 2,081 → 0,139 ms avec index de 728 Kio ; aucune migration réelle. |
+| 1:45 | **5 — C5, programme.** Jusqu'à cinq candidats plausibles, 85 features, modèle articles/paires personnel pour tous, fallback, vote et réentraînement ; démo fictive de secours. |
+| 1:30 | **6 — C2, résultats.** RF historique sous la majorité : 58,2 % contre 63,8 % sur l'ancienne cohorte. Le 21/10, 40,3 % puis 66,0 % de likes sur deux sessions **non comparables causalement**. Sur un seul test chronologique de 63 avis, accuracy logistique articles/paires **42,9 %**, RF **28,6 %**, majorité **22,2 %** ; petit test déséquilibré et déjà exploré, sans validation indépendante. |
+| 1:15 | **7 — C3/C5, sécurité.** Session, images privées, suppression/reprise testées en fixtures ; sauvegardes réelles et historique incomplet restent ouverts. |
+| 1:30 | **8 — Décision.** Articles/paires adopté comme choix produit ; avantage prédictif général et qualité du classement non prouvés. Prochaines preuves : volontaires et cohorte future indépendante. |
 
-## Réponses courtes aux questions probables
+## Réponses courtes aux objections
 
-- **Pourquoi les scores du RF changent-ils ?** Les jeux et conditions diffèrent : anciens snapshots manquants, votes historiques parfois aléatoires, nouveaux avis v2 sincères mais tous à 18 °C. Les petits tests varient selon leur découpage ; aucune cause unique ni gain général n'est démontré.
-- **Le modèle sert-il ?** Un modèle compatible calcule un score personnel pour classer les candidats admissibles. Son avantage prédictif et la qualité du classement présenté ne sont pas établis ; le fallback sert en absence de modèle ou en cas de panne.
-- **Pourquoi ne pas promouvoir les variantes testées ?** Les mêmes petits jeux ont déjà servi aux explorations. Il faut un test indépendant fixé avant collecte pour éviter de retenir un résultat fortuit.
-- **La fuite est-elle éliminée ?** Les tests séparent tenues et vecteurs identiques. Le partage de vêtements et la reconstruction des anciens avis laissent des risques résiduels.
-- **Pourquoi aucune métrique de classement des cinq ?** Seule la tenue affichée reçoit un avis ; l'AUC des tenues exposées n'est pas un NDCG@5.
-- **Pourquoi deux bases ?** PostgreSQL porte les relations et transactions ; MongoDB porte logs et voie photo. Son avantage à ce volume n'est pas démontré et la suppression entre stockages est plus complexe.
-- **RGPD et accessibilité ?** Contrôles techniques testés, mais sauvegardes réelles, historique, revue juridique et audit d'accessibilité restent à faire. Le prototype LAN utilise HTTP.
-- **Retours utilisateurs ?** Aucun retour externe documenté ; l'auto-essai du concepteur est détaillé dans C1. Ajouter seulement les observations réellement recueillies.
+- **Pourquoi avoir adopté articles/paires malgré l'incertitude ?** Il encode enfin l'identité des vêtements voulue par le candidat et fonctionne de bout en bout. Le choix est produit ; les données actuelles ne prouvent pas qu'il battra la baseline pour d'autres comptes.
+- **40,3 % contre 66,0 %, est-ce une accuracy ?** Non, c'est la part de tenues affichées aimées dans deux sessions à températures différentes. La version utilisée n'est pas enregistrée par avis ; le changement de modèle n'est pas la seule explication possible.
+- **Que devient le RF ?** Référence d'évaluation et anciens Joblib conservés, pas un secours caché au classement. En absence du modèle courant : fallback au ratio de favoris.
+- **Une paire rejetée est-elle bannie ?** Non. Le vote concerne toute la tenue ; le modèle apprend des associations statistiques sur plusieurs avis, et les goûts peuvent évoluer.
+- **Pourquoi pas NDCG@5 ?** Seule la tenue affichée est jugée ; les quatre autres candidats n'ont pas de label.
+- **La fuite est-elle éliminée ?** Les mêmes tenues, compositions et vecteurs sont purgés entre train/test dans l'essai hors ligne. Des vêtements partagés entre tenues demeurent ; aucune absence absolue de fuite n'est revendiquée.
+- **RGPD et Big Data ?** Protections et suppression testées, mais historique/sauvegardes/exploitation restent ouverts. Le volume observé est un prototype, pas une infrastructure Big Data démontrée.
 
-**Avant remise :** confirmer le code du bloc avec l’établissement (la grille validée mentionne BC04B et une cellule BC04A), vérifier que le dépôt et les fixtures fictives sont accessibles au jury, relire les contributions personnelles, puis ajouter uniquement les retours utilisateurs réellement recueillis aux fiches de preuves.
+Avant la remise, vérifier le code exact du bloc auprès de l'établissement, la version du dépôt montrée au jury et les citations des résultats. N'ajouter que des observations de volontaires réellement recueillies.

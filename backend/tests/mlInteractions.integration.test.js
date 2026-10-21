@@ -26,7 +26,7 @@ const { rankCandidates } = require('../services/rankCandidates');
 
 const integration = process.env.ML_TEST_PYTHON ? test : test.skip;
 integration('snapshots Node → 85 features + identités → vrai Python → classement personnalisé', async () => {
-  const previous = [process.env.ML_EXPERIMENTAL_URL, process.env.ML_EXPERIMENTAL_USER_ID];
+  const previous = process.env.ML_EXPERIMENTAL_URL;
   process.env.ML_EXPERIMENTAL_URL = 'http://127.0.0.1:8001';
   const outfits = [];
   const evaluations = [];
@@ -56,7 +56,6 @@ integration('snapshots Node → 85 features + identités → vrai Python → cla
   const next = jest.fn();
   try {
     for (const user of [1, 2]) {
-      process.env.ML_EXPERIMENTAL_USER_ID = String(user);
       await trainModel({ user: { id: user } }, { json: jest.fn() }, next);
     }
     expect(next).not.toHaveBeenCalled();
@@ -65,7 +64,6 @@ integration('snapshots Node → 85 features + identités → vrai Python → cla
     expect(trains[0].data).toHaveLength(80);
     expect(Object.keys(trains[0].data[0])).toHaveLength(87); // 85 context + label + ids
     expect(Vetement.findAll).not.toHaveBeenCalled(); // immutable snapshots, not current wardrobe
-    process.env.ML_EXPERIMENTAL_USER_ID = '1';
     const schema = await loadFeatureSchema();
     postToMl.mockResolvedValue({ data: { predictions: candidates.map(() => ({
       probability_like: 0.5, model_used: 'fallback', reason: 'no_model'
@@ -94,9 +92,7 @@ integration('snapshots Node → 85 features + identités → vrai Python → cla
     expect(selected.prediction.model_used).toBe('personalized');
     expect(results.no_model.predictions.every(row => row.reason === 'no_model')).toBe(true);
   } finally {
-    ['ML_EXPERIMENTAL_URL', 'ML_EXPERIMENTAL_USER_ID'].forEach((key, index) => {
-      if (previous[index] === undefined) delete process.env[key];
-      else process.env[key] = previous[index];
-    });
+    if (previous === undefined) delete process.env.ML_EXPERIMENTAL_URL;
+    else process.env.ML_EXPERIMENTAL_URL = previous;
   }
 }, 70000);

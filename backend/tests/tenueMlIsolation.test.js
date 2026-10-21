@@ -39,7 +39,7 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
     temperature: 18, nb_vetements: 1, nb_favoris: 1,
     ratio_favoris: 1, zone_torse: 1
   });
-  postToMl.mockResolvedValue({ data: { probability_like: 1, model_used: "fallback" } });
+  postToMl.mockResolvedValue({ data: { predictions: [{ probability_like: 1, model_used: "fallback" }] } });
   Tenue.create.mockResolvedValue({ id_tenue: 22 });
   Composer.create.mockResolvedValue({});
   const req = { user: { id: 7 }, query: { temperature: "18" } };
@@ -48,9 +48,10 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
 
   await generateTenue(req, res, next);
 
-  expect(postToMl).toHaveBeenCalledWith("predict", {
-    temperature: 18, nb_vetements: 1, nb_favoris: 1,
-    ratio_favoris: 1, zone_torse: 1, feature_version: "outfit-v2-test"
+  expect(postToMl).toHaveBeenCalledWith("predict-batch", {
+    feature_version: "outfit-v2-test", representation_version: "items-pairs-v1",
+    candidates: [{ temperature: 18, nb_vetements: 1, nb_favoris: 1,
+      ratio_favoris: 1, zone_torse: 1, garment_ids: [12] }]
   }, 7);
   expect(postToMl).toHaveBeenCalledTimes(1);
   expect(Tenue.create).toHaveBeenCalledWith({ id_utilisateur: 7, temperature: 18 });
@@ -59,11 +60,8 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
     recommendation: { model_used: 'fallback', reason: null } });
   expect(next).not.toHaveBeenCalled();
 
-  // The opt-in variant is identifiable in the response, without changing the outfit contract.
-  const previous = [process.env.ML_EXPERIMENTAL_URL, process.env.ML_EXPERIMENTAL_USER_ID];
-  try {
-    process.env.ML_EXPERIMENTAL_URL = 'http://127.0.0.1:8001';
-    process.env.ML_EXPERIMENTAL_USER_ID = '7';
+  // The normal model is identifiable in the response, without changing the outfit contract.
+  {
     postToMl.mockResolvedValue({ data: { predictions: [{ probability_like: 0.8,
       model_used: 'personalized', model_variant: 'items-pairs-v1', model_revision: 'test-revision' }] } });
     res.json.mockClear();
@@ -75,11 +73,6 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
       candidates: [expect.objectContaining({ garment_ids: [12] })]
     }), 7);
     expect(next).not.toHaveBeenCalled();
-  } finally {
-    ['ML_EXPERIMENTAL_URL', 'ML_EXPERIMENTAL_USER_ID'].forEach((key, index) => {
-      if (previous[index] === undefined) delete process.env[key];
-      else process.env[key] = previous[index];
-    });
   }
 });
 

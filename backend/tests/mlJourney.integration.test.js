@@ -111,8 +111,10 @@ journey("génération → dislike → snapshot → dataset → modèles isolés 
       item.id_utilisateur === where.id_utilisateur));
     postToMl.mockImplementation(async (endpoint, payload, userId) => {
       mlCalls.push({ endpoint, payload, userId });
-      if (endpoint === "predict") {
-        return { data: { probability_like: payload.ratio_favoris, model_used: "fallback" } };
+      if (endpoint === "predict-batch") {
+        return { data: { predictions: payload.candidates.map(row => ({
+          probability_like: row.ratio_favoris, model_used: "fallback", reason: "no_model"
+        })) } };
       }
       const positive = payload.data.filter(row => row.is_liked === 1).length;
       const negative = payload.data.length - positive;
@@ -142,8 +144,10 @@ journey("génération → dislike → snapshot → dataset → modèles isolés 
       .set("Authorization", tokenFor(1));
     expect(generated.status).toBe(200);
     expect(generated.body.vetements).toHaveLength(2);
-    const candidate = mlCalls.find(call => call.endpoint === "predict").payload;
+    const batch = mlCalls.find(call => call.endpoint === "predict-batch").payload;
+    const candidate = { ...batch.candidates[0], feature_version: batch.feature_version };
     expect(candidate.feature_version).toMatch(/^outfit-v2-/);
+    expect(candidate.garment_ids).toEqual([101, 102]);
 
     const unauthenticated = await request(app).post("/api/ml/train").send({});
     expect(unauthenticated.status).toBe(401);
@@ -173,23 +177,27 @@ journey("génération → dislike → snapshot → dataset → modèles isolés 
     expect(snapshotFeatures).toEqual(candidateFeatures);
     expect(snapshotRow.is_liked).toBe(0);
 
-    const snapshot = color => ({ version: 1, garments: [
-      { couleur: color, favori: true, zone_name: "torse",
+    const snapshot = (color, user) => ({ version: 2, garments: [
+      { id_vetement: user === 1 ? 101 : 201,
+        couleur: color, favori: true, zone_name: "torse",
         category_name: "hauts", subcategory_name: "t-shirt" },
-      { couleur: "noir", favori: false, zone_name: "jambes",
+      { id_vetement: user === 1 ? 102 : 202,
+        couleur: "noir", favori: false, zone_name: "jambes",
         category_name: "bas", subcategory_name: "pantalon" }
     ] });
     for (let index = 0; index < 19; index++) {
       const id = nextTenueId++;
       tenues.push({ id_tenue: id, id_utilisateur: 1, temperature: 18 });
       evaluations.push({ id_tenue: id, id_utilisateur: 1, temperature: 18,
-        is_liked: index < 10, feature_snapshot: snapshot(index < 10 ? "bleu" : "rouge") });
+        is_liked: index < 10, date_avis: new Date('2026-01-01T00:00:00Z'),
+        feature_snapshot: snapshot(index < 10 ? "bleu" : "rouge", 1) });
     }
     for (let index = 0; index < 20; index++) {
       const id = nextTenueId++;
       tenues.push({ id_tenue: id, id_utilisateur: 2, temperature: 18 });
       evaluations.push({ id_tenue: id, id_utilisateur: 2, temperature: 18,
-        is_liked: index < 10, feature_snapshot: snapshot(index < 10 ? "rouge" : "bleu") });
+        is_liked: index < 10, date_avis: new Date('2026-01-01T00:00:00Z'),
+        feature_snapshot: snapshot(index < 10 ? "rouge" : "bleu", 2) });
     }
 
     const trainedOne = await request(app).post("/api/ml/train")
@@ -210,10 +218,18 @@ journey("génération → dislike → snapshot → dataset → modèles isolés 
     expect(trainOne.data.filter(row => row.is_liked === 1)).toHaveLength(10);
     expect(trainTwo.data.filter(row => row.is_liked === 1)).toHaveLength(10);
 
+    // Le RF historique est vérifié séparément, sans le réactiver pour la génération.
+    const referencePayload = payload => ({
+      data: payload.data.map(({ garment_ids, ...row }) => row),
+      feature_version: payload.feature_version,
+      feature_catalog: payload.feature_catalog
+    });
+    const { garment_ids: _ids, ...referenceCandidate } = candidate;
     const bridge = spawnSync(process.env.ML_TEST_PYTHON,
       [path.join(__dirname, "helpers/python_ml_bridge.py")], {
-        input: JSON.stringify({ train_one: trainOne, train_two: trainTwo,
-          empty: emptyPayload, candidate }), encoding: "utf8", timeout: 60000,
+        input: JSON.stringify({ train_one: referencePayload(trainOne),
+          train_two: referencePayload(trainTwo), empty: referencePayload(emptyPayload),
+          candidate: referenceCandidate }), encoding: "utf8", timeout: 60000,
         env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" }
       });
     if (bridge.error) throw new Error(`${bridge.error.message}\n${bridge.stderr}`);
@@ -230,15 +246,19 @@ journey("génération → dislike → snapshot → dataset → modèles isolés 
     expect(result.predict_three.body).toEqual({ probability_like: 0.5,
       model_used: "fallback", reason: "no_model" });
 
-    postToMl.mockImplementation(async (endpoint, _payload, userId) => {
-      expect(endpoint).toBe("predict");
+    postToMl.mockImplementation(async (endpoint, payload, userId) => {
+      expect(endpoint).toBe("predict-batch");
       expect(userId).toBe(1);
-      return { data: result.predict_one.body };
+      return { data: { predictions: payload.candidates.map(() => ({
+        probability_like: 0.8, model_used: 'personalized',
+        model_variant: 'items-pairs-v1', model_revision: 'fixture'
+      })) } };
     });
     const generatedWithModel = await request(app).get("/api/tenue/generate?temperature=18")
       .set("Authorization", tokenFor(1));
     expect(generatedWithModel.status).toBe(200);
     expect(generatedWithModel.body.vetements).toHaveLength(2);
+    expect(generatedWithModel.body.recommendation.model_variant).toBe('items-pairs-v1');
   } finally {
     jest.restoreAllMocks();
     if (previousJwt === undefined) delete process.env.JWT_SECRET;

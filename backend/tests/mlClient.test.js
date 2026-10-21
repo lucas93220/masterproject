@@ -6,11 +6,13 @@ const { postToMl } = require("../services/mlClient");
 describe("Client interne ML", () => {
   const previousSecret = process.env.ML_SERVICE_SECRET;
   const previousUrl = process.env.ML_SERVICE_URL;
+  const previousInteractionUrl = process.env.ML_EXPERIMENTAL_URL;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.ML_SERVICE_SECRET = "secret-de-test";
     delete process.env.ML_SERVICE_URL;
+    delete process.env.ML_EXPERIMENTAL_URL;
   });
 
   afterAll(() => {
@@ -18,6 +20,8 @@ describe("Client interne ML", () => {
     else process.env.ML_SERVICE_SECRET = previousSecret;
     if (previousUrl === undefined) delete process.env.ML_SERVICE_URL;
     else process.env.ML_SERVICE_URL = previousUrl;
+    if (previousInteractionUrl === undefined) delete process.env.ML_EXPERIMENTAL_URL;
+    else process.env.ML_EXPERIMENTAL_URL = previousInteractionUrl;
   });
 
   test("transmet l'identifiant serveur et le secret aux deux opérations", async () => {
@@ -25,10 +29,10 @@ describe("Client interne ML", () => {
     await postToMl("train", { data: [] }, 7);
     await postToMl("predict", { ratio_favoris: 0.5 }, 8);
 
-    expect(axios.post).toHaveBeenNthCalledWith(1, "http://127.0.0.1:8000/train", { data: [] }, {
+    expect(axios.post).toHaveBeenNthCalledWith(1, "http://127.0.0.1:8001/train", { data: [] }, {
       headers: { "X-FITS-ML-SECRET": "secret-de-test", "X-FITS-USER-ID": "7" }, timeout: 15000
     });
-    expect(axios.post).toHaveBeenNthCalledWith(2, "http://127.0.0.1:8000/predict", { ratio_favoris: 0.5 }, {
+    expect(axios.post).toHaveBeenNthCalledWith(2, "http://127.0.0.1:8001/predict", { ratio_favoris: 0.5 }, {
       headers: { "X-FITS-ML-SECRET": "secret-de-test", "X-FITS-USER-ID": "8" }, timeout: 2000
     });
   });

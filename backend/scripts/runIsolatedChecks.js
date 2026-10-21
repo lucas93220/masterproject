@@ -37,7 +37,7 @@ async function main() {
   const root = await fs.mkdtemp('/private/tmp/fits-isolated-');
   const data = path.join(root, 'pgdata');
   const backend = path.resolve(__dirname, '..');
-  let started = false, ml, mongo, log;
+  let started = false, ml, interactionMl, mongo, log, interactionLog;
   const run = (name, arguments_) => execFileSync(name, arguments_, { encoding: 'utf8',
     timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] });
   try {
@@ -61,7 +61,9 @@ async function main() {
     const testEnv = { ...process.env, NODE_ENV: 'test',
       DB_HOST: root, DB_PORT: '55439', DB_NAME: 'fits_isolated', DB_USER: 'fits_test', DB_PASSWORD: '',
       MONGO_URI: '', ML_SERVICE_SECRET: randomUUID(), JWT_SECRET: randomUUID(),
-      ML_MODELS_DIR: path.join(root, 'models'), FITS_UPLOAD_DIR: path.join(root, 'uploads'),
+      ML_MODELS_DIR: path.join(root, 'models'),
+      ML_EXPERIMENTAL_MODELS_DIR: path.join(root, 'interactions'),
+      FITS_UPLOAD_DIR: path.join(root, 'uploads'),
       FITS_DELETION_DIR: path.join(root, 'jobs'), ML_MIN_TRAIN_SAMPLES: '20',
       ML_MIN_SAMPLES_PER_CLASS: '5', PYTHONDONTWRITEBYTECODE: '1' };
     const mongoDir = path.join(root, 'mongo');
@@ -92,24 +94,37 @@ async function main() {
     if (!mongoReady) throw new Error('Délai de démarrage MongoDB isolé dépassé');
     log = syncFs.openSync(path.join(root, 'ml.log'), 'w');
     ml = spawn(process.env.ML_TEST_PYTHON || 'python3',
-      [path.join(backend, 'tests/helpers/serve_test_ml.py')], { env: testEnv, stdio: ['ignore', log, log] });
+      [path.join(backend, 'tests/helpers/serve_test_ml.py')], {
+        env: { ...testEnv, FITS_TEST_ML_KIND: 'reference' }, stdio: ['ignore', log, log] });
+    interactionLog = syncFs.openSync(path.join(root, 'interactions.log'), 'w');
+    interactionMl = spawn(process.env.ML_TEST_PYTHON || 'python3',
+      [path.join(backend, 'tests/helpers/serve_test_ml.py')], {
+        env: { ...testEnv, FITS_TEST_ML_KIND: 'interactions' },
+        stdio: ['ignore', interactionLog, interactionLog] });
     let startupError;
     ml.on('error', error => { startupError = error; });
+    interactionMl.on('error', error => { startupError = error; });
     let ready = false;
     for (let attempt = 0; attempt < 100; attempt++) {
-      if (startupError || ml.exitCode !== null) throw new Error('Démarrage Python isolé impossible');
+      if (startupError || ml.exitCode !== null || interactionMl.exitCode !== null) {
+        throw new Error('Démarrage Python isolé impossible');
+      }
       try {
-        const port = Number(await fs.readFile(path.join(root, 'ml-port'), 'utf8'));
-        if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Port invalide');
-        testEnv.ML_SERVICE_URL = `http://127.0.0.1:${port}`;
-        ready = (await fetch(`${testEnv.ML_SERVICE_URL}/openapi.json`,
-          { signal: AbortSignal.timeout(500) })).ok;
+        const referencePort = Number(await fs.readFile(path.join(root, 'ml-reference-port'), 'utf8'));
+        const interactionPort = Number(await fs.readFile(path.join(root, 'ml-interactions-port'), 'utf8'));
+        if (![referencePort, interactionPort].every(port => Number.isInteger(port) && port > 0 && port <= 65535) ||
+            referencePort === interactionPort) throw new Error('Ports ML invalides');
+        testEnv.ML_SERVICE_URL = `http://127.0.0.1:${referencePort}`;
+        testEnv.ML_EXPERIMENTAL_URL = `http://127.0.0.1:${interactionPort}`;
+        ready = (await Promise.all([testEnv.ML_SERVICE_URL, testEnv.ML_EXPERIMENTAL_URL]
+          .map(url => fetch(`${url}/openapi.json`, { signal: AbortSignal.timeout(500) }))))
+          .every(response => response.ok);
         if (ready) break;
       } catch { /* attente bornée du processus créé par ce script */ }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (!ready) throw new Error('Le service de test ne répond pas');
-    console.log('PostgreSQL, MongoDB et service ML temporaires prêts. Aucune base applicative utilisée.');
+    console.log('PostgreSQL, MongoDB et deux services ML temporaires prêts. Aucune base applicative utilisée.');
     execFileSync(process.execPath, [path.join(backend, 'node_modules/jest/bin/jest.js'),
       '--runInBand', '--config', JSON.stringify({ rootDir: backend,
         testMatch: ['**/tests/isolated/*.test.js'], testTimeout: 30000 })],
@@ -124,8 +139,10 @@ async function main() {
     }
   } finally {
     await stopChild(ml);
+    await stopChild(interactionMl);
     await stopChild(mongo);
     if (log !== undefined) syncFs.closeSync(log);
+    if (interactionLog !== undefined) syncFs.closeSync(interactionLog);
     if (started) run('pg_ctl', ['-D', data, '-m', 'fast', '-w', 'stop']);
     // root est toujours créé par mkdtemp ci-dessus, jamais fourni par l'utilisateur.
     await fs.rm(root, { recursive: true, force: true });
