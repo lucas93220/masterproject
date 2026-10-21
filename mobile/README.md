@@ -18,6 +18,10 @@ Tests isolés, depuis `mobile` après `npm ci` dans les deux dossiers : `../back
 
 L’interface partage ses composants dans `src/components/ui.js` et ses couleurs/typographies dans `src/styles`. Le dressing propose une recherche par nom ou marque, des filtres combinables (catégorie, couleur, favoris), un tri local et une actualisation par glissement. Les photos s’affichent entières ; sur l’accueil, un appui ouvre l’aperçu. Les filtres du dressing ne changent pas les recommandations. Les formulaires conservent les contrats API, affichent les valeurs existantes et bloquent les doubles soumissions. Le retrait d’un vêtement est aussi accessible dans sa fiche, avec confirmation.
 
+À l’ajout, les indications thermiques sont estimées depuis le libellé de sous-catégorie (`src/services/thermalDefaults.js`), sans saisie obligatoire. Ce sont des heuristiques initiales, pas des mesures scientifiques de confort : par exemple, un manteau est disponible jusqu’à 12 °C et un short à partir de 18 °C. Les hauts de base restent disponibles dans le froid pour la superposition ; leur minimum n’est pas une recommandation de les porter seuls. Les règles existantes du générateur continuent à composer les couches. Une catégorie inconnue utilise une plage générale explicite et ajustable. Les estimations sont définies dans le mobile et envoyées dans les champs API existants, sans migration ni modification du moteur ML.
+
+« Ajuster les températures » ouvre le réglage manuel facultatif, qui reste prioritaire même après un changement de catégorie. En modification, les températures enregistrées sont conservées par défaut ; seul « Utiliser l’estimation automatique » les remplace lors de l’enregistrement. Aucun vêtement existant ni snapshot historique n’est recalculé automatiquement. Le mode automatique n’est pas enregistré comme un nouveau champ : à la réouverture d’une fiche, les valeurs sauvegardées deviennent son réglage conservé. Les valeurs par défaut devront être ajustées au retour des essais, notamment pour les catégories regroupant des épaisseurs différentes.
+
 Contrôle visuel reproductible sur macOS, avec Chrome et Node 24, **sans les services FITS** :
 
 ```sh

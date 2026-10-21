@@ -100,10 +100,21 @@ exports.generateTenue = async (req, res, next) => {
       )
     );
 
+    // Diagnostic du résultat réellement utilisé, sans identité ni contenu du dressing.
+    if (prediction.model_used === 'personalized') {
+      console.info('[FITS ML] Modèle utilisé :',
+        prediction.model_variant || 'Random Forest (référence)');
+    } else {
+      console.info('[FITS ML] Fallback (ratio de favoris) — raison :',
+        prediction.reason || 'non précisée');
+    }
+
     return res.json({
       id_tenue: nouvelleTenue.id_tenue,
       vetements: tenueFinale,
-      recommendation: { model_used: prediction.model_used, reason: prediction.reason || null }
+      recommendation: { model_used: prediction.model_used, reason: prediction.reason || null,
+        ...(prediction.model_variant ? { model_variant: prediction.model_variant,
+          model_revision: prediction.model_revision } : {}) }
     });
 
   } catch (error) {

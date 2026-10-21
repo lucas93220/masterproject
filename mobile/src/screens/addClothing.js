@@ -8,6 +8,7 @@ import { Screen, Heading, Button, Field, Sheet, Notice, layout } from "../compon
 import { COLORS } from "../styles/colors";
 import { CLOTHING_COLORS } from "../styles/clothingPalette";
 import { TYPE } from "../styles/theme";
+import { thermalDefaults } from "../services/thermalDefaults";
 
 export default function AddClothing({ navigation, route }) {
   const editingClothing = route?.params?.clothing || null;
@@ -18,6 +19,8 @@ export default function AddClothing({ navigation, route }) {
   const [couleur, setCouleur] = useState(editingClothing?.couleur || "");
   const [tempMin, setTempMin] = useState(editingClothing?.temperature_min?.toString() || "");
   const [tempMax, setTempMax] = useState(editingClothing?.temperature_max?.toString() || "");
+  const [thermalMode, setThermalMode] = useState(editingClothing ? "manual" : "auto");
+  const [showThermalDetails, setShowThermalDetails] = useState(false);
   const [favori, setFavori] = useState(editingClothing?.favori || false);
   const [categories, setCategories] = useState([]);
   const [sousCategories, setSousCategories] = useState([]);
@@ -33,6 +36,9 @@ export default function AddClothing({ navigation, route }) {
   const busy = useRef(false);
   const catalogRequest = useRef(0);
   const uploaded = useRef(null);
+  const estimatedThermal = thermalDefaults(categoryLabel);
+  const thermalMin = thermalMode === "auto" ? estimatedThermal.min : tempMin;
+  const thermalMax = thermalMode === "auto" ? estimatedThermal.max : tempMax;
 
   useEffect(() => () => { catalogRequest.current += 1; }, []);
 
@@ -71,8 +77,8 @@ export default function AddClothing({ navigation, route }) {
     if (busy.current) return;
     if (!nom.trim() || !idSousCategorie) { setError("Ajoute un nom et choisis une catégorie de vêtement."); return; }
     if (!Object.keys(CLOTHING_COLORS).includes(couleur)) { setError("Choisis une couleur dans la palette."); return; }
-    const min = tempMin.trim() ? Number(tempMin.replace(",", ".")) : 0;
-    const max = tempMax.trim() ? Number(tempMax.replace(",", ".")) : 50;
+    const min = thermalMode === "auto" ? thermalMin : tempMin.trim() ? Number(tempMin.replace(",", ".")) : 0;
+    const max = thermalMode === "auto" ? thermalMax : tempMax.trim() ? Number(tempMax.replace(",", ".")) : 50;
     if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
       setError("Indique des températures valides, avec un minimum inférieur ou égal au maximum."); return;
     }
@@ -166,14 +172,32 @@ export default function AddClothing({ navigation, route }) {
 
     <View style={layout.card}>
       <Text style={layout.sectionLabel}>03 · QUAND LA PORTER ?</Text>
-      <Text style={TYPE.caption}>Indique la plage de températures où tu portes cette pièce. Ces valeurs servent aux suggestions météo.</Text>
-      <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={layout.row}>
+        <Ionicons name={thermalMode === "auto" ? "sparkles-outline" : "options-outline"} size={24} color={COLORS.primary} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={TYPE.body}>{thermalMode === "auto" ? "Estimation automatique" : "Réglage personnalisé"}</Text>
+          <Text style={TYPE.caption}>{thermalMode === "auto" ?
+            idSousCategorie ? estimatedThermal.label : "Choisis le type de vêtement pour obtenir une estimation." :
+            `${thermalMin === "" ? 0 : thermalMin} à ${thermalMax === "" ? 50 : thermalMax} °C · réglage manuel`}</Text>
+        </View>
+      </View>
+      <Text style={TYPE.caption}>Les valeurs sont proposées selon le type de pièce. Un haut peut rester disponible dans le froid pour être porté sous une autre couche.</Text>
+      {thermalMode === "auto" && idSousCategorie && estimatedThermal.generic ?
+        <Text style={TYPE.caption}>Ce type de pièce est peu précis : l’estimation est large. Tu peux l’ajuster si nécessaire.</Text> : null}
+      {showThermalDetails ? <View style={{ flexDirection: "row", gap: 12 }}>
         <Field label="Minimum · °C" placeholder="0" value={tempMin} onChangeText={setTempMin}
           keyboardType="numbers-and-punctuation" style={{ flex: 1 }} editable={!disabled} />
         <Field label="Maximum · °C" placeholder="50" value={tempMax} onChangeText={setTempMax}
           keyboardType="numbers-and-punctuation" style={{ flex: 1 }} editable={!disabled} />
-      </View>
-      <Text style={TYPE.caption}>Si tu laisses les champs vides : de 0 à 50 °C.</Text>
+      </View> : null}
+      {!showThermalDetails ? <Button title="Ajuster les températures" variant="secondary" disabled={disabled}
+        onPress={() => {
+          if (thermalMode === "auto") { setTempMin(String(thermalMin)); setTempMax(String(thermalMax)); }
+          setThermalMode("manual"); setShowThermalDetails(true);
+        }} /> : <Text style={TYPE.caption}>Réglage avancé facultatif. Champs vides : de 0 à 50 °C.</Text>}
+      {showThermalDetails ? <Text style={TYPE.caption}>Ces bornes servent à sélectionner les pièces. Elles ne décrivent pas le confort du vêtement porté seul ; la tenue peut comporter plusieurs couches.</Text> : null}
+      {thermalMode === "manual" ? <Button title="Utiliser l’estimation automatique" variant="secondary" disabled={disabled}
+        onPress={() => { setThermalMode("auto"); setShowThermalDetails(false); }} /> : null}
       <View style={layout.divider} />
       <View style={layout.between}>
         <View style={{ flex: 1, gap: 4 }}><Text style={TYPE.body}>Une de tes favorites ?</Text><Text style={TYPE.caption}>Retrouve-la facilement dans le dressing.</Text></View>

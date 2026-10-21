@@ -18,6 +18,9 @@ from sklearn.metrics import (accuracy_score, average_precision_score,
                              balanced_accuracy_score, brier_score_loss,
                              f1_score, log_loss, roc_auc_score)
 
+from interaction_model import (interaction_features as _interaction_features,
+                               validate_observation)
+
 
 SEED = 42
 BASE_FEATURES = ('temperature', 'nb_vetements', 'nb_favoris', 'ratio_favoris')
@@ -71,6 +74,9 @@ def _validated(payload):
             raise ValueError('Identifiants de vêtements invalides')
         if row['garment_ids_source'] not in ('snapshot', 'composer_current'):
             raise ValueError('Provenance des identifiants inconnue')
+        validate_observation({key: value for key, value in row.items()
+                              if key not in METADATA or key in ('garment_ids', 'is_liked')},
+                             feature_names, training=True)
         if any(type(row[name]) not in (int, float) or not math.isfinite(row[name])
                for name in feature_names):
             raise ValueError('Features non numériques')
@@ -87,20 +93,6 @@ def _validated(payload):
 
 def _pair_keys(ids):
     return combinations(ids, 2)
-
-
-def _interaction_features(row, feature_names, include_pairs=True):
-    features = {name: row[name] for name in feature_names}
-    # Échelles fixées avant le test ; les indicateurs binaires restent à 0/1.
-    features['temperature'] /= 40
-    features['nb_vetements'] /= 10
-    features['nb_favoris'] /= 10
-    for item in row['garment_ids']:
-        features[f'item:{item}'] = 1
-    if include_pairs:
-        for first, second in _pair_keys(row['garment_ids']):
-            features[f'pair:{first}:{second}'] = 1
-    return features
 
 
 def _metrics(model, x_test, y_test):
@@ -138,7 +130,7 @@ def evaluate(payload):
         'pairs_seen_twice': sum(count >= 2 for count in pair_counts.values()),
         'pairs_seen_three_times': sum(count >= 3 for count in pair_counts.values()),
         'method': ('Découpage chronologique 75/25, graine 42 ; retrait de l’entraînement '
-                   'des tenues, compositions et vecteurs v2 identiques au test. '
+                   'des avis à la date frontière et des tenues, compositions et vecteurs v2 identiques au test. '
                    'Vocabulaire des articles/paires appris sur l’entraînement seulement.'),
     }
     if len(rows) < MIN_ROWS or min(counts[0], counts[1]) < MIN_CLASS:
@@ -153,7 +145,8 @@ def evaluate(payload):
     test_compositions = {row['garment_ids'] for row in test}
     test_vectors = {tuple(row[name] for name in feature_names) for row in test}
     train = [row for row in ordered[:cutoff]
-             if row['id_tenue'] not in test_outfits
+             if row['_reviewed_at'] < test[0]['_reviewed_at']
+             and row['id_tenue'] not in test_outfits
              and row['garment_ids'] not in test_compositions
              and tuple(row[name] for name in feature_names) not in test_vectors]
     train_counts = Counter(row['is_liked'] for row in train)
@@ -174,7 +167,7 @@ def evaluate(payload):
                             f'test ≥{MIN_TEST} dont ≥{MIN_TEST_CLASS} par classe')
         return report
 
-    if (max(row['_reviewed_at'] for row in train) > min(row['_reviewed_at'] for row in test) or
+    if (max(row['_reviewed_at'] for row in train) >= min(row['_reviewed_at'] for row in test) or
             {row['id_tenue'] for row in train} & test_outfits or
             {row['garment_ids'] for row in train} & test_compositions or
             {tuple(row[name] for name in feature_names) for row in train} & test_vectors):
@@ -316,8 +309,18 @@ def main():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--input', type=Path, help='Export privé --interactions')
     source.add_argument('--synthetic', action='store_true', help='Fixture fictive uniquement')
+    parser.add_argument('--snapshot-only', action='store_true',
+                        help='Même population admissible que le service expérimental : identités figées seulement')
     args = parser.parse_args()
     payload = synthetic_dataset() if args.synthetic else json.loads(args.input.read_text())
+    if args.snapshot_only:
+        # Validate the original contract before excluding any historical rows.
+        _validated(payload)
+        kept = [row for row in payload['data'] if row['garment_ids_source'] == 'snapshot']
+        total = payload.get('n_v2_rows', len(payload['data']))
+        payload = {**payload, 'data': kept, 'n_v2_rows': total,
+                   'n_excluded_for_interactions': total - len(kept),
+                   'source': payload.get('source', 'origine non vérifiée') + ' — snapshots uniquement'}
     report = evaluate(payload)
     report['synthetic'] = args.synthetic
     print(format_report(report))

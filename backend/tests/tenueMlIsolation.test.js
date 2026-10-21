@@ -58,6 +58,29 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
   expect(res.json).toHaveBeenCalledWith({ id_tenue: 22, vetements: [vetement],
     recommendation: { model_used: 'fallback', reason: null } });
   expect(next).not.toHaveBeenCalled();
+
+  // The opt-in variant is identifiable in the response, without changing the outfit contract.
+  const previous = [process.env.ML_EXPERIMENTAL_URL, process.env.ML_EXPERIMENTAL_USER_ID];
+  try {
+    process.env.ML_EXPERIMENTAL_URL = 'http://127.0.0.1:8001';
+    process.env.ML_EXPERIMENTAL_USER_ID = '7';
+    postToMl.mockResolvedValue({ data: { predictions: [{ probability_like: 0.8,
+      model_used: 'personalized', model_variant: 'items-pairs-v1', model_revision: 'test-revision' }] } });
+    res.json.mockClear();
+    await generateTenue(req, res, next);
+    expect(res.json).toHaveBeenCalledWith({ id_tenue: 22, vetements: [vetement],
+      recommendation: { model_used: 'personalized', reason: null,
+        model_variant: 'items-pairs-v1', model_revision: 'test-revision' } });
+    expect(postToMl).toHaveBeenLastCalledWith('predict-batch', expect.objectContaining({
+      candidates: [expect.objectContaining({ garment_ids: [12] })]
+    }), 7);
+    expect(next).not.toHaveBeenCalled();
+  } finally {
+    ['ML_EXPERIMENTAL_URL', 'ML_EXPERIMENTAL_USER_ID'].forEach((key, index) => {
+      if (previous[index] === undefined) delete process.env[key];
+      else process.env[key] = previous[index];
+    });
+  }
 });
 
 test('rejette une température non numérique avant la lecture du dressing', async () => {

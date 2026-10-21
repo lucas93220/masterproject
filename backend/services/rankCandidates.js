@@ -1,5 +1,6 @@
 const { postToMl } = require('./mlClient');
 const { extractFeatures } = require('./outfitFeatures');
+const { experimentFor, garmentIds, REPRESENTATION_VERSION } = require('./mlExperiment');
 
 async function rankCandidates(candidates, temperature, schema, userId) {
   const rows = candidates.map(candidate => ({
@@ -7,14 +8,29 @@ async function rankCandidates(candidates, temperature, schema, userId) {
   }));
   let predictions = [];
   try {
-    for (const row of rows) {
-      const { data } = await postToMl('predict', row, userId);
-      if (typeof data?.probability_like !== 'number' || !Number.isFinite(data.probability_like) ||
-          data.probability_like < 0 || data.probability_like > 1 ||
-          !['personalized', 'fallback'].includes(data.model_used)) {
-        throw new Error('Réponse ML invalide');
+    if (experimentFor(userId)) {
+      const { data } = await postToMl('predict-batch', {
+        feature_version: schema.version,
+        representation_version: REPRESENTATION_VERSION,
+        candidates: rows.map(({ feature_version, ...row }, index) => ({
+          ...row, garment_ids: garmentIds(candidates[index])
+        }))
+      }, userId);
+      if (!Array.isArray(data?.predictions) || data.predictions.length !== rows.length) {
+        throw new Error('Lot ML invalide');
       }
-      predictions.push(data);
+      predictions = data.predictions;
+    } else {
+      for (const row of rows) {
+        const { data } = await postToMl('predict', row, userId);
+        predictions.push(data);
+        validatePrediction(data);
+      }
+    }
+    for (const data of predictions) validatePrediction(data);
+    // Experimental batches must have been scored with one frozen model revision.
+    if (new Set(predictions.map(item => item.model_revision)).size > 1) {
+      throw new Error('Révisions ML incohérentes');
     }
     // Un modèle remplacé pendant le lot ne doit pas mélanger score appris et heuristique.
     if (new Set(predictions.map(item => item.model_used)).size > 1) {
@@ -32,5 +48,13 @@ async function rankCandidates(candidates, temperature, schema, userId) {
     if (predictions[i].probability_like > predictions[best].probability_like) best = i;
   }
   return { candidate: candidates[best], prediction: predictions[best] };
+}
+
+function validatePrediction(data) {
+  if (typeof data?.probability_like !== 'number' || !Number.isFinite(data.probability_like) ||
+      data.probability_like < 0 || data.probability_like > 1 ||
+      !['personalized', 'fallback'].includes(data.model_used)) {
+    throw new Error('Réponse ML invalide');
+  }
 }
 module.exports = { rankCandidates };

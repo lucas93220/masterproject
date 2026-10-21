@@ -8,12 +8,36 @@ from pathlib import Path
 from unittest.mock import patch
 
 from sklearn.feature_extraction import DictVectorizer
+from sklearn.linear_model import LogisticRegression
+from interaction_model import fit_candidate, predict_candidates
 
 from evaluate_interactions import (_interaction_features, _validated, evaluate,
                                    format_report, synthetic_dataset)
 
 
 class InteractionEvaluationTests(unittest.TestCase):
+    def test_served_candidate_and_offline_logistic_use_exact_same_encoding_and_parameters(self):
+        rows, names = _validated(synthetic_dataset())
+        train, test = rows[:120], rows[120:]
+        vectorizer = DictVectorizer(sparse=True)
+        x_train = vectorizer.fit_transform([_interaction_features(row, names) for row in train])
+        offline = LogisticRegression(C=0.1, max_iter=3000, random_state=42)
+        offline.fit(x_train, [row['is_liked'] for row in train])
+        expected = offline.predict_proba(vectorizer.transform([
+            _interaction_features(row, names) for row in test]))[:, 1]
+        actual = predict_candidates(fit_candidate(train, names), test, names)
+        for first, second in zip(actual, expected):
+            self.assertAlmostEqual(first, second, places=12)
+
+    def test_same_timestamp_cannot_leak_across_chronological_boundary(self):
+        payload = synthetic_dataset()
+        for row in payload['data']:
+            row['reviewed_at'] = '2026-01-01T12:00:00Z'
+        result = evaluate(payload)
+        self.assertEqual(result['status'], 'insufficient_data')
+        self.assertEqual(result['n_train'], 0)
+        self.assertNotIn('metrics', result)
+
     def test_synthetic_comparison_is_reproducible_and_keeps_joblib_untouched(self):
         payload = synthetic_dataset()
         with tempfile.TemporaryDirectory() as directory:
