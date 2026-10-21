@@ -12,6 +12,8 @@ FITS est un projet personnel : proposer rapidement une tenue à partir du dressi
 
 Il estime avoir choisi une tenue acceptable en environ **5 min sans FITS** puis **30 s avec FITS**, à la troisième suggestion ; trois des cinq premières suggestions lui plaisaient. Les durées sont **estimées, sans chronomètre**, sur une seule personne et dans un ordre fixe. Il a continué à générer par curiosité pendant des tests chez lui ; il n'a encore jamais porté une tenue *à la suite* d'une suggestion de FITS. En réutilisant des photos de vêtements qu'il avait mis sur Vinted, il a découvert pendant les essais des associations possibles avec son dressing actuel ; aucune réutilisation dans une tenue portée n'est constatée. [Récit et contexte](../ETAT_ACTUEL.md#c1--besoin-et-sources).
 
+Lors de sa session récente du 21/10 à 15 °C, il a **aimé 64 des 97 tenues affichées (66,0 %)**. Cette appréciation est une preuve de son ressenti pendant l'essai, distincte d'un gain de temps chronométré ou d'un avis externe. [Comparaison des sessions](C2_MODELE.md).
+
 ## Preuve à compléter avant l'oral
 
 Aucun retour indépendant de volontaire n'est documenté. Le [protocole prêt](../PREPARATION_SOUTENANCE.md#essais-de-volontaires) prévoit deux ou trois personnes, leurs propres comptes, une comparaison chronométrée à choix acceptable, les suggestions nouvelles et utiles, et la réutilisation d'un vêtement déclaré oublié avant l'essai. Conserver aussi les échecs et le temps de saisie du dressing. Avec un si petit groupe, rapporter des observations individuelles, sans promettre un gain général. Si ces essais n'ont pas lieu, annoncer explicitement que l'utilité externe reste à démontrer.

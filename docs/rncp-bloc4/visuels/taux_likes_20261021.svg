@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="425" viewBox="0 0 900 425" role="img" aria-labelledby="title desc">
+  <title id="title">Tenues appréciées pendant les deux sessions du 21 octobre</title>
+  <desc id="desc">La première session à 11 degrés a reçu 25 likes sur 62 tenues, soit 40,3 pour cent. La seconde session à 15 degrés a reçu 64 likes sur 97 tenues, soit 66,0 pour cent. Versions déclarées par le candidat ; météo et apprentissage changent entre les sessions.</desc>
+  <rect width="900" height="425" rx="20" fill="#f8f7f4"/>
+  <text x="44" y="55" font-family="Arial, sans-serif" font-size="27" font-weight="700" fill="#1e2932">Près de 2 tenues sur 3 appréciées</text>
+  <text x="44" y="85" font-family="Arial, sans-serif" font-size="17" fill="#54636b">Session récente : 64 likes sur 97 tenues affichées · 66,0 %</text>
+  <g stroke="#d9ddde" stroke-width="1">
+    <line x1="300" y1="130" x2="300" y2="288"/>
+    <line x1="420" y1="130" x2="420" y2="288"/>
+    <line x1="540" y1="130" x2="540" y2="288"/>
+    <line x1="660" y1="130" x2="660" y2="288"/>
+    <line x1="780" y1="130" x2="780" y2="288"/>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="14" fill="#67737b" text-anchor="middle">
+    <text x="300" y="313">0 %</text><text x="420" y="313">25 %</text><text x="540" y="313">50 %</text><text x="660" y="313">75 %</text><text x="780" y="313">100 %</text>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="16" fill="#1e2932">
+    <text x="44" y="177">Session à 11 °C</text>
+    <text x="44" y="263" font-weight="700">Session à 15 °C</text>
+  </g>
+  <rect x="300" y="146" width="193" height="47" rx="9" fill="#83949a"/>
+  <rect x="300" y="232" width="317" height="47" rx="9" fill="#14675e"/>
+  <g font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#1e2932">
+    <text x="506" y="177">40,3 % · 25/62</text>
+    <text x="630" y="263">66,0 % · 64/97</text>
+  </g>
+  <text x="44" y="358" font-family="Arial, sans-serif" font-size="14" fill="#54636b">Taux de likes observé, pas accuracy prédictive. Versions déclarées, non enregistrées par avis.</text>
+  <text x="44" y="383" font-family="Arial, sans-serif" font-size="14" fill="#54636b">La température et le réentraînement ont changé : cet écart n'isole pas l'effet du modèle.</text>
+</svg>

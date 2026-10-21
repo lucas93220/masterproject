@@ -6,13 +6,19 @@ Le générateur produit jusqu'à cinq tenues admissibles ; le score choisit cell
 
 Un vote juge la **tenue entière**. Même avec des indicateurs de paires, un seul dislike n'établit pas quel article ou quelle association a déplu. Le modèle peut pondérer des corrélations vues sur plusieurs tenues ; il ne déduit ni coupe, ni marque, ni causalité certaine. Les goûts peuvent évoluer. Le seuil technique de **20 avis avec snapshot v2, dont cinq par classe**, autorise l'entraînement mais ne prouve aucune qualité prédictive. Les anciens avis sans snapshot v2 ne suffisent donc pas à activer une personnalisation sur un compte historique. Sans modèle compatible ou en cas de panne, un fallback explicite utilise le ratio de favoris ; le service ne revient pas silencieusement au RF.
 
-## Résultat récent à montrer en premier
+## Résultat d'usage : 66 % de tenues appréciées
 
-Le **compte récent** totalise maintenant **362 avis réels** (209 likes, 153 dislikes), dont **251 snapshots v2** utilisables pour l'étude des identités d'articles. Sur **le même découpage chronologique hors ligne** de 63 avis de test, après entraînement sur 182 avis et purge de six doublons potentiels, le modèle courant logistique articles/paires obtient **42,9 % d'accuracy**, contre **28,6 % pour le Random Forest `outfit-v2`** et **22,2 % pour la classe majoritaire apprise sur l'entraînement**. L'écart courant–RF est **+14,3 points sur ce test** ; l'AUC est **0,640 contre 0,386**. C'est une amélioration **observée sur ce protocole**, pas une promesse de performance future. Le jeu de test comporte 49 likes et 14 dislikes à 15 °C ; la majorité du jeu d'entraînement est inverse, ce qui explique en partie la faible baseline.
+Pendant la session récente du 21/10 à **15 °C**, le candidat a aimé **64 des 97 tenues affichées, soit 66,0 %**. Lors de la session précédente à **11 °C**, il en avait aimé **25 sur 62, soit 40,3 %**. Les **159 avis** et leurs températures ont été confirmés dans PostgreSQL local en lecture seule. Le candidat attribue ces sessions respectivement aux versions avant et après son essai du modèle articles/paires. Cela donne un **signal d'usage favorable de +25,7 points** et répond directement à la question « combien de suggestions m'ont plu ? ».
 
-![Comparaison sur le même test chronologique réel : modèle courant 42,9 %, RF 28,6 %, majorité apprise 22,2 %](../visuels/comparaison_modeles_20261021.svg)
+![Taux de tenues appréciées : 64 sur 97 lors de la session récente, contre 25 sur 62 précédemment](../visuels/taux_likes_20261021.svg)
 
-La même journée, **159 avis** se répartissent en **25 likes sur 62 propositions à 11 °C**, puis **64 likes sur 97 à 15 °C** : **40,3 % → 66,0 %**, soit **+25,7 points** de propositions appréciées. Ces comptages sont confirmés par le relevé SQL du 21/10. Ils décrivent l'acceptation des propositions vues, **pas** une accuracy ; la température, l'apprentissage continu et les versions déclarées mais non enregistrées par avis empêchent d'attribuer l'écart au seul modèle.
+Ce taux concerne **un seul utilisateur** et les tenues effectivement affichées. Le changement de température, le réentraînement au fil des votes et l'absence de version enregistrée avec chaque avis empêchent d'attribuer avec certitude les +25,7 points au seul changement de modèle. Le taux de **75 % évoqué comme valeur provisoire** n'est pas confirmé sur cette série de 97 avis ; le chiffre final vérifiable est **66,0 %**.
+
+## Évaluation prédictive hors ligne : modèle courant face au RF
+
+Le **compte récent** totalise **362 avis réels** (209 likes, 153 dislikes), dont **251 snapshots v2** utilisables pour l'étude des identités d'articles. Sur **le même découpage chronologique hors ligne** de 63 avis de test, après entraînement sur 182 avis et purge de six doublons potentiels, le modèle courant logistique articles/paires obtient **42,9 % d'accuracy**, contre **28,6 % pour le Random Forest `outfit-v2`** et **22,2 % pour la classe majoritaire apprise sur l'entraînement**. L'écart courant–RF est **+14,3 points sur ce test** ; l'AUC est **0,640 contre 0,386**. C'est une amélioration **observée sur ce protocole**, pas une promesse de performance future. Le jeu de test comporte 49 likes et 14 dislikes à 15 °C ; la majorité du jeu d'entraînement est inverse, ce qui explique en partie la faible baseline. **42,9 % n'est pas le pourcentage de tenues aimées** : c'est la proportion de votes correctement anticipés par un classifieur entraîné sur les avis précédents.
+
+![Accuracy prédictive sur le même test chronologique réel : modèle courant 42,9 %, RF 28,6 %, majorité apprise 22,2 %](../visuels/comparaison_modeles_20261021.svg)
 
 ## Autres mesures réelles et populations séparées
 
