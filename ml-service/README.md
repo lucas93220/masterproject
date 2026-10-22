@@ -60,3 +60,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 evaluate_interactions.py --input /chemin/prive
 ```
 
 Supprimer ensuite l'export privé. `evaluate_interactions.py --synthetic` vérifie le script, sans mesure réelle. Le protocole demande au moins 50 avis dont 20 par classe avant séparation, puis au moins 40 avis d'entraînement et 15 de test avec les deux classes ; ces seuils évitent un test manifestement trop petit, sans garantir une généralisation. Seule la tenue affichée reçoit un avis : ROC AUC sur ces avis ne mesure pas le classement des cinq candidats et NDCG@5 ne peut pas être calculé honnêtement. Les [résultats datés et limites](../docs/rncp-bloc4/preuves/C2_MODELE.md) restent distincts selon les comptes et les températures. Le choix de rendre articles/paires normal est une décision produit, **pas** une preuve scientifique que son avantage prédictif est établi.
+
+Pour une **nouvelle série prospective**, redémarrer le backend avec MongoDB disponible avant de voter. À chaque génération, Node conserve dans le journal Mongo le score de la seule tenue affichée, son modèle et sa révision **avant** la réponse au mobile. Ces traces sont incluses dans la suppression du compte et sont éligibles à la purge des logs après 30 jours ; cette purge reste à exécuter par l'exploitant. Depuis `backend`, consulter ensuite les agrégats sans écrire en base :
+
+```sh
+node scripts/reportProspectivePredictions.js ID_UTILISATEUR
+```
+
+Le rapport compte uniquement les prédictions personnalisées enregistrées avant leur vote ; il exclut les fallbacks et les avis non encore donnés. Sa baseline majoritaire utilise seulement les avis avec snapshot v2 antérieurs à chaque prédiction. S'il n'y a pas de trace ou si Mongo était indisponible, il ne calcule aucune accuracy. Les modèles peuvent être réentraînés entre deux votes : cette mesure décrit le système adaptatif effectivement utilisé, pas un modèle figé. Ne pas republier les journaux ou les exports individuels ; ne rapporter que les agrégats.

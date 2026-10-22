@@ -16,7 +16,7 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, average_precision_score,
                              balanced_accuracy_score, brier_score_loss,
-                             f1_score, log_loss, roc_auc_score)
+                             confusion_matrix, f1_score, log_loss, roc_auc_score)
 
 from interaction_model import (interaction_features as _interaction_features,
                                validate_observation)
@@ -204,6 +204,17 @@ def evaluate(payload):
         model.fit(x_train, y_train)
         metrics[name] = _metrics(model, x_test, y_test)
 
+    current, _, current_test = models['logistic_items_pairs']
+    current_probabilities = current.predict_proba(current_test)[:, list(current.classes_).index(1)]
+    current_predictions = current.predict(current_test)
+    tn, fp, fn, tp = confusion_matrix(y_test, current_predictions, labels=[0, 1]).ravel()
+    probability_bands = []
+    for index in range(5):
+        selected = [label for label, probability in zip(y_test, current_probabilities)
+                    if min(int(probability * 5), 4) == index]
+        probability_bands.append({'range': f'{index / 5:.1f}–{(index + 1) / 5:.1f}',
+                                  'n': len(selected), 'likes': sum(selected)})
+
     train_pairs = {pair for row in train for pair in _pair_keys(row['garment_ids'])}
     test_pairs = {pair for row in test for pair in _pair_keys(row['garment_ids'])}
     train_items = {item for row in train for item in row['garment_ids']}
@@ -216,6 +227,11 @@ def evaluate(payload):
         'distinct_test_pairs': len(test_pairs),
         'unknown_test_items': len(test_items - train_items),
         'metrics': metrics,
+        'current_model_diagnostics': {
+            'true_dislikes': int(tn), 'false_likes': int(fp),
+            'false_dislikes': int(fn), 'true_likes': int(tp),
+            'probability_bands': probability_bands,
+        },
     })
     return report
 
@@ -263,6 +279,18 @@ def format_report(report):
             f"{values[metric]:.3f}" for metric in
             ('accuracy', 'balanced_accuracy', 'f1_like', 'roc_auc',
              'average_precision', 'log_loss', 'brier')) + ' |')
+    diagnostics = report['current_model_diagnostics']
+    lines += ['', '### Erreurs du modèle courant sur le test', '',
+              '| Avis réel / prédiction à 0,5 | Dislike prédit | Like prédit |',
+              '|---|---:|---:|',
+              f"| Dislike réel | {diagnostics['true_dislikes']} | {diagnostics['false_likes']} |",
+              f"| Like réel | {diagnostics['false_dislikes']} | {diagnostics['true_likes']} |",
+              '', '| Probabilité annoncée | Tenues testées | Likes observés |',
+              '|---|---:|---:|']
+    for band in diagnostics['probability_bands']:
+        lines.append(f"| {band['range']} | {band['n']} | {band['likes']} |")
+    lines += ['', 'Les tranches vides ou peu remplies ne permettent pas de conclure à '
+              'une calibration fiable des probabilités.']
     lines += ['', 'Un seul test temporel : aucune recherche de découpage favorable ni réglage de '
               'paramètres. Les scores concernent les tenues étiquetées dans cet export ; '
               'ils ne mesurent pas le classement des cinq candidats non jugés. Le partage '

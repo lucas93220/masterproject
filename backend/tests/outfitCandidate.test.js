@@ -1,4 +1,4 @@
-const { buildRandomTenue } = require('../services/outfitCandidate');
+const { buildRandomTenue, isTemperatureEligible } = require('../services/outfitCandidate');
 
 const zones = [
   { id_zone: 1, nom_zone: 'tete', max_elements: 1, obligatoire: false },
@@ -31,9 +31,23 @@ test('à 22 °C, ne cumule pas t-shirt, pull et manteau malgré leurs plages ind
   expect(outfit.map(item => item.id_vetement)).toEqual([2, 3, 6, 7]);
 });
 
-test('par temps froid, une base légère, un pull et un manteau restent possibles', () => {
+test('par temps froid, la suggestion avec manteau ne montre que le pull visible', () => {
   const outfit = buildRandomTenue(clothes, zones, 8, () => 0);
-  expect(outfit.map(item => item.id_vetement)).toEqual([1, 3, 4, 5, 6, 7]);
+  expect(outfit.map(item => item.id_vetement)).toEqual([1, 4, 5, 6, 7]);
+});
+
+test('à 13 °C, un manteau limité à 12 °C redevient possible mais facultatif', () => {
+  const wardrobe = clothes.map(item => ({ ...item, temperature_min: -20,
+    temperature_max: item.id_vetement === 5 ? 12 : 30 }));
+  const eligible = wardrobe.filter(item => isTemperatureEligible(item, 13));
+  expect(eligible.some(item => item.id_vetement === 5)).toBe(true);
+  expect(isTemperatureEligible({ ...wardrobe[2], temperature_max: 12 }, 13)).toBe(false);
+  expect(wardrobe.filter(item => isTemperatureEligible(item, 19))
+    .some(item => item.id_vetement === 5)).toBe(false);
+  expect(buildRandomTenue(eligible, zones, 13, () => 0)
+    .map(item => item.id_vetement)).toEqual([2, 4, 5, 6, 7]);
+  expect(buildRandomTenue(eligible, zones, 13, () => 0.9)
+    .some(item => item.id_vetement === 5)).toBe(false);
 });
 
 test('un haut chaud suffit à 17 °C et exclut une veste supplémentaire', () => {
@@ -62,11 +76,11 @@ test('par temps froid, le manteau disponible reste présent même si les accesso
     zones, 8, () => 0)).toBeNull();
 });
 
-test('à 9 °C, une chemise peut se porter sur un t-shirt avec un manteau', () => {
+test('à 9 °C, la chemise reste visible mais le t-shirt caché est omis avec un manteau', () => {
   const shirt = garment(8, 'torse', 'Chemises', 'Chemise');
   const outfit = buildRandomTenue([clothes[2], shirt, clothes[4], clothes[5], clothes[6]],
     zones, 9, () => 0.9);
-  expect(outfit.map(item => item.id_vetement)).toEqual([3, 8, 5, 6, 7]);
+  expect(outfit.map(item => item.id_vetement)).toEqual([8, 5, 6, 7]);
 });
 
 test('par temps froid, le choix de la couche extérieure ne force pas le manteau en laine', () => {
@@ -95,7 +109,7 @@ test('casquette, lunettes et écharpe peuvent coexister dans leurs zones distinc
   const scarf = garment(9, 'cou', 'Echarpes', 'Echarpe');
   const outfit = buildRandomTenue([...clothes.slice(1), sunglasses, scarf],
     zones, 9, () => 0, '01d');
-  expect(outfit.map(item => item.id_vetement)).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+  expect(outfit.map(item => item.id_vetement)).toEqual([2, 4, 5, 6, 7, 8, 9]);
 });
 
 test('préfère une chaussure neutre à une troisième couleur vive sans bloquer un dressing réduit', () => {

@@ -58,10 +58,19 @@ class InteractionEvaluationTests(unittest.TestCase):
         })
         for model_metrics in first['metrics'].values():
             self.assertTrue(all(math.isfinite(value) for value in model_metrics.values()))
+        diagnostics = first['current_model_diagnostics']
+        self.assertEqual(sum(diagnostics[key] for key in
+                             ('true_dislikes', 'false_likes', 'false_dislikes', 'true_likes')),
+                         first['n_test'])
+        self.assertEqual(sum(band['n'] for band in diagnostics['probability_bands']),
+                         first['n_test'])
+        self.assertEqual(sum(band['likes'] for band in diagnostics['probability_bands']),
+                         first['test_likes'])
         first['synthetic'] = True
         report = format_report(first)
         self.assertIn('SYNTHÉTIQUE — AUCUNE PERFORMANCE RÉELLE DE FITS', report)
         self.assertIn('Paires du test déjà vues', report)
+        self.assertIn('Erreurs du modèle courant', report)
 
     def test_specific_pairs_are_distinguishable_even_with_same_general_features(self):
         payload = synthetic_dataset()

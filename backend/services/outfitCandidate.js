@@ -5,6 +5,8 @@ const { colorBucket } = require('./clothingColors');
 const WARM_WEATHER = 20;
 const LAYERING_WEATHER = 15;
 const HEAVY_OUTER_WEATHER = 12;
+const HEAVY_OUTER_SOFT_LIMIT = 18;
+const HEAVY_OUTER_TOLERANCE = 6;
 const SUNNY_ICONS = new Set(['01d', '02d']);
 const NEUTRAL_COLORS = new Set(['noir', 'blanc', 'gris', 'marron', 'beige']);
 
@@ -30,6 +32,16 @@ function isShirt(item) {
 function isHeavyOuter(item) {
   const name = normalize(item.nom);
   return /\b(doudoune|doudounes|manteau|manteaux|parka|parkas|laine)\b/.test(name);
+}
+
+function isTemperatureEligible(item, temperature) {
+  if (temperature < item.temperature_min) return false;
+  if (temperature <= item.temperature_max) return true;
+  // Une plage renseignée reste la référence ; une petite marge permet de proposer
+  // une couche extérieure à 13 °C si sa limite est 12 °C, sans modifier le dressing.
+  return normalize(item.sous_categorie?.zone?.nom_zone) === 'exterieur' &&
+    temperature <= HEAVY_OUTER_SOFT_LIMIT &&
+    temperature <= item.temperature_max + HEAVY_OUTER_TOLERANCE;
 }
 
 function isTooWarmAccessory(item, zoneName, temperature, weatherIcon) {
@@ -74,7 +86,7 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
 
     if (zoneName === 'exterieur') {
       if (temperature >= WARM_WEATHER) continue;
-      if (temperature > HEAVY_OUTER_WEATHER) {
+      if (temperature > HEAVY_OUTER_SOFT_LIMIT) {
         options = options.filter(item => !isHeavyOuter(item));
       }
       if (temperature >= 16 && warmTopChosen) continue;
@@ -134,10 +146,22 @@ function buildRandomTenue(vetementsFiltres, zones, temperature, random = Math.ra
     }
   }
 
+  // Un sous-vêtement caché sous un pull et une veste n'apporte rien à la
+  // suggestion affichée : ne garder que le haut visible sous la couche extérieure.
+  if (tenue.some(item => normalize(item.sous_categorie?.zone?.nom_zone) === 'exterieur')) {
+    const tops = tenue.filter(item => normalize(item.sous_categorie?.zone?.nom_zone) === 'torse');
+    if (tops.length > 1) {
+      const visibleTop = tops.find(isWarmTop) || tops.find(isShirt) || tops[tops.length - 1];
+      for (const top of tops) {
+        if (top !== visibleTop) tenue.splice(tenue.indexOf(top), 1);
+      }
+    }
+  }
+
   const zoneOrder = new Map(zones.map((zone, index) => [zone.id_zone, index]));
   return tenue.sort((a, b) =>
     zoneOrder.get(a.sous_categorie.zone.id_zone) -
     zoneOrder.get(b.sous_categorie.zone.id_zone));
 }
 
-module.exports = { buildRandomTenue };
+module.exports = { buildRandomTenue, isTemperatureEligible };

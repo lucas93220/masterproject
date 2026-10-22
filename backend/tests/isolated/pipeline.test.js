@@ -98,6 +98,12 @@ test('parcours réel SQL/HTTP : génération, avis, 85 features figées, entraî
   expect(generated.body.vetements).toHaveLength(3);
   expect(generated.body.recommendation).toEqual({ model_used: 'fallback', reason: 'no_model' });
   const outfit = generated.body.id_tenue;
+  const trace = await Log.findOne({ userId: '1', action: 'outfit_prediction',
+    'details.id_tenue': outfit }).lean();
+  expect(trace.details.model_used).toBe('fallback');
+  expect(typeof trace.details.probability_like).toBe('number');
+  expect((await db.query('SELECT id_tenue FROM evaluation WHERE id_tenue=$1', [outfit])).rowCount)
+    .toBe(0); // La prédiction existe avant le premier vote.
   const schema = await loadFeatureSchema();
   const candidate = extractFeatures(generated.body.vetements, 18, schema);
   expect(Object.keys(candidate)).toHaveLength(85);
@@ -108,6 +114,10 @@ test('parcours réel SQL/HTTP : génération, avis, 85 features figées, entraî
     .send({ id_tenue: outfit, is_liked: 'false' })).status).toBe(400);
   expect((await authenticated(request(server).post('/api/evaluation'))
     .send({ id_tenue: outfit, is_liked: false })).status).toBe(201);
+
+  const voteTime = await db.query(`SELECT date_avis AT TIME ZONE 'UTC' AS voted_at
+    FROM evaluation WHERE id_tenue=$1`, [outfit]);
+  expect(voteTime.rows[0].voted_at.getTime()).toBeGreaterThan(trace.date.getTime());
 
   const stored = await db.query('SELECT feature_snapshot FROM evaluation WHERE id_tenue=$1',
     [outfit]);

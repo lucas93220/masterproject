@@ -9,6 +9,7 @@ jest.mock("../models/dressing", () => ({ findOne: jest.fn() }));
 jest.mock("../models/contenir", () => ({ findAll: jest.fn() }));
 jest.mock("../models/tenue", () => ({ create: jest.fn() }));
 jest.mock("../models/composer", () => ({ create: jest.fn() }));
+jest.mock("../services/predictionTrace", () => ({ recordDisplayedPrediction: jest.fn().mockResolvedValue(true) }));
 jest.mock("../config/db", () => {
   throw new Error("Ce test ne doit pas ouvrir de connexion à la base");
 });
@@ -21,6 +22,7 @@ const Dressing = require("../models/dressing");
 const Contenir = require("../models/contenir");
 const Tenue = require("../models/tenue");
 const Composer = require("../models/composer");
+const { recordDisplayedPrediction } = require("../services/predictionTrace");
 const { generateTenue } = require("../controllers/tenueController");
 
 test("la génération conserve le parcours et prédit avec l'utilisateur authentifié", async () => {
@@ -56,6 +58,11 @@ test("la génération conserve le parcours et prédit avec l'utilisateur authent
   expect(postToMl).toHaveBeenCalledTimes(1);
   expect(Tenue.create).toHaveBeenCalledWith({ id_utilisateur: 7, temperature: 18 });
   expect(Composer.create).toHaveBeenCalledWith({ id_tenue: 22, id_vetement: 12 });
+  expect(recordDisplayedPrediction).toHaveBeenCalledWith({ userId: 7, outfitId: 22,
+    prediction: { probability_like: 1, model_used: 'fallback' },
+    featureVersion: 'outfit-v2-test' });
+  expect(recordDisplayedPrediction.mock.invocationCallOrder[0]).toBeLessThan(
+    res.json.mock.invocationCallOrder[0]);
   expect(res.json).toHaveBeenCalledWith({ id_tenue: 22, vetements: [vetement],
     recommendation: { model_used: 'fallback', reason: null } });
   expect(next).not.toHaveBeenCalled();
@@ -87,4 +94,42 @@ test('rejette une température non numérique avant la lecture du dressing', asy
   expect(res.status).toHaveBeenCalledWith(400);
   expect(Dressing.findOne).not.toHaveBeenCalled();
   expect(next).not.toHaveBeenCalled();
+});
+
+test('à 13 °C, la génération transmet au classement un manteau limité à 12 °C', async () => {
+  jest.clearAllMocks();
+  const torso = { id_zone: 1, nom_zone: 'torse', obligatoire: true, max_elements: 1 };
+  const outer = { id_zone: 2, nom_zone: 'exterieur', obligatoire: false, max_elements: 1 };
+  const top = { id_vetement: 12, id_sous_categorie: 3, nom: 'Pull',
+    temperature_min: 0, temperature_max: 30,
+    sous_categorie: { nom_sous_categorie: 'Sweats et pulls', zone: torso } };
+  const coat = { id_vetement: 13, id_sous_categorie: 4, nom: 'Manteau en laine',
+    temperature_min: -20, temperature_max: 12,
+    sous_categorie: { nom_sous_categorie: 'Vestes et manteaux', zone: outer } };
+  Dressing.findOne.mockResolvedValue({ id_dressing: 4 });
+  Contenir.findAll.mockResolvedValue([{ id_vetement: 12 }, { id_vetement: 13 }]);
+  Vetement.findAll.mockResolvedValue([top, coat]);
+  Zone.findAll.mockResolvedValue([torso, outer]);
+  loadFeatureSchema.mockResolvedValue({ version: 'outfit-v2-test' });
+  extractFeatures.mockReturnValue({ temperature: 13, nb_vetements: 2,
+    nb_favoris: 0, ratio_favoris: 0, zone_torse: 1, zone_exterieur: 1 });
+  postToMl.mockImplementation(async (_endpoint, payload) => ({ data: {
+    predictions: payload.candidates.map(() => ({ probability_like: 0.5,
+      model_used: 'fallback' }))
+  } }));
+  Tenue.create.mockResolvedValue({ id_tenue: 23 });
+  Composer.create.mockResolvedValue({});
+  const random = jest.spyOn(Math, 'random').mockReturnValue(0);
+  const res = { json: jest.fn() };
+  const next = jest.fn();
+  try {
+    await generateTenue({ user: { id: 7 }, query: { temperature: '13' } }, res, next);
+    expect(postToMl).toHaveBeenCalledWith('predict-batch', expect.objectContaining({
+      candidates: [expect.objectContaining({ garment_ids: [12, 13] })]
+    }), 7);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ vetements: [top, coat] }));
+    expect(next).not.toHaveBeenCalled();
+  } finally {
+    random.mockRestore();
+  }
 });

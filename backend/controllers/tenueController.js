@@ -7,7 +7,8 @@ const Tenue = require('../models/tenue');
 const Composer = require('../models/composer');
 const { loadFeatureSchema } = require('../services/outfitFeatures');
 const { rankCandidates } = require('../services/rankCandidates');
-const { buildRandomTenue } = require('../services/outfitCandidate');
+const { buildRandomTenue, isTemperatureEligible } = require('../services/outfitCandidate');
+const { recordDisplayedPrediction } = require('../services/predictionTrace');
 
 exports.generateTenue = async (req, res, next) => {
   try {
@@ -47,10 +48,7 @@ exports.generateTenue = async (req, res, next) => {
       }
     });
 
-    const vetementsFiltres = vetements.filter(v =>
-      temperature >= v.temperature_min &&
-      temperature <= v.temperature_max
-    );
+    const vetementsFiltres = vetements.filter(v => isTemperatureEligible(v, temperature));
 
     if (!vetementsFiltres.length)
       return res.status(400).json({
@@ -99,6 +97,10 @@ exports.generateTenue = async (req, res, next) => {
         })
       )
     );
+
+    const predictionRecorded = await recordDisplayedPrediction({ userId: req.user.id,
+      outfitId: nouvelleTenue.id_tenue, prediction, featureVersion: schema.version });
+    if (!predictionRecorded) console.warn('[FITS ML] Prédiction non journalisée : MongoDB indisponible');
 
     // Diagnostic du résultat réellement utilisé, sans identité ni contenu du dressing.
     if (prediction.model_used === 'personalized') {

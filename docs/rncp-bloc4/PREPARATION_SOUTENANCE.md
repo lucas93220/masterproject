@@ -2,6 +2,8 @@
 
 Ce guide correspond au **fonctionnement courant** décrit dans [l'état actuel](ETAT_ACTUEL.md) : modèle personnel **articles/paires pour tous les comptes**, Random Forest conservé comme **référence comparative**. Les pièces détaillées sont [C1](preuves/C1_BESOIN.md), [C2](preuves/C2_MODELE.md), [C3](preuves/C3_DONNEES.md), [C4](preuves/C4_STOCKAGE.md) et [C5](preuves/C5_PROGRAMME.md). La grille fournie et validée par l'établissement décide « valide / non valide » pour chaque axe ; aucun dossier REX séparé n'est demandé selon le candidat.
 
+Pour faire rédiger le **parcours ML** du PowerPoint par ChatGPT, transmettre d'abord [C2_MODELE.md](preuves/C2_MODELE.md), en particulier sa chronologie « Évolution à raconter dans le PowerPoint ». Pour préparer **tout** le diaporama, joindre aussi cette préparation et [ETAT_ACTUEL.md](ETAT_ACTUEL.md). Demander de conserver les dates et populations propres à chaque chiffre et de distinguer le modèle de la génération des candidats.
+
 Ne montrer au jury ni `.env`, JWT, secret ML, e-mail, photographie privée, export de préférences individuelles ou identifiant de vêtement d'un compte réel. **Dernier relevé local en lecture seule, le 21/10/2026 à 20:25 UTC : 657 tenues, 433 avis dont 362 sur le compte récent ; 251 snapshots v2 pour l'étude du modèle courant.** Les graphiques historiques et le benchmark fictif portent leur population et leur date : ne pas les faire passer pour les performances du modèle courant.
 
 ## Ce qu'il faut montrer par axe
@@ -9,7 +11,7 @@ Ne montrer au jury ni `.env`, JWT, secret ML, e-mail, photographie privée, expo
 | Axe | Pièce et phrase défendable | Ce qui manque |
 |---|---|---|
 | **C1** | Besoin personnel, parcours et 3V ; auto-essai du concepteur comme estimation. | Retours indépendants de 2–3 volontaires et gain de temps chronométré. |
-| **C2** | **66,0 % de tenues appréciées (64/97)** pendant la session récente ; sur un test prédictif distinct de 63 avis, **42,9 % d'accuracy articles/paires contre 28,6 % RF v2**. | Les sessions changent de conditions ; une cohorte future indépendante et des jugements sur plusieurs candidats d'un même lot. |
+| **C2** | [Chronologie du modèle et du générateur](preuves/C2_MODELE.md#evolution-a-raconter-dans-le-powerpoint) : **66,0 % de tenues appréciées (64/97)** dans la session du 21/10 ; sur un test prédictif distinct de 63 avis, **42,9 % d'accuracy articles/paires contre 28,6 % RF v2**. Le relevé prospectif ultérieur du 22/10 mesure **49/95** votes correctement anticipés contre **45/95** pour la majorité antérieure. | Ces chiffres proviennent de protocoles différents ; une cohorte future indépendante et des jugements sur plusieurs candidats d'un même lot restent nécessaires. |
 | **C3** | **367 snapshots valides sur 433 avis**, dont 251 v2 ; ETL par compte, cinq températures historiques exclues, suppression testée sur stockages temporaires. | 66 anciens snapshots absents, sauvegardes et rétention réelle à opérer ; aucune conformité RGPD complète. |
 | **C4** | Schéma SQL/JSONB, mesures sur **657 tenues réelles** et benchmark d'index à 100 000 tenues **fictives**, avec coût de 728 Kio. | Charge représentative, coût d'écriture et justification d'une migration réelle. |
 | **C5** | Génération → score personnel ou fallback → avis → réentraînement ; deux utilisateurs et panne testés. | Répétition sur iPhone et réseau de l'oral ; tests techniques ≠ utilité prédictive. |
