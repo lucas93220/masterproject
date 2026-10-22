@@ -46,7 +46,8 @@ beforeAll(async () => {
   for (const [prefix, routes] of [
     ['/api/tenue', 'tenueRoutes'], ['/api/evaluation', 'evaluationRoutes'],
     ['/api/ml', 'mlRoutes'], ['/api/upload', 'uploadRoutes'],
-    ['/api/utilisateur', 'utilisateurRoutes'], ['/uploads', 'privateImageRoutes']
+    ['/api/utilisateur', 'utilisateurRoutes'], ['/api/vetement', 'vetementRoutes'],
+    ['/uploads', 'privateImageRoutes']
   ]) app.use(prefix, require(`../../routes/${routes}`));
   app.use(require('../../utils/errorHandler'));
   server = await new Promise(resolve => {
@@ -154,6 +155,65 @@ test('parcours réel SQL/HTTP : génération, avis, 85 features figées, entraî
   expect(await fs.readdir(path.join(root, 'models'))).toEqual([]);
   const generatedAgain = await authenticated(request(server).get('/api/tenue/generate?temperature=18'));
   expect(generatedAgain.body.recommendation.model_used).toBe('personalized');
+});
+
+test('retrait : plus de suggestion, avis historique conservé et compte effacé sans vêtement orphelin', async () => {
+  const created = await db.query(`INSERT INTO vetement
+    (nom,couleur,temperature_min,temperature_max,id_sous_categorie,id_utilisateur)
+    VALUES ('Manteau historique','noir',0,30,1,1),
+      ('Pièce jamais proposée','noir',0,30,1,1) RETURNING id_vetement`);
+  const [historicId, unusedId] = created.rows.map(row => row.id_vetement);
+  await db.query('INSERT INTO contenir VALUES (1,$1),(1,$2)', [historicId, unusedId]);
+  const outfit = await db.query('INSERT INTO tenue(id_utilisateur,temperature) VALUES (1,18) RETURNING id_tenue');
+  await db.query('INSERT INTO composer VALUES ($1,$2)', [outfit.rows[0].id_tenue, historicId]);
+  expect((await authenticated(request(server).post('/api/evaluation'))
+    .send({ id_tenue: outfit.rows[0].id_tenue, is_liked: false })).status).toBe(201);
+  const schema = await loadFeatureSchema();
+  const history = await buildTrainingDataset(1, schema);
+  expect(history).toHaveLength(1);
+
+  for (const id of [historicId, unusedId]) {
+    const removed = await authenticated(request(server).delete(`/api/vetement/${id}`));
+    expect(removed.status).toBe(200);
+    expect((await authenticated(request(server).get(`/api/vetement/${id}`))).status).toBe(404);
+  }
+  expect((await db.query('SELECT id_vetement FROM composer WHERE id_vetement=$1', [historicId])).rowCount).toBe(1);
+  expect(await buildTrainingDataset(1, schema)).toEqual(history);
+  expect((await db.query('SELECT id_utilisateur FROM vetement WHERE id_vetement=$1', [unusedId])).rows[0].id_utilisateur).toBe(1);
+  const generated = await authenticated(request(server).get('/api/tenue/generate?temperature=18'));
+  expect(generated.status).toBe(200);
+  expect(generated.body.vetements.map(item => item.id_vetement)).not.toContain(historicId);
+  expect(generated.body.vetements.map(item => item.id_vetement)).not.toContain(unusedId);
+
+  expect((await authenticated(request(server).delete('/api/utilisateur/me'))).status).toBe(200);
+  expect((await db.query('SELECT id_vetement FROM vetement WHERE id_vetement=ANY($1)',
+    [[historicId, unusedId]])).rowCount).toBe(0);
+  expect((await db.query('SELECT id_vetement FROM vetement WHERE id_vetement=4')).rowCount).toBe(1);
+});
+
+test('migration fictive : attribue seulement les vêtements avec un propriétaire certain', async () => {
+  await db.query('BEGIN');
+  try {
+    await db.query('ALTER TABLE vetement DROP COLUMN id_utilisateur');
+    const historical = await db.query('INSERT INTO tenue(id_utilisateur,temperature) VALUES (1,18) RETURNING id_tenue');
+    await db.query('INSERT INTO composer VALUES ($1,1)', [historical.rows[0].id_tenue]);
+    await db.query('DELETE FROM contenir WHERE id_vetement IN (1,2)');
+    const ambiguous = await db.query('INSERT INTO tenue(id_utilisateur,temperature) VALUES (2,18) RETURNING id_tenue');
+    await db.query('INSERT INTO composer VALUES ($1,3)', [ambiguous.rows[0].id_tenue]);
+    const migration = await fs.readFile(path.join(__dirname,
+      '../../migrations/20261022_add_vetement_owner.sql'), 'utf8');
+    // L'enveloppe transactionnelle du fichier est remplacée par celle de la fixture.
+    await db.query(migration.replace(/^BEGIN;\s*$/m, '').replace(/^COMMIT;\s*$/m, ''));
+    const rows = (await db.query('SELECT id_vetement,id_utilisateur FROM vetement ORDER BY id_vetement')).rows;
+    expect(rows.slice(0, 4)).toEqual([
+      { id_vetement: 1, id_utilisateur: 1 }, // composition passée uniquement
+      { id_vetement: 2, id_utilisateur: null }, // aucun lien
+      { id_vetement: 3, id_utilisateur: null }, // liens contradictoires
+      { id_vetement: 4, id_utilisateur: 2 }
+    ]);
+  } finally {
+    await db.query('ROLLBACK');
+  }
 });
 
 test('suppression avec vraies cascades SQL, images privées, Joblib, reprise Mongo et sessions révoquées', async () => {

@@ -29,6 +29,7 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
   const otherName = 'u2_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.jpg';
   const legacyName = 'cccccccc-cccc-cccc-cccc-cccccccccccc.png';
   const timestampLegacyName = '1760961600000-abcde.jpg';
+  const retiredName = 'u1_dddddddd-dddd-dddd-dddd-dddddddddddd.jpg';
 
   beforeEach(async () => {
     root = await fs.mkdtemp(path.join(os.tmpdir(), 'fits-account-delete-'));
@@ -54,7 +55,9 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
     sequelize.transaction.mockResolvedValue(transaction);
     sequelize.query.mockResolvedValue([
       { id_vetement: 10, photo: `http://192.168.1.181:3002/uploads/${legacyName}` },
-      { id_vetement: 11, photo: `http://192.168.1.181:3002/uploads/${timestampLegacyName}` }
+      { id_vetement: 11, photo: `http://192.168.1.181:3002/uploads/${timestampLegacyName}` },
+      // Plus aucun lien contenir/composer : retrouvé par vetement.id_utilisateur.
+      { id_vetement: 12, photo: `/uploads/${retiredName}` }
     ]);
     Utilisateur.findByPk.mockImplementation(async (id, options) => options ? user : null);
     Vetement.destroy.mockResolvedValue(1);
@@ -62,7 +65,7 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
     Photo.deleteMany.mockResolvedValue({ deletedCount: 1 });
     Log.deleteMany.mockResolvedValue({ deletedCount: 1 });
     postToMl.mockResolvedValue({ data: { status: 'deleted' } });
-    await Promise.all([ownedName, otherName, legacyName, timestampLegacyName].map(name =>
+    await Promise.all([ownedName, otherName, legacyName, timestampLegacyName, retiredName].map(name =>
       fs.writeFile(path.join(uploads, name), name)));
   });
 
@@ -79,12 +82,14 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
     expect(result.status).toBe(200);
     expect(user.destroy).toHaveBeenCalledWith({ transaction });
     expect(Vetement.destroy).toHaveBeenCalledWith(expect.objectContaining({ transaction }));
+    expect(sequelize.query.mock.calls[0][0]).toContain('v.id_utilisateur = :userId');
     expect(Photo.deleteMany).toHaveBeenCalledWith({ ownerUserId: 1 });
     expect(Log.deleteMany).toHaveBeenCalledWith({ userId: '1' });
     expect(postToMl).toHaveBeenCalledWith('delete-model', {}, 1, { timeout: 5000 });
     expect(await fs.readdir(uploads)).toEqual([otherName]);
     const receipt = JSON.parse(await fs.readFile(path.join(root, 'jobs/receipts/user_1.json'), 'utf8'));
     expect(receipt.files).toContain(timestampLegacyName);
+    expect(receipt.files).toContain(retiredName);
     await expect(fs.access(deletion.jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
@@ -94,7 +99,7 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
     expect(transaction.rollback).toHaveBeenCalled();
     expect(Photo.deleteMany).not.toHaveBeenCalled();
     expect(postToMl).not.toHaveBeenCalled();
-    expect(await fs.readdir(uploads)).toHaveLength(4);
+    expect(await fs.readdir(uploads)).toHaveLength(5);
     await expect(fs.access(deletion.jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
@@ -117,7 +122,7 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
       reason: 'account_exists' }]);
     expect(Photo.deleteMany).not.toHaveBeenCalled();
     expect(postToMl).not.toHaveBeenCalled();
-    expect(await fs.readdir(uploads)).toHaveLength(4);
+    expect(await fs.readdir(uploads)).toHaveLength(5);
   });
 
   test('une image encore référencée par un autre vêtement est préservée', async () => {

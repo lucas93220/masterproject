@@ -31,6 +31,11 @@ const Vetement = sequelize.define('Vetement', {
     allowNull: false,
     references: { model: 'sous_categorie', key: 'id_sous_categorie' }
   },
+  // Nullable pour les anciennes lignes dont le propriétaire est indéterminable.
+  id_utilisateur: {
+    type: DataTypes.INTEGER,
+    references: { model: 'utilisateur', key: 'id_utilisateur' }
+  },
 }, {
   tableName: 'vetement',
   timestamps: false

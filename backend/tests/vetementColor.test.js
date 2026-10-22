@@ -1,16 +1,15 @@
-jest.mock('../models/vetement', () => ({ create: jest.fn(), findByPk: jest.fn() }));
+jest.mock('../models/vetement', () => ({ create: jest.fn(), findByPk: jest.fn(), destroy: jest.fn() }));
 jest.mock('../models/dressing', () => ({ findOne: jest.fn() }));
 jest.mock('../models/contenir', () => ({ create: jest.fn(), findOne: jest.fn() }));
 jest.mock('../models/sousCategorie', () => ({}));
 jest.mock('../models/categorie', () => ({}));
 jest.mock('../models/zone', () => ({}));
-jest.mock('../config/db', () => {
-  throw new Error('Ce test ne doit pas ouvrir de connexion à la base');
-});
+jest.mock('../config/db', () => ({ sequelize: { transaction: jest.fn(async callback => callback('test-transaction')) } }));
 
 const Vetement = require('../models/vetement');
 const Dressing = require('../models/dressing');
 const Contenir = require('../models/contenir');
+const { sequelize } = require('../config/db');
 const controller = require('../controllers/vetementController');
 
 function response() {
@@ -20,7 +19,8 @@ function response() {
 beforeEach(() => {
   jest.clearAllMocks();
   Dressing.findOne.mockResolvedValue({ id_dressing: 4 });
-  Contenir.findOne.mockResolvedValue({ id_dressing: 4, id_vetement: 10 });
+  Contenir.findOne.mockResolvedValue({ id_dressing: 4, id_vetement: 10,
+    destroy: jest.fn().mockResolvedValue(undefined) });
   Contenir.create.mockResolvedValue({});
 });
 
@@ -32,7 +32,13 @@ test('création : normalise une couleur connue et refuse un texte libre ou deux 
   const next = jest.fn();
   await controller.create(valid, res, next);
   expect(res.status).toHaveBeenCalledWith(201);
-  expect(Vetement.create).toHaveBeenCalledWith(expect.objectContaining({ couleur: 'bleu' }));
+  expect(Vetement.create).toHaveBeenCalledWith(
+    expect.objectContaining({ couleur: 'bleu', id_utilisateur: 1 }),
+    { transaction: 'test-transaction' }
+  );
+  expect(Contenir.create).toHaveBeenCalledWith(
+    { id_dressing: 4, id_vetement: 10 }, { transaction: 'test-transaction' }
+  );
 
   jest.clearAllMocks();
   const invalid = { ...valid, body: { ...valid.body, couleur: 'rouge et jaune' } };
@@ -42,6 +48,27 @@ test('création : normalise une couleur connue et refuse un texte libre ou deux 
   expect(Vetement.create).not.toHaveBeenCalled();
   expect(Contenir.create).not.toHaveBeenCalled();
   expect(next).not.toHaveBeenCalled();
+});
+
+test('création et lien utilisent la même transaction ; une erreur est propagée', async () => {
+  Vetement.create.mockResolvedValue({ id_vetement: 10 });
+  Contenir.create.mockRejectedValue(new Error('lien impossible'));
+  const next = jest.fn();
+  await controller.create({ user: { id: 1 }, body: { nom: 'T-shirt', couleur: 'bleu' } },
+    response(), next);
+  expect(sequelize.transaction).toHaveBeenCalledTimes(1);
+  expect(Vetement.create).toHaveBeenCalledWith(expect.any(Object),
+    { transaction: 'test-transaction' });
+  expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: 'lien impossible' }));
+});
+
+test('retirer du dressing conserve le vêtement et ses anciennes tenues', async () => {
+  const res = response();
+  await controller.delete({ user: { id: 1 }, params: { id: '10' } }, res, jest.fn());
+  const relation = await Contenir.findOne.mock.results[0].value;
+  expect(relation.destroy).toHaveBeenCalledTimes(1);
+  expect(Vetement.destroy).not.toHaveBeenCalled();
+  expect(res.json).toHaveBeenCalledWith({ message: 'Vêtement retiré du dressing avec succès.' });
 });
 
 test('mise à jour : un ancien vêtement reste modifiable sans changer sa couleur', async () => {

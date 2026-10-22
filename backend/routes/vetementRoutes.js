@@ -13,7 +13,7 @@ router.put('/:id', auth, vetementController.update);
  * @swagger
  * /api/vetement/{id}:
  *   delete:
- *     summary: Supprimer un vêtement de son dressing
+ *     summary: Retirer un vêtement du dressing sans effacer les anciennes tenues et évaluations
  *     tags: [Vetement]
  *     security:
  *       - bearerAuth: []
@@ -23,10 +23,10 @@ router.put('/:id', auth, vetementController.update);
  *         schema:
  *           type: integer
  *         required: true
- *         description: ID du vêtement à supprimer
+ *         description: ID du vêtement à retirer
  *     responses:
  *       200:
- *         description: Vêtement supprimé avec succès
+ *         description: Vêtement retiré du dressing avec succès
  *       401:
  *         description: Non authentifié ou accès refusé
  *       404:

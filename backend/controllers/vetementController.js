@@ -4,6 +4,7 @@ const Contenir = require('../models/contenir');
 const SousCategorie = require('../models/sousCategorie');
 const Categorie = require('../models/categorie');
 const Zone = require('../models/zone');
+const { sequelize } = require('../config/db');
 const { canonicalColor } = require('../services/clothingColors');
 const { validatePhotoAssignment } = require('../services/imageAccess');
 
@@ -42,20 +43,24 @@ exports.create = async (req, res, next) => {
     }
 
     await validatePhotoAssignment(photo, req.user.id);
-    const vetement = await Vetement.create({
-      marque,
-      nom,
-      photo,
-      couleur: selectedColor,
-      favori: favori ?? false,
-      temperature_min,
-      temperature_max,
-      id_sous_categorie
-    });
+    const vetement = await sequelize.transaction(async transaction => {
+      const created = await Vetement.create({
+        marque,
+        nom,
+        photo,
+        couleur: selectedColor,
+        favori: favori ?? false,
+        temperature_min,
+        temperature_max,
+        id_sous_categorie,
+        id_utilisateur: req.user.id
+      }, { transaction });
 
-    await Contenir.create({
-      id_dressing: dressing.id_dressing,
-      id_vetement: vetement.id_vetement
+      await Contenir.create({
+        id_dressing: dressing.id_dressing,
+        id_vetement: created.id_vetement
+      }, { transaction });
+      return created;
     });
 
     res.status(201).json(vetement);
@@ -194,7 +199,7 @@ exports.update = async (req, res, next) => {
 
 
 // =========================
-// Supprimer un vêtement
+// Retirer un vêtement du dressing (les tenues et avis passés sont conservés)
 // =========================
 exports.delete = async (req, res, next) => {
   try {
@@ -219,7 +224,7 @@ exports.delete = async (req, res, next) => {
 
     await relation.destroy();
 
-    res.json({ message: "Vêtement supprimé avec succès." });
+    res.json({ message: "Vêtement retiré du dressing avec succès." });
   } catch (error) {
     next(error);
   }

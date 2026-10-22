@@ -22,7 +22,8 @@ CREATE TABLE vetement (
   id_vetement serial PRIMARY KEY, marque varchar, nom varchar NOT NULL,
   photo text, couleur varchar, favori boolean DEFAULT false,
   temperature_min integer NOT NULL, temperature_max integer NOT NULL,
-  id_sous_categorie integer REFERENCES sous_categorie ON UPDATE CASCADE ON DELETE RESTRICT
+  id_sous_categorie integer REFERENCES sous_categorie ON UPDATE CASCADE ON DELETE RESTRICT,
+  id_utilisateur integer REFERENCES utilisateur ON UPDATE CASCADE ON DELETE SET NULL
 );
 CREATE TABLE contenir (
   id_dressing integer NOT NULL REFERENCES dressing ON UPDATE CASCADE ON DELETE CASCADE,

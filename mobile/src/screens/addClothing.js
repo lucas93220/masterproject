@@ -112,7 +112,7 @@ export default function AddClothing({ navigation, route }) {
     finally { busy.current = false; setDeleting(false); }
   };
   const handleDelete = () => {
-    const message = `« ${editingClothing.nom} » ne sera plus dans ton dressing.`;
+    const message = `« ${editingClothing.nom} » ne sera plus dans ton dressing ni proposé dans de nouvelles tenues. Ses anciennes tenues et évaluations restent enregistrées jusqu'à la suppression de ton compte.`;
     if (Platform.OS === "web") {
       if (globalThis.confirm(message)) void removeClothing();
     } else Alert.alert("Retirer ce vêtement ?", message, [

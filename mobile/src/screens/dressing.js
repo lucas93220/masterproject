@@ -71,7 +71,7 @@ export default function Dressing({ navigation }) {
   };
 
   const handleDelete = item => Alert.alert("Retirer ce vêtement ?",
-    `« ${item.nom} » ne sera plus dans ton dressing.`, [
+    `« ${item.nom} » ne sera plus dans ton dressing ni proposé dans de nouvelles tenues. Ses anciennes tenues et évaluations restent enregistrées jusqu'à la suppression de ton compte.`, [
       { text: "Annuler", style: "cancel" },
       { text: "Retirer", style: "destructive", onPress: () => mutateItem(item, true) }
     ]);

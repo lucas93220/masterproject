@@ -44,7 +44,7 @@ async function ownedGarments(userId, transaction) {
     SELECT v.id_vetement, v.photo
     FROM vetement v
     WHERE (
-      EXISTS (
+      v.id_utilisateur = :userId OR EXISTS (
         SELECT 1 FROM contenir own_c
         JOIN dressing own_d ON own_d.id_dressing = own_c.id_dressing
         WHERE own_c.id_vetement = v.id_vetement AND own_d.id_utilisateur = :userId
@@ -54,6 +54,7 @@ async function ownedGarments(userId, transaction) {
         WHERE own_co.id_vetement = v.id_vetement AND own_t.id_utilisateur = :userId
       )
     )
+      AND (v.id_utilisateur IS NULL OR v.id_utilisateur = :userId)
       AND NOT EXISTS (
         SELECT 1 FROM contenir other_c
         JOIN dressing other_d ON other_d.id_dressing = other_c.id_dressing
