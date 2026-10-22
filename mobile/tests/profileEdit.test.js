@@ -20,7 +20,7 @@ test('la sauvegarde conserve le contrat et bloque les clics multiples et la supp
   const pending = save.props.onPress(); await save.props.onPress();
   button(tree, 'Supprimer mon compte').props.onPress();
   expect(api.updateProfile).toHaveBeenCalledTimes(1);
-  expect(api.updateProfile).toHaveBeenCalledWith({ nom: 'Test', prenom: 'Démo', ville: 'Lyon', code_postal: '69000', telephone: '' });
+  expect(api.updateProfile).toHaveBeenCalledWith({ nom: 'Test', prenom: 'Démo', ville: 'Lyon' });
   expect(screen.alert).not.toHaveBeenCalled(); expect(api.deleteMyAccount).not.toHaveBeenCalled();
   resolve({}); await pending;
   expect(screen.alert).toHaveBeenCalledWith('Succès', 'Profil mis à jour');

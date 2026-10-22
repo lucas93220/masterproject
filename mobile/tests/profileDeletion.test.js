@@ -107,6 +107,15 @@ describe("Suppression du compte depuis le profil (mocks uniquement)", () => {
     expect(screen.alert).toHaveBeenCalledTimes(3);
   });
 
+  test("une coupure réseau ne présente pas le résultat de la suppression comme certain", async () => {
+    api.deleteMyAccount.mockRejectedValueOnce(new TypeError("Network request failed"));
+    button(screen.render(), "Supprimer mon compte").props.onPress();
+    await screen.alert.mock.calls[0][2][1].onPress();
+    expect(screen.alert).toHaveBeenLastCalledWith("Suppression à vérifier",
+      expect.stringContaining("Impossible de savoir si le compte a été supprimé"));
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
   test("la déconnexion existante revient toujours à l'écran de connexion", async () => {
     await button(screen.render(), "Déconnexion").props.onPress();
     expect(storage.removeItem).toHaveBeenCalledWith("token");

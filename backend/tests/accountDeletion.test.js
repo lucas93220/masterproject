@@ -88,8 +88,7 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
     expect(postToMl).toHaveBeenCalledWith('delete-model', {}, 1, { timeout: 5000 });
     expect(await fs.readdir(uploads)).toEqual([otherName]);
     const receipt = JSON.parse(await fs.readFile(path.join(root, 'jobs/receipts/user_1.json'), 'utf8'));
-    expect(receipt.files).toContain(timestampLegacyName);
-    expect(receipt.files).toContain(retiredName);
+    expect(receipt).toEqual({ version: 2, userId: 1, deletedAt: expect.any(String) });
     await expect(fs.access(deletion.jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
@@ -123,6 +122,25 @@ describe('Suppression de compte entre stockages, sans base réelle', () => {
     expect(Photo.deleteMany).not.toHaveBeenCalled();
     expect(postToMl).not.toHaveBeenCalled();
     expect(await fs.readdir(uploads)).toHaveLength(5);
+  });
+
+  test('un manifeste laissé par un rollback ne bloque pas une nouvelle suppression', async () => {
+    await fs.mkdir(path.dirname(deletion.jobPath(1)), { recursive: true });
+    await fs.writeFile(deletion.jobPath(1), JSON.stringify({ version: 1, userId: 1,
+      files: [ownedName] }));
+    const result = await deletion.deleteAccount(1);
+    expect(result.status).toBe(200);
+    expect(await fs.readdir(uploads)).toEqual([otherName]);
+    await expect(fs.access(deletion.jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  test('un manifeste inattendu est conservé et bloque la suppression SQL', async () => {
+    await fs.mkdir(path.dirname(deletion.jobPath(1)), { recursive: true });
+    await fs.writeFile(deletion.jobPath(1), JSON.stringify({ version: 1, userId: 2,
+      files: [ownedName] }));
+    await expect(deletion.deleteAccount(1)).rejects.toMatchObject({ status: 409 });
+    expect(user.destroy).not.toHaveBeenCalled();
+    expect(JSON.parse(await fs.readFile(deletion.jobPath(1), 'utf8')).userId).toBe(2);
   });
 
   test('une image encore référencée par un autre vêtement est préservée', async () => {

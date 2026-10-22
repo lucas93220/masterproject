@@ -22,3 +22,17 @@ test('un reçu invalide ou symbolique bloque le contrôle de restauration', asyn
     await expect(readErasureReceipts(dir)).rejects.toThrow('symbolique');
   } finally { await fs.rm(dir, { recursive: true, force: true }); }
 });
+
+test('lit les anciens reçus mais limite les nouveaux à identifiant et date', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'fits-receipt-test-'));
+  try {
+    await fs.writeFile(path.join(dir, 'user_1.json'), JSON.stringify({ version: 1,
+      userId: 1, deletedAt: '2026-10-13T12:00:00.000Z', files: [] }));
+    await fs.writeFile(path.join(dir, 'user_2.json'), JSON.stringify({ version: 2,
+      userId: 2, deletedAt: '2026-10-22T12:00:00.000Z' }));
+    expect((await readErasureReceipts(dir)).map(item => item.userId)).toEqual([1, 2]);
+    await fs.writeFile(path.join(dir, 'user_2.json'), JSON.stringify({ version: 2,
+      userId: 2, deletedAt: '2026-10-22T12:00:00.000Z', files: ['private.jpg'] }));
+    await expect(readErasureReceipts(dir)).rejects.toThrow('invalide');
+  } finally { await fs.rm(dir, { recursive: true, force: true }); }
+});

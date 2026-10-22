@@ -19,16 +19,13 @@ export default function Profile({ navigation }) {
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [ville, setVille] = useState("");
-  const [telephone, setTelephone] = useState("");
-  const [codePostal, setCodePostal] = useState("");
 
   const loadProfile = async () => {
     setLoading(true); setLoadError(null);
     try {
       const user = await getProfile();
       setNom(user.nom || ""); setPrenom(user.prenom || "");
-      setVille(user.ville || ""); setTelephone(user.telephone || "");
-      setCodePostal(user.code_postal || "");
+      setVille(user.ville || "");
     } catch { setLoadError("Impossible de charger le profil. Réessaie pour retrouver tes informations."); }
     finally { setLoading(false); }
   };
@@ -42,9 +39,7 @@ export default function Profile({ navigation }) {
       await updateProfile({
         nom,
         prenom,
-        ville,
-        telephone,
-        code_postal: codePostal
+        ville
       });
       Alert.alert("Succès", "Profil mis à jour");
     } catch {
@@ -82,7 +77,13 @@ export default function Profile({ navigation }) {
     } catch (error) {
       deletingRef.current = false;
       setDeleting(false);
-      showDeletionMessage("Suppression impossible", error.message || "Réessaie plus tard.");
+      if (error?.name === "TypeError") {
+        showDeletionMessage("Suppression à vérifier",
+          "La connexion a été interrompue. Impossible de savoir si le compte a été supprimé. " +
+          "Rétablis la connexion et vérifie si tu peux encore te connecter avant de réessayer.");
+      } else {
+        showDeletionMessage("Suppression impossible", error.message || "Réessaie plus tard.");
+      }
       return;
     }
 
@@ -153,13 +154,11 @@ export default function Profile({ navigation }) {
       <Text style={layout.sectionLabel}>MES INFORMATIONS</Text>
       <Field label="Prénom" placeholder="Ton prénom" value={prenom} onChangeText={setPrenom} editable={!disabled} autoComplete="given-name" />
       <Field label="Nom" placeholder="Ton nom" value={nom} onChangeText={setNom} editable={!disabled} autoComplete="family-name" />
-      <Field label="Téléphone" placeholder="Ton numéro" value={telephone} onChangeText={setTelephone} editable={!disabled} keyboardType="phone-pad" autoComplete="tel" />
     </View>
     <View style={layout.card}>
       <View style={layout.row}><Ionicons name="location-outline" size={20} color={COLORS.primary} /><Text style={layout.sectionLabel}>MA MÉTÉO LOCALE</Text></View>
       <Text style={TYPE.caption}>Ta ville permet de récupérer la météo utilisée pour les suggestions.</Text>
       <Field label="Ville" placeholder="Ta ville" value={ville} onChangeText={setVille} editable={!disabled} autoComplete="address-level2" />
-      <Field label="Code postal" placeholder="Ton code postal" value={codePostal} onChangeText={setCodePostal} editable={!disabled} keyboardType="number-pad" autoComplete="postal-code" />
     </View>
     <Button title="Enregistrer" loading={saving} disabled={disabled} icon="checkmark-outline" onPress={handleSave} />
     <View style={{ gap: 12 }}>

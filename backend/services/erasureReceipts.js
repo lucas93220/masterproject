@@ -25,10 +25,14 @@ async function readErasureReceipts(directory = receiptDir()) {
     const file = path.join(directory, name);
     if ((await fs.lstat(file)).isSymbolicLink()) throw new Error('Reçu symbolique refusé');
     const receipt = JSON.parse(await fs.readFile(file, 'utf8'));
-    if (receipt.version !== 1 || !Number.isSafeInteger(receipt.userId) || receipt.userId <= 0 ||
+    const legacyFilesValid = receipt.version === 1 && Array.isArray(receipt.files) &&
+      receipt.files.every(value => typeof value === 'string' && imageName.test(value));
+    const minimalReceiptValid = receipt.version === 2 &&
+      Object.keys(receipt).sort().join(',') === 'deletedAt,userId,version';
+    if ((!legacyFilesValid && !minimalReceiptValid) ||
+        !Number.isSafeInteger(receipt.userId) || receipt.userId <= 0 ||
         receipt.userId > 2147483647 || name !== `user_${receipt.userId}.json` ||
-        !Number.isFinite(Date.parse(receipt.deletedAt)) || !Array.isArray(receipt.files) ||
-        !receipt.files.every(value => typeof value === 'string' && imageName.test(value))) {
+        !Number.isFinite(Date.parse(receipt.deletedAt))) {
       throw new Error('Reçu de suppression invalide');
     }
     receipts.push(receipt);

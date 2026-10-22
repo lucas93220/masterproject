@@ -109,9 +109,28 @@ async function deleteAccount(userId) {
       createdJob = true;
     } catch (error) {
       if (error.code === 'EEXIST') {
-        throw Object.assign(new Error('Suppression déjà en cours'), { status: 409 });
+        // Le verrou SQL du compte exclut une autre suppression encore active.
+        // Un manifeste existant correspond donc à une transaction précédente annulée
+        // (ou à un état à examiner), jamais à un compte déjà effacé en SQL.
+        const stat = await fs.lstat(manifestPath);
+        if (!stat.isFile() || stat.isSymbolicLink()) {
+          throw Object.assign(new Error('Manifeste de suppression invalide'), { status: 409 });
+        }
+        let previous;
+        try { previous = JSON.parse(await fs.readFile(manifestPath, 'utf8')); }
+        catch { throw Object.assign(new Error('Manifeste de suppression invalide'), { status: 409 }); }
+        if (previous.version !== 1 || previous.userId !== userId ||
+            !Array.isArray(previous.files) ||
+            !previous.files.every(name => typeof name === 'string' && imageName.test(name))) {
+          throw Object.assign(new Error('Manifeste de suppression invalide'), { status: 409 });
+        }
+        await fs.unlink(manifestPath);
+        await fs.writeFile(manifestPath, JSON.stringify({ version: 1, userId, files }),
+          { flag: 'wx', mode: 0o600 });
+        createdJob = true;
+      } else {
+        throw error;
       }
-      throw error;
     }
 
     await user.destroy({ transaction });
@@ -156,7 +175,7 @@ async function retryCleanup(userId) {
   await fs.mkdir(receiptDir, { recursive: true, mode: 0o700 });
   try {
     await fs.writeFile(path.join(receiptDir, `user_${userId}.json`),
-      JSON.stringify({ ...manifest, deletedAt: new Date().toISOString() }),
+      JSON.stringify({ version: 2, userId, deletedAt: new Date().toISOString() }),
       { flag: 'wx', mode: 0o600 });
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;

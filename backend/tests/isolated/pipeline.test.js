@@ -262,8 +262,8 @@ test('suppression avec vraies cascades SQL, images privées, Joblib, reprise Mon
   await expect(fs.access(jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
   const receipt = JSON.parse(await fs.readFile(path.join(root, 'jobs/receipts/user_1.json'), 'utf8'));
   expect(receipt.userId).toBe(1);
-  expect(receipt.files).toContain(legacy);
-  expect(receipt.files).toContain(timestampLegacy);
+  expect(receipt.version).toBe(2);
+  expect(receipt.files).toBeUndefined();
 });
 
 test('échec après suppression SQL : rollback effectif du compte et de ses relations', async () => {
@@ -277,6 +277,15 @@ test('échec après suppression SQL : rollback effectif du compte et de ses rela
   expect((await db.query('SELECT count(*)::int AS n FROM contenir WHERE id_dressing=1')).rows[0].n).toBe(3);
   expect((await db.query('SELECT count(*)::int AS n FROM composer')).rows[0].n).toBe(3);
   expect(deletePhotos).not.toHaveBeenCalled();
+  await expect(fs.access(jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('un manifeste laissé avant validation SQL ne bloque pas la suppression suivante', async () => {
+  await fs.writeFile(jobPath(1), JSON.stringify({ version: 1, userId: 1,
+    files: ['u1_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg'] }));
+  const response = await authenticated(request(server).delete('/api/utilisateur/me'));
+  expect(response.status).toBe(200);
+  expect((await db.query('SELECT id_utilisateur FROM utilisateur WHERE id_utilisateur=1')).rowCount).toBe(0);
   await expect(fs.access(jobPath(1))).rejects.toMatchObject({ code: 'ENOENT' });
 });
 

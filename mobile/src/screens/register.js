@@ -10,8 +10,6 @@ export default function Register({ navigation }) {
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [ville, setVille] = useState("");
-  const [telephone, setTelephone] = useState("");
-  const [codePostal, setCodePostal] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,8 +24,6 @@ export default function Register({ navigation }) {
         nom,
         prenom,
         ville,
-        telephone,
-        code_postal: codePostal,
         email,
         password
       });
@@ -51,13 +47,11 @@ export default function Register({ navigation }) {
       <Text style={layout.sectionLabel}>01 · TOI</Text>
       <Field label="Prénom" placeholder="Ton prénom" value={prenom} onChangeText={setPrenom} autoComplete="given-name" editable={!loading} />
       <Field label="Nom" placeholder="Ton nom" value={nom} onChangeText={setNom} autoComplete="family-name" editable={!loading} />
-      <Field label="Téléphone" placeholder="Ton numéro" value={telephone} onChangeText={setTelephone} keyboardType="phone-pad" autoComplete="tel" editable={!loading} />
     </View>
     <View style={layout.card}>
       <Text style={layout.sectionLabel}>02 · TA MÉTÉO</Text>
       <Text style={TYPE.caption}>Ta ville nous permet d’adapter les suggestions à la météo.</Text>
       <Field label="Ville" placeholder="Ta ville" value={ville} onChangeText={setVille} autoComplete="address-level2" editable={!loading} />
-      <Field label="Code postal" placeholder="Ton code postal" value={codePostal} onChangeText={setCodePostal} keyboardType="number-pad" autoComplete="postal-code" editable={!loading} />
     </View>
     <View style={layout.card}>
       <Text style={layout.sectionLabel}>03 · TES IDENTIFIANTS</Text>
