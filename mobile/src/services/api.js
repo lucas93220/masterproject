@@ -31,7 +31,7 @@ export async function imageSource(uri) {
   return { uri: resolved, headers: { Authorization: `Bearer ${token}` }, cache: 'reload' };
 }
 
-async function apiRequest(endpoint, method = "GET", body = null) {
+async function apiRequest(endpoint, method = "GET", body = null, signal) {
   const token = await AsyncStorage.getItem("token");
 
   const options = {
@@ -45,6 +45,7 @@ async function apiRequest(endpoint, method = "GET", body = null) {
   if (body) {
     options.body = JSON.stringify(body);
   }
+  if (signal) options.signal = signal;
 
   const response = await fetch(`${API_URL}${endpoint}`, options);
 
@@ -91,6 +92,13 @@ export function getMyDressing() {
 
 export function getCategories() {
   return apiRequest("/categorie");
+}
+
+export async function getBrandCatalogue() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try { return await apiRequest('/brands', 'GET', null, controller.signal); }
+  finally { clearTimeout(timer); }
 }
 
 export async function generateTenue(temperature, weatherIcon = null) {

@@ -76,6 +76,15 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     expect(text(screen.render())).toContain("Pull fictif");
     expect(buttons(screen.render()).like).toBeDefined();
   });
+  test('le raccourci vers l’ajout conserve la liste du dressing comme écran de retour', async () => {
+    const navigation = { navigate: jest.fn() };
+    screen = createScreenHarness('home', api, { navigation });
+    await mount();
+    const complete = nodes(screen.render()).find(node => node.type === 'TouchableOpacity' &&
+      node.props.accessibilityLabel === 'Compléter mon dressing');
+    complete.props.onPress();
+    expect(navigation.navigate).toHaveBeenCalledWith('Dressing', { screen: 'AddClothing', initial: false });
+  });
 
   test("enregistre un like et conserve la tenue sans régénération", async () => {
     const current = await showTenue();

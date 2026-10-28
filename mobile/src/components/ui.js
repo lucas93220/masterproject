@@ -94,9 +94,11 @@ export function Chip({ title, selected, onPress, icon, disabled = false }) {
   </TouchableOpacity>;
 }
 
-export function Sheet({ visible, title, subtitle, onClose, children, footer }) {
+export function Sheet({ visible, title, subtitle, onClose, children, footer, header, keyboard = false }) {
+  const Container = keyboard ? KeyboardAvoidingView : View;
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,32,25,0.45)" }}>
+    <Container behavior={keyboard ? Platform.OS === 'ios' ? 'padding' : 'height' : undefined}
+      style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,32,25,0.45)" }}>
       <TouchableOpacity style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Fermer la fenêtre" accessibilityRole="button" />
       <SafeAreaView edges={["bottom", "left", "right"]} accessibilityViewIsModal
         style={{ maxHeight: "88%", backgroundColor: COLORS.background, borderTopLeftRadius: 30,
@@ -109,12 +111,13 @@ export function Sheet({ visible, title, subtitle, onClose, children, footer }) {
           </View>
           <IconButton icon="close" label="Fermer" onPress={onClose} />
         </View>
+        {header ? <View style={{ paddingHorizontal: 24, paddingBottom: 16 }}>{header}</View> : null}
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24, gap: 20 }}>
           {children}
         </ScrollView>
         {footer ? <View style={{ padding: 24, paddingTop: 12 }}>{footer}</View> : null}
       </SafeAreaView>
-    </View>
+    </Container>
   </Modal>;
 }
 

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { addClothing, updateClothing, deleteClothing, getCategories, getSousCategoriesByCategorie, uploadImage, analyzeClothingImage } from "../services/api";
 import ClothingImage from "../components/ClothingImage";
+import BrandSelect from "../components/BrandSelect";
 import { Screen, Heading, Button, Field, Sheet, Notice, layout } from "../components/ui";
 import { COLORS } from "../styles/colors";
 import { CLOTHING_COLORS } from "../styles/clothingPalette";
@@ -43,6 +44,7 @@ export default function AddClothing({ navigation, route }) {
   ].filter(Boolean) : []));
   const analysisRequest = useRef(0);
   const pickerBusy = useRef(false);
+  const mounted = useRef(true);
   const busy = useRef(false);
   const catalogRequest = useRef(0);
   const uploaded = useRef(null);
@@ -50,7 +52,10 @@ export default function AddClothing({ navigation, route }) {
   const thermalMin = thermalMode === "auto" ? estimatedThermal.min : tempMin;
   const thermalMax = thermalMode === "auto" ? estimatedThermal.max : tempMax;
 
-  useEffect(() => () => { catalogRequest.current += 1; analysisRequest.current += 1; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; catalogRequest.current += 1; analysisRequest.current += 1; };
+  }, []);
 
   const loadCatalog = async (categoryId = null) => {
     const request = ++catalogRequest.current;
@@ -147,18 +152,18 @@ export default function AddClothing({ navigation, route }) {
         temperature_min: min, temperature_max: max, id_sous_categorie: idSousCategorie };
       if (editingClothing) await updateClothing(editingClothing.id_vetement, payload);
       else await addClothing(payload);
-      navigation.goBack();
+      if (mounted.current) navigation.goBack();
     } catch (err) {
-      setError(err.message || "Le vêtement n’a pas pu être enregistré. Réessaie.");
-    } finally { busy.current = false; setSaving(false); }
+      if (mounted.current) setError(err.message || "Le vêtement n’a pas pu être enregistré. Réessaie.");
+    } finally { busy.current = false; if (mounted.current) setSaving(false); }
   };
 
   const removeClothing = async () => {
     if (busy.current) return;
     busy.current = true; setDeleting(true); setError(null);
-    try { await deleteClothing(editingClothing.id_vetement); navigation.goBack(); }
-    catch (err) { setError(err.message); }
-    finally { busy.current = false; setDeleting(false); }
+    try { await deleteClothing(editingClothing.id_vetement); if (mounted.current) navigation.goBack(); }
+    catch (err) { if (mounted.current) setError(err.message); }
+    finally { busy.current = false; if (mounted.current) setDeleting(false); }
   };
   const handleDelete = () => {
     const message = `« ${editingClothing.nom} » ne sera plus dans ton dressing ni proposé dans de nouvelles tenues. Ses anciennes tenues et évaluations restent enregistrées jusqu'à la suppression de ton compte.`;
@@ -200,8 +205,7 @@ export default function AddClothing({ navigation, route }) {
       <Text style={layout.sectionLabel}>01 · L’ESSENTIEL</Text>
       <Field label="Nom du vêtement *" placeholder="Ex. Ma chemise en lin" value={nom}
         onChangeText={value => { manualFields.current.add('nom'); setNom(value); }} editable={!disabled} />
-      <Field label="Marque" placeholder="Facultatif" value={marque}
-        onChangeText={value => { manualFields.current.add('marque'); setMarque(value); }} editable={!disabled} />
+      <BrandSelect value={marque} onChange={value => { manualFields.current.add('marque'); setMarque(value); }} disabled={disabled} />
       <Text style={{ ...TYPE.caption, fontWeight: "600", color: COLORS.text }}>Catégorie *</Text>
       <TouchableOpacity style={[layout.input, layout.between, { flex: 0 }]} disabled={disabled}
         accessibilityRole="button" accessibilityLabel="Choisir une catégorie"

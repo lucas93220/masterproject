@@ -5,6 +5,11 @@ const clothing = { id_vetement: 7, nom: 'Chemise', marque: 'Test', couleur: 'bla
   id_sous_categorie: 4, sous_categorie: { nom_sous_categorie: 'Chemises' } };
 function mount(editing = clothing, overrides = {}) {
   const api = { addClothing: jest.fn().mockResolvedValue({}), updateClothing: jest.fn().mockResolvedValue({}),
+    getBrandCatalogue: jest.fn().mockResolvedValue({ brands: [
+      { name: 'Nike', aliases: [], popular: true },
+      { name: "Levi's", aliases: ['Levis'], popular: true },
+      { name: 'Sézane', aliases: [] }
+    ], personalAvailable: true }),
     analyzeClothingImage: jest.fn().mockResolvedValue({ nom: 'Pull noir', marque: 'Nike', couleur: 'noir',
       id_sous_categorie: 3, nom_sous_categorie: 'Pulls' }),
     deleteClothing: jest.fn().mockResolvedValue({}), uploadImage: jest.fn().mockResolvedValue('/uploads/new.jpg'),
@@ -17,6 +22,12 @@ function mount(editing = clothing, overrides = {}) {
   return { screen, api, navigation, imagePicker, cleanups };
 }
 const field = (screen, label) => nodes(screen.render()).find(node => node.type === 'TextInput' && node.props.accessibilityLabel === label);
+const selectedBrand = screen => button(screen.render(), 'Choisir une marque').props.accessibilityValue.text;
+async function customBrand(screen, name) {
+  button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+  field(screen, 'Rechercher une marque').props.onChangeText(name);
+  button(screen.render(), `Utiliser « ${name} »`).props.onPress();
+}
 
 describe('Formulaire vêtement : contrats et protections', () => {
   test('la modification préremplit la catégorie et conserve photo, favoris, couleur et températures', async () => {
@@ -90,6 +101,27 @@ describe('Formulaire vêtement : contrats et protections', () => {
     await screen.alert.mock.calls[0][2][1].onPress();
     expect(api.deleteClothing).toHaveBeenCalledWith(7); expect(navigation.goBack).toHaveBeenCalledTimes(1);
   });
+  test('une sauvegarde terminée après avoir quitté le formulaire ne déclenche aucun retour tardif', async () => {
+    let resolve;
+    const { screen, navigation, cleanups } = mount(clothing, {
+      updateClothing: jest.fn(() => new Promise(done => { resolve = done; }))
+    });
+    const pending = button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    cleanups.forEach(cleanup => cleanup?.());
+    resolve({}); await pending;
+    expect(navigation.goBack).not.toHaveBeenCalled();
+  });
+  test('un retrait terminé après avoir quitté le formulaire ne change plus la navigation', async () => {
+    let resolve;
+    const { screen, navigation, cleanups } = mount(clothing, {
+      deleteClothing: jest.fn(() => new Promise(done => { resolve = done; }))
+    });
+    button(screen.render(), 'Retirer du dressing').props.onPress();
+    const pending = screen.alert.mock.calls[0][2][1].onPress();
+    cleanups.forEach(cleanup => cleanup?.());
+    resolve({}); await pending;
+    expect(navigation.goBack).not.toHaveBeenCalled();
+  });
 });
 
 
@@ -162,7 +194,7 @@ describe('Préremplissage photo', () => {
     await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     expect(api.analyzeClothingImage).toHaveBeenCalledWith('file:///fixture.png', 'image/png');
     expect(field(screen, 'Nom du vêtement *').props.value).toBe('Pull noir');
-    expect(field(screen, 'Marque').props.value).toBe('Nike');
+    expect(selectedBrand(screen)).toBe('Nike');
     expect(text(screen.render())).toContain('Pulls');
     expect(api.addClothing).not.toHaveBeenCalled();
     await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
@@ -174,7 +206,7 @@ describe('Préremplissage photo', () => {
       nom: 'Pull', marque: null, couleur: 'inconnue', id_sous_categorie: null }) });
     await button(screen.render(), 'Ajouter une photo').props.onPress();
     await button(screen.render(), 'Préremplir avec la photo').props.onPress();
-    expect(field(screen, 'Marque').props.value).toBe('');
+    expect(selectedBrand(screen)).toBe('Non renseignée');
     await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
     expect(api.addClothing).not.toHaveBeenCalled();
     expect(text(screen.render())).toContain('choisis une catégorie');
@@ -185,7 +217,7 @@ describe('Préremplissage photo', () => {
     button(screen.render(), 'Couleur bleu').props.onPress();
     await button(screen.render(), 'Ajouter une photo').props.onPress();
     await button(screen.render(), 'Préremplir avec la photo').props.onPress();
-    field(screen, 'Marque').props.onChangeText('Autre marque');
+    await customBrand(screen, 'Autre marque');
     await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
     expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Mon pull préféré',
@@ -232,7 +264,7 @@ describe('Préremplissage photo', () => {
       assets: [{ uri: 'file:///autre.png', mimeType: 'image/png' }] });
     await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
     expect(field(screen, 'Nom du vêtement *').props.value).toBe('Mon nom');
-    expect(field(screen, 'Marque').props.value).toBe('');
+    expect(selectedBrand(screen)).toBe('Non renseignée');
     expect(text(screen.render())).not.toContain('Pulls');
   });
   test('ignore une réponse d’analyse après fermeture de l’écran', async () => {
@@ -243,5 +275,104 @@ describe('Préremplissage photo', () => {
     cleanups.forEach(cleanup => cleanup?.());
     resolve({ nom: 'Réponse périmée' }); await pending;
     expect(field(screen, 'Nom du vêtement *').props.value).toBe('');
+  });
+});
+
+describe('Catalogue de marques', () => {
+  test('sélectionne une marque canonique et recherche localement sans requête à chaque lettre', async () => {
+    const { screen, api } = mount();
+    expect(api.getBrandCatalogue).not.toHaveBeenCalled();
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    expect(button(screen.render(), 'Sélectionner la marque Nike')).toBeDefined();
+    field(screen, 'Rechercher une marque').props.onChangeText('lEViS');
+    expect(button(screen.render(), "Sélectionner la marque Levi's")).toBeDefined();
+    expect(button(screen.render(), 'Sélectionner la marque Nike')).toBeUndefined();
+    expect(button(screen.render(), 'Utiliser « lEViS »')).toBeUndefined();
+    field(screen, 'Rechercher une marque').props.onChangeText('sezane');
+    expect(button(screen.render(), 'Sélectionner la marque Sézane')).toBeDefined();
+    field(screen, 'Rechercher une marque').props.onChangeText('levis');
+    button(screen.render(), "Sélectionner la marque Levi's").props.onPress();
+    expect(selectedBrand(screen)).toBe("Levi's");
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    expect(api.getBrandCatalogue).toHaveBeenCalledTimes(1);
+    button(screen.render(), 'Fermer').props.onPress();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing.mock.calls[0][1].marque).toBe("Levi's");
+  });
+  test('une marque absente est utilisée uniquement après choix explicite et sauvegarde', async () => {
+    const { screen, api } = mount();
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    field(screen, 'Rechercher une marque').props.onChangeText('Mon atelier');
+    expect(selectedBrand(screen)).toBe('Test');
+    expect(api.updateClothing).not.toHaveBeenCalled();
+    button(screen.render(), 'Utiliser « Mon atelier »').props.onPress();
+    expect(selectedBrand(screen)).toBe('Mon atelier');
+    expect(api.updateClothing).not.toHaveBeenCalled();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing.mock.calls[0][1].marque).toBe('Mon atelier');
+  });
+  test('Sans marque efface la marque et reste prioritaire sur la reconnaissance photo', async () => {
+    const { screen, api } = mount();
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    button(screen.render(), 'Sans marque').props.onPress();
+    expect(selectedBrand(screen)).toBe('Sans marque');
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    expect(selectedBrand(screen)).toBe('Sans marque');
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing.mock.calls[0][1].marque).toBe('');
+  });
+  test('conserve et sélectionne une marque historique ou reconnue absente du catalogue', async () => {
+    const { screen, api } = mount(null, { analyzeClothingImage: jest.fn().mockResolvedValue({ marque: 'Atelier photo' }) });
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    const current = button(screen.render(), 'Sélectionner la marque Atelier photo');
+    expect(current.props.accessibilityState.selected).toBe(true);
+    button(screen.render(), 'Fermer').props.onPress();
+    expect(selectedBrand(screen)).toBe('Atelier photo');
+    expect(api.addClothing).not.toHaveBeenCalled();
+  });
+  test('permet de conserver ou saisir une marque si le catalogue est indisponible', async () => {
+    const { screen, api } = mount(clothing, { getBrandCatalogue: jest.fn().mockRejectedValue(new Error('réseau')) });
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    expect(text(screen.render())).toContain('Impossible de charger les marques');
+    expect(button(screen.render(), 'Sélectionner la marque Test')).toBeDefined();
+    field(screen, 'Rechercher une marque').props.onChangeText('Nouvelle marque');
+    button(screen.render(), 'Utiliser « Nouvelle marque »').props.onPress();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing.mock.calls[0][1].marque).toBe('Nouvelle marque');
+  });
+  test('signale le mode dégradé et recharge les marques personnelles à la prochaine ouverture', async () => {
+    const { screen, api } = mount(null, { getBrandCatalogue: jest.fn()
+      .mockResolvedValueOnce({ brands: [{ name: 'Nike' }], personalAvailable: false })
+      .mockResolvedValue({ brands: [{ name: 'Nike' }, { name: 'Mon atelier', personal: true }], personalAvailable: true }) });
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    expect(text(screen.render())).toContain('tes marques personnelles n’ont pas pu être chargées');
+    button(screen.render(), 'Fermer').props.onPress();
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    expect(button(screen.render(), 'Sélectionner la marque Mon atelier')).toBeDefined();
+    expect(api.getBrandCatalogue).toHaveBeenCalledTimes(2);
+  });
+  test('ignore le catalogue reçu après la fermeture puis permet de réessayer', async () => {
+    let resolve;
+    const { screen } = mount(null, { getBrandCatalogue: jest.fn()
+      .mockImplementationOnce(() => new Promise(done => { resolve = done; }))
+      .mockResolvedValue({ brands: [{ name: 'Nike' }] }) });
+    button(screen.render(), 'Choisir une marque').props.onPress();
+    button(screen.render(), 'Fermer').props.onPress();
+    resolve({ brands: [{ name: 'Marque périmée' }] }); await flush();
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    expect(text(screen.render())).not.toContain('Marque périmée');
+    expect(button(screen.render(), 'Sélectionner la marque Nike')).toBeDefined();
+  });
+  test('ne propose pas de marque vide ou de doublon Sans marque', async () => {
+    const { screen } = mount(null);
+    button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
+    for (const query of ['   ', '---', 'Sans marque']) {
+      field(screen, 'Rechercher une marque').props.onChangeText(query);
+      expect(nodes(screen.render()).some(node => node.type === 'TouchableOpacity' &&
+        node.props.accessibilityLabel?.startsWith('Utiliser «'))).toBe(false);
+    }
   });
 });

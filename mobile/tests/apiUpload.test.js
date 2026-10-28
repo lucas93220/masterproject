@@ -32,6 +32,28 @@ function createApi(token, { hostUri = '192.168.1.17:8081', publicApiUrl } = {}) 
 }
 
 describe('API mobile', () => {
+  test('récupère le catalogue de marques avec la session authentifiée', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    const catalogue = { brands: [{ name: 'Nike', aliases: [] }], personalAvailable: true };
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => catalogue });
+    await expect(api.getBrandCatalogue()).resolves.toEqual(catalogue);
+    expect(fetch).toHaveBeenCalledWith('http://192.168.1.17:3002/api/brands', expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: 'Bearer jeton-fictif' })
+    }));
+  });
+  test('interrompt le chargement des marques après dix secondes', async () => {
+    jest.useFakeTimers();
+    try {
+      const { api, fetch } = createApi('jeton-fictif');
+      fetch.mockImplementationOnce((url, options) => new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('timeout'), { name: 'AbortError' })));
+      }));
+      const assertion = expect(api.getBrandCatalogue()).rejects.toMatchObject({ name: 'AbortError' });
+      await jest.advanceTimersByTimeAsync(10001);
+      await assertion;
+      expect(jest.getTimerCount()).toBe(0);
+    } finally { jest.useRealTimers(); }
+  });
   test('supprime le compte authentifié et accepte un nettoyage différé', async () => {
     const { api, fetch } = createApi('jeton-fictif');
     fetch.mockResolvedValueOnce({

@@ -171,7 +171,7 @@ export default function Home({ navigation }) {
     <Button title={generating ? "Génération..." : "Générer ma tenue"} icon="sparkles-outline"
       loading={generating} disabled={isBusy} onPress={handleGenerateTenue} />
     {!tenue.length ? <Button title="Compléter mon dressing" variant="secondary" icon="add-outline"
-      onPress={() => navigation.navigate("Dressing", { screen: "AddClothing" })} /> : null}
+      onPress={() => navigation.navigate("Dressing", { screen: "AddClothing", initial: false })} /> : null}
     <Sheet visible={!!preview} title={preview?.nom || "Le vêtement"} subtitle={preview?.marque} onClose={() => setPreview(null)}>
       {preview ? <ClothingImage uri={preview.photo} style={{ width: "100%", height: 360, borderRadius: 20, backgroundColor: COLORS.soft }} /> : null}
     </Sheet>

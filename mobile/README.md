@@ -1,5 +1,9 @@
 # Application mobile FITS
 
+Le champ **Marque** utilise un catalogue FITS avec recherche locale, tolérance aux accents et alias, **Sans marque**, et saisie de secours si la marque manque. Il réutilise les marques des vêtements du compte sans exposer celles des autres utilisateurs ; les anciennes valeurs et la reconnaissance photo restent compatibles. Pas de clé supplémentaire : [fonctionnement et enrichissement](../backend/BRANDS.md).
+
+Le raccourci **Compléter mon dressing** de l’accueil ouvre le formulaire au-dessus de la collection, y compris lors de la toute première visite. La flèche de retour permet donc de retrouver les vêtements. Changer d’onglet conserve le formulaire en cours ; revenir puis utiliser la flèche revient à la liste.
+
 Le formulaire propose maintenant **Préremplir avec la photo** après sélection d’une image : nom, catégorie, couleur et marque visible, avec vérification avant sauvegarde. L’envoi à Google Gemini est explicite, les saisies manuelles sont conservées et une panne laisse le formulaire utilisable. La clé est configurée uniquement côté backend : [activation et limites](../backend/CLOTHING_RECOGNITION.md).
 
 Application React Native/Expo du parcours dressing → génération de tenue → like/dislike. À la création et à la modification d'un vêtement, une couleur principale se choisit dans une palette de 12 couleurs ; les anciennes valeurs libres doivent être remplacées lors d'une modification depuis cet écran.

@@ -43,6 +43,7 @@ app.use('/api/sous-categorie', sousCategorieRoutes);
 app.use('/uploads', require('./routes/privateImageRoutes'));
 app.use('/api/upload', uploadRoutes);
 app.use('/api/clothing-analysis', require('./routes/clothingAnalysisRoutes'));
+app.use('/api/brands', require('./routes/brandRoutes'));
 app.use("/api/ml", require("./routes/mlRoutes"));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
