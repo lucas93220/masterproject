@@ -20,7 +20,8 @@ function createApi(token, { hostUri = '192.168.1.17:8081', publicApiUrl } = {}) 
   }
   const exports = {};
   vm.runInNewContext(compiled.outputText, {
-    exports, FormData, fetch, process: { env: { EXPO_PUBLIC_API_URL: publicApiUrl } },
+    exports, FormData, fetch, AbortController, setTimeout, clearTimeout,
+    process: { env: { EXPO_PUBLIC_API_URL: publicApiUrl } },
     require: name => {
       if (name === '@react-native-async-storage/async-storage') return { default: { getItem } };
       if (name === 'expo-constants') return { default: { expoConfig: { hostUri } } };
@@ -155,4 +156,53 @@ test('ne téléverse pas une photo web illisible', async () => {
   fetch.mockResolvedValueOnce({ ok: false });
   await expect(api.uploadImage('blob:http://localhost/fixture', 'image/jpeg')).rejects.toThrow('Impossible de lire');
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+describe('Analyse photo mobile', () => {
+  test('utilise une route authentifiée distincte sans stocker la photo via upload', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    const suggestion = { nom: 'Pull noir', marque: null, couleur: 'noir', id_sous_categorie: 3 };
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ suggestion }) });
+    await expect(api.analyzeClothingImage('file:///pull.png', 'image/png')).resolves.toEqual(suggestion);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, options] = fetch.mock.calls[0];
+    expect(url).toBe('http://192.168.1.17:3002/api/clothing-analysis');
+    expect(options.headers).toEqual({ Authorization: 'Bearer jeton-fictif' });
+    expect(options.body.entries[0]).toEqual(['image', { uri: 'file:///pull.png', name: 'photo.png', type: 'image/png' }]);
+    expect(options.signal.aborted).toBe(false);
+  });
+  test('supporte une photo web avec le même transport multipart', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    const blob = { type: 'image/jpeg', fixture: true };
+    fetch.mockResolvedValueOnce({ ok: true, blob: async () => blob });
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ suggestion: { nom: 'Pull' } }) });
+    await api.analyzeClothingImage('blob:http://localhost/fixture', 'image/jpeg');
+    expect(fetch.mock.calls[0]).toEqual(['blob:http://localhost/fixture']);
+    expect(fetch.mock.calls[1][1].body.entries[0]).toEqual(['image', blob, 'photo.jpg']);
+  });
+  test('refuse une analyse sans session', async () => {
+    const { api, fetch } = createApi(null);
+    await expect(api.analyzeClothingImage('file:///pull.jpg')).rejects.toThrow('Connexion requise');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  test('relaie les erreurs exploitables et rejette une réponse malformée', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    fetch.mockResolvedValueOnce({ ok: false, json: async () => ({ message: 'Analyse indisponible. Continue manuellement.' }) });
+    await expect(api.analyzeClothingImage('file:///pull.jpg')).rejects.toThrow('Continue manuellement');
+    await expect(api.analyzeClothingImage('file:///pull.jpg')).rejects.toThrow('Analyse photo illisible');
+  });
+  test('interrompt une requête qui dépasse 45 secondes', async () => {
+    jest.useFakeTimers();
+    try {
+      const { api, fetch } = createApi('jeton-fictif');
+      fetch.mockImplementationOnce((url, options) => new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('timeout'), { name: 'AbortError' })));
+      }));
+      const pending = api.analyzeClothingImage('file:///pull.jpg');
+      const assertion = expect(pending).rejects.toThrow('prend trop de temps');
+      await jest.advanceTimersByTimeAsync(45001);
+      await assertion;
+      expect(jest.getTimerCount()).toBe(0);
+    } finally { jest.useRealTimers(); }
+  });
 });

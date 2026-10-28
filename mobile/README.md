@@ -1,5 +1,7 @@
 # Application mobile FITS
 
+Le formulaire propose maintenant **Préremplir avec la photo** après sélection d’une image : nom, catégorie, couleur et marque visible, avec vérification avant sauvegarde. L’envoi à Google Gemini est explicite, les saisies manuelles sont conservées et une panne laisse le formulaire utilisable. La clé est configurée uniquement côté backend : [activation et limites](../backend/CLOTHING_RECOGNITION.md).
+
 Application React Native/Expo du parcours dressing → génération de tenue → like/dislike. À la création et à la modification d'un vêtement, une couleur principale se choisit dans une palette de 12 couleurs ; les anciennes valeurs libres doivent être remplacées lors d'une modification depuis cet écran.
 
 ```sh

@@ -151,9 +151,7 @@ export function evaluateTenue(id_tenue, is_liked) {
   });
 }
 
-export const uploadImage = async (uri, mimeType) => {
-  const token = await AsyncStorage.getItem("token");
-  if (!token) throw new Error("Connexion requise pour envoyer une image");
+async function imageFormData(uri, mimeType) {
   const extension = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(uri)?.[1]?.toLowerCase();
   const formats = {
     jpg: { name: "photo.jpg", type: "image/jpeg" },
@@ -175,6 +173,13 @@ export const uploadImage = async (uri, mimeType) => {
     formData.append("image", { uri, name: format.name, type: format.type });
   }
 
+  return formData;
+}
+
+export const uploadImage = async (uri, mimeType) => {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) throw new Error("Connexion requise pour envoyer une image");
+  const formData = await imageFormData(uri, mimeType);
   const response = await fetch(`${API_URL}/upload`, {
     method: "POST",
     body: formData,
@@ -190,3 +195,27 @@ export const uploadImage = async (uri, mimeType) => {
   const data = await response.json();
   return data.imageUrl;
 };
+
+export async function analyzeClothingImage(uri, mimeType) {
+  const token = await AsyncStorage.getItem('token');
+  if (!token) throw new Error('Connexion requise pour analyser une photo');
+  const formData = await imageFormData(uri, mimeType);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
+  try {
+    const response = await fetch(`${API_URL}/clothing-analysis`, {
+      method: 'POST', body: formData,
+      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || 'Impossible d’analyser la photo. Continue manuellement.');
+    if (!data?.suggestion || typeof data.suggestion !== 'object' || Array.isArray(data.suggestion)) {
+      throw new Error('Analyse photo illisible. Continue manuellement.');
+    }
+    return data.suggestion;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('L’analyse photo prend trop de temps. Réessaie.');
+    if (error instanceof TypeError) throw new Error('Connexion impossible pour analyser la photo. Tu peux continuer manuellement.');
+    throw error;
+  } finally { clearTimeout(timer); }
+}

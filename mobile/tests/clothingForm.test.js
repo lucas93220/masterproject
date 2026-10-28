@@ -5,14 +5,16 @@ const clothing = { id_vetement: 7, nom: 'Chemise', marque: 'Test', couleur: 'bla
   id_sous_categorie: 4, sous_categorie: { nom_sous_categorie: 'Chemises' } };
 function mount(editing = clothing, overrides = {}) {
   const api = { addClothing: jest.fn().mockResolvedValue({}), updateClothing: jest.fn().mockResolvedValue({}),
+    analyzeClothingImage: jest.fn().mockResolvedValue({ nom: 'Pull noir', marque: 'Nike', couleur: 'noir',
+      id_sous_categorie: 3, nom_sous_categorie: 'Pulls' }),
     deleteClothing: jest.fn().mockResolvedValue({}), uploadImage: jest.fn().mockResolvedValue('/uploads/new.jpg'),
     getCategories: jest.fn().mockResolvedValue([{ id_categorie: 2, nom_categorie: 'Vêtements' }]),
     getSousCategoriesByCategorie: jest.fn().mockResolvedValue([{ id_sous_categorie: 4, nom_sous_categorie: 'Chemises' }]), ...overrides };
   const imagePicker = { launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///fixture.png', mimeType: 'image/png' }] }) };
   const navigation = { goBack: jest.fn() };
   const screen = createScreenHarness('addClothing', api, { navigation, imagePicker, route: { params: { clothing: editing } } });
-  screen.render(); screen.effects.forEach(effect => effect());
-  return { screen, api, navigation, imagePicker };
+  screen.render(); const cleanups = screen.effects.map(effect => effect());
+  return { screen, api, navigation, imagePicker, cleanups };
 }
 const field = (screen, label) => nodes(screen.render()).find(node => node.type === 'TextInput' && node.props.accessibilityLabel === label);
 
@@ -148,4 +150,98 @@ test('une catégorie inconnue est signalée et reste ajustable manuellement', as
   field(screen, 'Maximum · °C').props.onChangeText('25');
   await button(screen.render(), 'Enregistrer les modifications').props.onPress();
   expect(api.updateClothing.mock.calls[0][1]).toMatchObject({ temperature_min: 10, temperature_max: 25 });
+});
+
+describe('Préremplissage photo', () => {
+  test('attend un appui explicite puis préremplit sans enregistrer le vêtement', async () => {
+    const { screen, api } = mount(null);
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    expect(api.analyzeClothingImage).not.toHaveBeenCalled();
+    expect(api.uploadImage).not.toHaveBeenCalled();
+    expect(text(screen.render())).toContain('Google Gemini');
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    expect(api.analyzeClothingImage).toHaveBeenCalledWith('file:///fixture.png', 'image/png');
+    expect(field(screen, 'Nom du vêtement *').props.value).toBe('Pull noir');
+    expect(field(screen, 'Marque').props.value).toBe('Nike');
+    expect(text(screen.render())).toContain('Pulls');
+    expect(api.addClothing).not.toHaveBeenCalled();
+    await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+    expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Pull noir', marque: 'Nike',
+      couleur: 'noir', id_sous_categorie: 3, temperature_min: -20, temperature_max: 20 }));
+  });
+  test('laisse une marque incertaine vide et exige une catégorie manuelle si elle est inconnue', async () => {
+    const { screen, api } = mount(null, { analyzeClothingImage: jest.fn().mockResolvedValue({
+      nom: 'Pull', marque: null, couleur: 'inconnue', id_sous_categorie: null }) });
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    expect(field(screen, 'Marque').props.value).toBe('');
+    await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+    expect(api.addClothing).not.toHaveBeenCalled();
+    expect(text(screen.render())).toContain('choisis une catégorie');
+  });
+  test('conserve les corrections manuelles avant et après une reconnaissance', async () => {
+    const { screen, api } = mount(null);
+    field(screen, 'Nom du vêtement *').props.onChangeText('Mon pull préféré');
+    button(screen.render(), 'Couleur bleu').props.onPress();
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    field(screen, 'Marque').props.onChangeText('Autre marque');
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+    expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Mon pull préféré',
+      marque: 'Autre marque', couleur: 'bleu' }));
+  });
+  test('ne remplace pas les valeurs d’une fiche existante ni ses températures', async () => {
+    const { screen, api } = mount();
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing).toHaveBeenCalledWith(7, expect.objectContaining({
+      nom: 'Chemise', marque: 'Test', couleur: 'blanc', id_sous_categorie: 4,
+      temperature_min: 0, temperature_max: 30
+    }));
+  });
+  test('bloque les analyses et sauvegardes simultanées', async () => {
+    let resolve;
+    const { screen, api } = mount(null, { analyzeClothingImage: jest.fn(() => new Promise(done => { resolve = done; })) });
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    const analyze = button(screen.render(), 'Préremplir avec la photo');
+    const pending = analyze.props.onPress();
+    await analyze.props.onPress();
+    expect(button(screen.render(), 'Analyse de la photo…').props.disabled).toBe(true);
+    await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+    expect(api.addClothing).not.toHaveBeenCalled();
+    expect(api.analyzeClothingImage).toHaveBeenCalledTimes(1);
+    resolve({ nom: 'Pull' }); await pending;
+    expect(button(screen.render(), 'Préremplir avec la photo').props.disabled).toBe(false);
+  });
+  test('signale la panne et permet de poursuivre avec les valeurs manuelles', async () => {
+    const { screen, api } = mount(clothing, { analyzeClothingImage: jest.fn().mockRejectedValue(new Error('Service indisponible')) });
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    expect(text(screen.render())).toContain('Service indisponible');
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing).toHaveBeenCalledTimes(1);
+  });
+  test('changer de photo efface les anciennes propositions mais conserve les champs saisis', async () => {
+    const { screen, imagePicker } = mount(null);
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    field(screen, 'Nom du vêtement *').props.onChangeText('Mon nom');
+    imagePicker.launchImageLibraryAsync.mockResolvedValueOnce({ canceled: false,
+      assets: [{ uri: 'file:///autre.png', mimeType: 'image/png' }] });
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
+    expect(field(screen, 'Nom du vêtement *').props.value).toBe('Mon nom');
+    expect(field(screen, 'Marque').props.value).toBe('');
+    expect(text(screen.render())).not.toContain('Pulls');
+  });
+  test('ignore une réponse d’analyse après fermeture de l’écran', async () => {
+    let resolve;
+    const { screen, cleanups } = mount(null, { analyzeClothingImage: jest.fn(() => new Promise(done => { resolve = done; })) });
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    const pending = button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    cleanups.forEach(cleanup => cleanup?.());
+    resolve({ nom: 'Réponse périmée' }); await pending;
+    expect(field(screen, 'Nom du vêtement *').props.value).toBe('');
+  });
 });

@@ -2,7 +2,7 @@ import { View, Text, Alert, Switch, TouchableOpacity, ActivityIndicator, Platfor
 import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { addClothing, updateClothing, deleteClothing, getCategories, getSousCategoriesByCategorie, uploadImage } from "../services/api";
+import { addClothing, updateClothing, deleteClothing, getCategories, getSousCategoriesByCategorie, uploadImage, analyzeClothingImage } from "../services/api";
 import ClothingImage from "../components/ClothingImage";
 import { Screen, Heading, Button, Field, Sheet, Notice, layout } from "../components/ui";
 import { COLORS } from "../styles/colors";
@@ -33,6 +33,16 @@ export default function AddClothing({ navigation, route }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
+  const [analysisMessage, setAnalysisMessage] = useState(null);
+  // Une reconnaissance ne remplace jamais une saisie manuelle ou une fiche existante.
+  const manualFields = useRef(new Set(editingClothing ? [
+    editingClothing.nom && 'nom', editingClothing.marque && 'marque',
+    editingClothing.couleur && 'couleur', editingClothing.id_sous_categorie && 'category'
+  ].filter(Boolean) : []));
+  const analysisRequest = useRef(0);
+  const pickerBusy = useRef(false);
   const busy = useRef(false);
   const catalogRequest = useRef(0);
   const uploaded = useRef(null);
@@ -40,7 +50,7 @@ export default function AddClothing({ navigation, route }) {
   const thermalMin = thermalMode === "auto" ? estimatedThermal.min : tempMin;
   const thermalMax = thermalMode === "auto" ? estimatedThermal.max : tempMax;
 
-  useEffect(() => () => { catalogRequest.current += 1; }, []);
+  useEffect(() => () => { catalogRequest.current += 1; analysisRequest.current += 1; }, []);
 
   const loadCatalog = async (categoryId = null) => {
     const request = ++catalogRequest.current;
@@ -60,16 +70,55 @@ export default function AddClothing({ navigation, route }) {
   const closeCatalog = () => { catalogRequest.current += 1; setModalVisible(false); setCatalogLoading(false); };
 
   const pickImage = async () => {
-    if (busy.current) return;
+    if (busy.current || pickerBusy.current) return;
+    pickerBusy.current = true;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
       if (!result.canceled && result.assets?.[0]) {
         setPickedImage(result.assets[0]);
         setPhoto(result.assets[0].uri);
         uploaded.current = null;
+        setAnalysisError(null); setAnalysisMessage(null);
+        // Retirer les anciennes suggestions si une autre photo est sélectionnée.
+        if (!manualFields.current.has('nom')) setNom('');
+        if (!manualFields.current.has('marque')) setMarque('');
+        if (!manualFields.current.has('couleur')) setCouleur('');
+        if (!manualFields.current.has('category')) { setIdSousCategorie(null); setCategoryLabel(''); }
       }
     } catch {
       setError("Impossible d’ouvrir les photos. Vérifie l’accès à ta photothèque dans les réglages.");
+    } finally { pickerBusy.current = false; }
+  };
+
+  const analyzePhoto = async () => {
+    if (busy.current || !pickedImage) return;
+    busy.current = true;
+    const request = ++analysisRequest.current;
+    setAnalyzing(true); setAnalysisError(null); setAnalysisMessage(null);
+    try {
+      const suggestion = await analyzeClothingImage(pickedImage.uri, pickedImage.mimeType);
+      if (request !== analysisRequest.current) return;
+      let applied = 0;
+      for (const [field, setter] of [['nom', setNom], ['marque', setMarque], ['couleur', setCouleur]]) {
+        const value = suggestion[field];
+        if (!manualFields.current.has(field) && typeof value === 'string' && value.trim() &&
+            (field !== 'couleur' || Object.hasOwn(CLOTHING_COLORS, value))) {
+          setter(value); applied += 1;
+        }
+      }
+      if (!manualFields.current.has('category') && Number.isSafeInteger(suggestion.id_sous_categorie) &&
+          suggestion.id_sous_categorie > 0 && suggestion.nom_sous_categorie) {
+        setIdSousCategorie(suggestion.id_sous_categorie);
+        setCategoryLabel(suggestion.nom_sous_categorie); applied += 1;
+      }
+      setAnalysisMessage(applied ? 'Suggestions appliquées. Vérifie les champs avant d’enregistrer ; tes saisies manuelles ont été conservées.' :
+        'Tes saisies ont été conservées. Proposition : ' + [suggestion.nom, suggestion.marque, suggestion.couleur,
+          suggestion.nom_sous_categorie].filter(Boolean).join(' · '));
+    } catch (err) {
+      if (request === analysisRequest.current) setAnalysisError(err.message || 'Impossible d’analyser la photo. Tu peux continuer manuellement.');
+    } finally {
+      busy.current = false;
+      if (request === analysisRequest.current) setAnalyzing(false);
     }
   };
 
@@ -119,7 +168,7 @@ export default function AddClothing({ navigation, route }) {
       { text: "Annuler", style: "cancel" }, { text: "Retirer", style: "destructive", onPress: removeClothing }
     ]);
   };
-  const disabled = saving || deleting;
+  const disabled = saving || deleting || analyzing;
 
   return <Screen scroll keyboard edges={["bottom"]}>
     <Heading eyebrow={editingClothing ? "LES DÉTAILS FONT LE STYLE" : "FAIS DE LA PLACE À TES IDÉES"}
@@ -138,10 +187,21 @@ export default function AddClothing({ navigation, route }) {
       </View>}
     </TouchableOpacity>
 
+    {pickedImage ? <View style={layout.card}>
+      <Text style={layout.sectionLabel}>UN COUP DE POUCE POUR LES DÉTAILS</Text>
+      <Text style={TYPE.caption}>En appuyant ci-dessous, tu envoies cette photo à Google Gemini pour proposer le type de pièce, la couleur et la marque si elle est visible. Les suggestions restent à vérifier.</Text>
+      <Button title={analyzing ? "Analyse de la photo…" : "Préremplir avec la photo"} icon="sparkles-outline"
+        variant="secondary" loading={analyzing} disabled={disabled} onPress={analyzePhoto} />
+      {analysisError ? <Notice error message={analysisError} /> : null}
+      {analysisMessage ? <Notice message={analysisMessage} /> : null}
+    </View> : null}
+
     <View style={layout.card}>
       <Text style={layout.sectionLabel}>01 · L’ESSENTIEL</Text>
-      <Field label="Nom du vêtement *" placeholder="Ex. Ma chemise en lin" value={nom} onChangeText={setNom} editable={!disabled} />
-      <Field label="Marque" placeholder="Facultatif" value={marque} onChangeText={setMarque} editable={!disabled} />
+      <Field label="Nom du vêtement *" placeholder="Ex. Ma chemise en lin" value={nom}
+        onChangeText={value => { manualFields.current.add('nom'); setNom(value); }} editable={!disabled} />
+      <Field label="Marque" placeholder="Facultatif" value={marque}
+        onChangeText={value => { manualFields.current.add('marque'); setMarque(value); }} editable={!disabled} />
       <Text style={{ ...TYPE.caption, fontWeight: "600", color: COLORS.text }}>Catégorie *</Text>
       <TouchableOpacity style={[layout.input, layout.between, { flex: 0 }]} disabled={disabled}
         accessibilityRole="button" accessibilityLabel="Choisir une catégorie"
@@ -156,7 +216,7 @@ export default function AddClothing({ navigation, route }) {
         <Text style={{ ...TYPE.caption, textTransform: "capitalize" }}>{couleur || "À choisir"}</Text></View>
       <View style={styles.palette}>
         {Object.entries(CLOTHING_COLORS).map(([name, hex]) => <TouchableOpacity key={name}
-          onPress={() => setCouleur(name)} disabled={disabled} accessibilityRole="button"
+          onPress={() => { manualFields.current.add('couleur'); setCouleur(name); }} disabled={disabled} accessibilityRole="button"
           accessibilityLabel={`Couleur ${name}`} accessibilityState={{ selected: couleur === name, disabled }}
           style={{ width: "22%", minHeight: 72, alignItems: "center", gap: 7 }}>
           <View style={{ padding: 3, borderRadius: 24, borderWidth: 2, borderColor: couleur === name ? COLORS.primary : "transparent" }}>
@@ -222,7 +282,7 @@ export default function AddClothing({ navigation, route }) {
             return <TouchableOpacity key={id} style={[layout.between, styles.category]} accessibilityRole="button" accessibilityLabel={`Choisir ${label}`}
               onPress={() => {
                 if (currentView === "categories") void loadCatalog(item.id_categorie);
-                else { setIdSousCategorie(item.id_sous_categorie); setCategoryLabel(label); closeCatalog(); }
+                else { manualFields.current.add('category'); setIdSousCategorie(item.id_sous_categorie); setCategoryLabel(label); closeCatalog(); }
               }}>
               <Text style={[TYPE.body, { flex: 1 }]}>{label}</Text>
               <Ionicons name={item.id_sous_categorie === idSousCategorie ? "checkmark-circle" : "chevron-forward"} size={20} color={COLORS.primary} />
