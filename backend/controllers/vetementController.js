@@ -5,6 +5,7 @@ const SousCategorie = require('../models/sousCategorie');
 const Categorie = require('../models/categorie');
 const Zone = require('../models/zone');
 const { sequelize } = require('../config/db');
+const { validateTemperatures } = require('../services/clothingTemperature');
 const { canonicalColor, colorValues } = require('../services/clothingColors');
 const { validatePhotoAssignment } = require('../services/imageAccess');
 
@@ -43,7 +44,7 @@ exports.create = async (req, res, next) => {
     }
 
     let colors;
-    try { colors = colorValues(req.body); }
+    try { colors = colorValues(req.body); validateTemperatures(req.body, {}, true); }
     catch (error) { return res.status(error.status).json({ message: error.message }); }
     await validatePhotoAssignment(photo, req.user.id);
     const vetement = await sequelize.transaction(async transaction => {
@@ -185,7 +186,7 @@ exports.update = async (req, res, next) => {
 
     await validatePhotoAssignment(req.body.photo, req.user.id, vetement.photo);
     let colors;
-    try { colors = colorValues(req.body, vetement); }
+    try { colors = colorValues(req.body, vetement); validateTemperatures(req.body, vetement); }
     catch (error) { return res.status(error.status).json({ message: error.message }); }
     Object.assign(vetement, editableValues(req.body), colors);
     await vetement.save();
@@ -260,7 +261,7 @@ exports.updateById = async (req, res, next) => {
 
     await validatePhotoAssignment(req.body.photo, req.user.id, vetement.photo);
     let colors;
-    try { colors = colorValues(req.body, vetement); }
+    try { colors = colorValues(req.body, vetement); validateTemperatures(req.body, vetement); }
     catch (error) { return res.status(error.status).json({ message: error.message }); }
     Object.assign(vetement, editableValues(req.body), colors);
     await vetement.save();

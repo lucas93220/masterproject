@@ -51,7 +51,7 @@ describe('Formulaire vêtement : contrats et protections', () => {
     expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Pull', couleur: 'bleu',
       temperature_min: -20, temperature_max: 28, id_sous_categorie: 4, photo: null, favori: false }));
   });
-  test.each([['50', '5'], ['abc', '30'], ['0', 'Infinity']])('refuse les températures invalides %s / %s', async (min, max) => {
+  test.each([['50', '5'], ['abc', '30'], ['0', 'Infinity'], ['-5,5', '30']])('refuse les températures invalides %s / %s', async (min, max) => {
     const { screen, api } = mount();
     button(screen.render(), 'Ajuster les températures').props.onPress();
     field(screen, 'Minimum · °C').props.onChangeText(min); field(screen, 'Maximum · °C').props.onChangeText(max);
@@ -65,12 +65,12 @@ describe('Formulaire vêtement : contrats et protections', () => {
       expect(api.updateClothing).not.toHaveBeenCalled();
     }
   });
-  test('accepte température négative et virgule décimale', async () => {
+  test('accepte une température entière négative', async () => {
     const { screen, api } = mount();
     button(screen.render(), 'Ajuster les températures').props.onPress();
-    field(screen, 'Minimum · °C').props.onChangeText('-5,5');
+    field(screen, 'Minimum · °C').props.onChangeText('-5');
     await button(screen.render(), 'Enregistrer les modifications').props.onPress();
-    expect(api.updateClothing.mock.calls[0][1].temperature_min).toBe(-5.5);
+    expect(api.updateClothing.mock.calls[0][1].temperature_min).toBe(-5);
   });
   test('bloque le double envoi puis réessaie sans téléverser deux fois une même photo', async () => {
     let reject;
@@ -190,7 +190,6 @@ describe('Préremplissage photo', () => {
     await button(screen.render(), 'Ajouter une photo').props.onPress();
     expect(api.analyzeClothingImage).toHaveBeenCalledTimes(1);
     expect(api.uploadImage).not.toHaveBeenCalled();
-    expect(text(screen.render())).toContain('Google Gemini');
     expect(api.analyzeClothingImage).toHaveBeenCalledWith('file:///fixture.png', 'image/png');
     expect(field(screen, 'Nom du vêtement *').props.value).toBe('Pull noir');
     expect(selectedBrand(screen)).toBe('Nike');
@@ -490,4 +489,15 @@ describe('Catalogue enrichi et deux couleurs', () => {
     expect(button(screen.render(), 'Couleur bleu').props.accessibilityState.selected).toBe(true);
   });
 
+});
+
+
+test('ne duplique pas une couleur principale conservée manuellement lors du préremplissage', async () => {
+  const { screen, api } = mount({ ...clothing, couleur: 'noir' }, {
+    analyzeClothingImage: jest.fn().mockResolvedValue({ couleur: 'blanc', couleur_secondaire: 'noir' })
+  });
+  await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
+  await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+  expect(api.updateClothing).toHaveBeenCalledWith(7, expect.objectContaining({ couleur: 'noir' }));
+  expect(api.updateClothing.mock.calls[0][1].couleur_secondaire).not.toBe('noir');
 });

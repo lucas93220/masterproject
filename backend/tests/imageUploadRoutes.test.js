@@ -1,8 +1,8 @@
-jest.mock('../models/photo', () => ({ create: jest.fn(), findOne: jest.fn() }));
+jest.mock('../models/photo', () => ({ create: jest.fn(), findOne: jest.fn(), deleteOne: jest.fn() }));
 jest.mock('../services/erasureReceipts', () => ({ hasErasureReceipt: jest.fn(async () => false) }));
 jest.mock('../models/utilisateur', () => ({ findByPk: jest.fn(async id => ({ id_utilisateur: id, role: 'user' })) }));
 jest.mock('../config/db', () => {
-  throw new Error('Ce test ne doit pas ouvrir de connexion à la base');
+  return { sequelize: { transaction: jest.fn(async write => write({ LOCK: { KEY_SHARE: 'KEY SHARE' } })) } };
 });
 
 const fs = require('node:fs/promises');
@@ -34,7 +34,7 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
     app.use('/api/upload', require('../routes/uploadRoutes'));
     app.use('/api/photo', require('../routes/photoRoutes'));
     app.use('/uploads', require('../routes/privateImageRoutes'));
-    app.use((error, req, res, next) => res.status(500).json({ message: error.message }));
+    app.use((error, req, res, next) => res.status(error.status || 500).json({ message: error.message }));
   });
 
   afterAll(async () => {
@@ -70,6 +70,37 @@ describe('Uploads isolés (répertoire temporaire et modèle Mongo simulé)', ()
     await fs.writeFile(path.join(uploadDir, 'texte.txt'), 'non-image');
     expect((await authorized(request(app).get('/uploads/texte.txt'))).status).toBe(404);
   });
+
+  test.each([['/api/upload', 'image'], ['/api/photo/upload', 'photo']])(
+    'refuse un compte supprimé après authentification et avant stockage (%s)', async (endpoint, field) => {
+      const User = require('../models/utilisateur');
+      User.findByPk.mockResolvedValueOnce({ id_utilisateur: 1, role: 'user' }).mockResolvedValueOnce(null);
+      const before = await fs.readdir(uploadDir);
+      const result = await authorized(request(app).post(endpoint)).attach(field, jpeg, 'test.jpg');
+      expect(result.status).toBe(401);
+      expect(await fs.readdir(uploadDir)).toEqual(before);
+      expect(Photo.create).not.toHaveBeenCalled();
+    }
+  );
+
+  test.each([['/api/upload', 'image'], ['/api/photo/upload', 'photo']])(
+    'compense une écriture si le commit SQL échoue (%s)', async (endpoint, field) => {
+      const { sequelize } = require('../config/db');
+      sequelize.transaction.mockImplementationOnce(async write => {
+        await write({ LOCK: { KEY_SHARE: 'KEY SHARE' } });
+        throw new Error('Commit impossible');
+      });
+      Photo.create.mockResolvedValue({ _id: '507f1f77bcf86cd799439011' });
+      Photo.deleteOne.mockResolvedValue({ deletedCount: 1 });
+      const before = await fs.readdir(uploadDir);
+      const result = await authorized(request(app).post(endpoint)).attach(field, jpeg, 'test.jpg');
+      expect(result.status).toBe(500);
+      expect(await fs.readdir(uploadDir)).toEqual(before);
+      if (field === 'photo') expect(Photo.deleteOne).toHaveBeenCalledWith({
+        _id: '507f1f77bcf86cd799439011', ownerUserId: 1
+      });
+    }
+  );
 
   test('refuse les fichiers absents, déguisés, inattendus ou trop volumineux', async () => {
     expect((await authorized(request(app).post('/api/upload'))).status).toBe(400);

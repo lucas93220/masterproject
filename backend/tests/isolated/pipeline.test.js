@@ -45,7 +45,7 @@ beforeAll(async () => {
   app.use(express.json());
   for (const [prefix, routes] of [
     ['/api/tenue', 'tenueRoutes'], ['/api/evaluation', 'evaluationRoutes'],
-    ['/api/ml', 'mlRoutes'], ['/api/upload', 'uploadRoutes'],
+    ['/api/ml', 'mlRoutes'], ['/api/upload', 'uploadRoutes'], ['/api/photo', 'photoRoutes'],
     ['/api/utilisateur', 'utilisateurRoutes'], ['/api/vetement', 'vetementRoutes'],
     ['/uploads', 'privateImageRoutes']
   ]) app.use(prefix, require(`../../routes/${routes}`));
@@ -349,4 +349,54 @@ test('service ML qui ne répond plus : génération bornée et fallback explicit
     hanging.closeAllConnections();
     await new Promise(resolve => hanging.close(resolve));
   }
+});
+
+
+test.each([['/api/upload', 'image'], ['/api/photo/upload', 'photo']])(
+  'un upload commencé avant suppression mais terminé après ne recrée rien (%s)', async (endpoint, field) => {
+    const User = require('../../models/utilisateur');
+    const original = User.findByPk.bind(User);
+    let authenticatedUpload;
+    const authenticatedPromise = new Promise(resolve => { authenticatedUpload = resolve; });
+    jest.spyOn(User, 'findByPk').mockImplementation(async (...args) => {
+      const user = await original(...args);
+      if (!args[1]?.transaction) authenticatedUpload();
+      return user;
+    });
+    const boundary = 'fits-isolated-delayed-upload';
+    const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const head = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${field}"; filename="test.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`), jpeg]);
+    let upload;
+    const response = new Promise((resolve, reject) => {
+      upload = http.request({ host: '127.0.0.1', port: server.address().port, method: 'POST', path: endpoint,
+        headers: { Authorization: token(1), 'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': head.length + tail.length } }, res => {
+        res.resume(); res.on('end', () => resolve(res.statusCode));
+      });
+      upload.on('error', reject); upload.write(head);
+    });
+    try {
+      await authenticatedPromise;
+      const deletion = await authenticated(request(server).delete('/api/utilisateur/me'));
+      expect(deletion.status).toBe(200);
+    } finally { upload.end(tail); }
+    expect(await response).toBe(401);
+    expect(await fs.readdir(path.join(root, 'uploads'))).toEqual([]);
+    expect(await Photo.countDocuments({ ownerUserId: 1 })).toBe(0);
+  }
+);
+
+test('la suppression attend une écriture déjà verrouillée puis efface son fichier', async () => {
+  const { withAccountWrite } = require('../../services/accountWrite');
+  const { deleteAccount } = require('../../services/accountDeletion');
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const released = new Promise(resolve => { release = resolve; });
+  const file = path.join(root, 'uploads', 'u1_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg');
+  const writing = withAccountWrite(1, async () => { entered(); await released; await fs.writeFile(file, jpeg); });
+  await started;
+  const deleting = deleteAccount(1);
+  release(); await writing; await deleting;
+  expect(await fs.readdir(path.join(root, 'uploads'))).toEqual([]);
+  expect((await db.query('SELECT id_utilisateur FROM utilisateur WHERE id_utilisateur=1')).rows).toEqual([]);
 });

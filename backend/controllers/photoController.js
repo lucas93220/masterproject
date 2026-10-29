@@ -1,21 +1,26 @@
 const Photo = require('../models/photo');
 const mongoose = require('mongoose');
 const { randomUUID } = require('node:crypto');
+const { withAccountWrite } = require('../services/accountWrite');
 const { imageType } = require('../middlewares/imageUpload');
 
 exports.upload = async (req, res, next) => {
+  let photo;
   try {
     if (!req.file) return res.status(400).json({ message: "Aucun fichier envoyé" });
     const type = imageType(req.file);
     if (!type) return res.status(415).json({ message: 'Format image non pris en charge' });
-    const photo = await Photo.create({
-      ownerUserId: req.user.id,
-      filename: `${randomUUID()}${type.extension}`,
-      data: req.file.buffer,
-      contentType: type.contentType
+    await withAccountWrite(req.user.id, async () => {
+      photo = await Photo.create({
+        ownerUserId: req.user.id,
+        filename: `${randomUUID()}${type.extension}`,
+        data: req.file.buffer,
+        contentType: type.contentType
+      });
     });
     res.status(201).json({ id: photo._id });
   } catch (error) {
+    if (photo) await Photo.deleteOne({ _id: photo._id, ownerUserId: req.user.id }).catch(() => {});
     next(error);
   }
 };

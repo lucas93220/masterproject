@@ -21,33 +21,71 @@ export default function Home({ navigation }) {
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState(null);
   const actionInProgress = useRef(false);
+  const weatherRef = useRef(null);
+  const weatherRequest = useRef(0);
+  const contextVersion = useRef(0);
+  const refreshing = useRef(false);
+  const mounted = useRef(true);
   const isBusy = generating || evaluating;
 
+
   useEffect(() => {
+    mounted.current = true;
+    contextVersion.current++;
     loadWeather();
-  }, []);
+    const unsubscribe = navigation?.addListener?.("focus", loadWeather);
+    return () => {
+      mounted.current = false;
+      unsubscribe?.();
+    };
+  }, [navigation]);
 
   const loadWeather = async () => {
+    const request = ++weatherRequest.current;
+    refreshing.current = true;
     setLoading(true);
     setError(null);
     try {
       const data = await getWeatherForMe();
+      if (!mounted.current || request !== weatherRequest.current) return;
+      const previous = weatherRef.current;
+      if (previous && (previous.temperature !== data.temperature || previous.icon !== data.icon ||
+          (previous.ville || previous.localisation) !== (data.ville || data.localisation))) {
+        contextVersion.current++;
+        setTenue([]);
+        setTenueId(null);
+        setPreview(null);
+      }
+      weatherRef.current = data;
       setWeather(data);
     } catch (err) {
-      setError(err.message);
+      if (mounted.current && request === weatherRequest.current) {
+        weatherRef.current = null;
+        setWeather(null);
+        contextVersion.current++;
+        setTenue([]);
+        setTenueId(null);
+        setError(err.message);
+      }
     } finally {
-      setLoading(false);
+      if (mounted.current && request === weatherRequest.current) {
+        refreshing.current = false;
+        setLoading(false);
+      }
     }
   };
 
   const handleGenerateTenue = async () => {
-    if (!weather || actionInProgress.current) return;
+    if (!weatherRef.current || refreshing.current || actionInProgress.current) return;
+    const context = contextVersion.current;
 
     actionInProgress.current = true;
 
     try {
       setGenerating(true);
-      const data = await generateTenue(weather.temperature, weather.icon);
+      const currentWeather = weatherRef.current;
+      const data = await generateTenue(currentWeather.temperature, currentWeather.icon);
+      if (!mounted.current || context !== contextVersion.current) return;
       setTenue(data.vetements || []);
       setTenueId(data.id_tenue || null);
     } catch (err) {
@@ -59,7 +97,8 @@ export default function Home({ navigation }) {
   };
 
   const handleEvaluation = async (isLiked) => {
-    if (!tenueId || actionInProgress.current) return;
+    if (!tenueId || refreshing.current || actionInProgress.current) return;
+    const context = contextVersion.current;
 
     actionInProgress.current = true;
     setEvaluating(true);
@@ -72,12 +111,16 @@ export default function Home({ navigation }) {
         return;
       }
 
+      if (!mounted.current || context !== contextVersion.current) return;
       setTenueId(null);
 
       if (!isLiked) {
         setGenerating(true);
         try {
-          const data = await generateTenue(weather.temperature, weather.icon);
+          const currentWeather = weatherRef.current;
+          if (!currentWeather || refreshing.current) return;
+          const data = await generateTenue(currentWeather.temperature, currentWeather.icon);
+          if (!mounted.current || context !== contextVersion.current) return;
           setTenue(data.vetements || []);
           setTenueId(data.id_tenue || null);
         } catch (err) {

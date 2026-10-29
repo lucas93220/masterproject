@@ -73,7 +73,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
 
     expect(api.generateTenue).toHaveBeenCalledWith(18, "01d");
     expect(api.evaluateTenue).not.toHaveBeenCalled();
-    expect(text(screen.render())).toContain("Pull fictif");
+    expect(nodes(screen.render()).some(node => node.props?.accessibilityLabel === "Voir Pull fictif")).toBe(true);
     expect(buttons(screen.render()).like).toBeDefined();
   });
   test('le raccourci vers l’ajout conserve la liste du dressing comme écran de retour', async () => {
@@ -93,7 +93,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     expect(api.evaluateTenue).toHaveBeenCalledTimes(1);
     expect(api.evaluateTenue).toHaveBeenCalledWith(10, true);
     expect(api.generateTenue).not.toHaveBeenCalled();
-    expect(text(screen.render())).toContain("Pull fictif");
+    expect(nodes(screen.render()).some(node => node.props?.accessibilityLabel === "Voir Pull fictif")).toBe(true);
     expect(buttons(screen.render()).like).toBeUndefined();
     expect(buttons(screen.render()).dislike).toBeUndefined();
     expect(buttons(screen.render()).generate.props.disabled).toBe(false);
@@ -122,7 +122,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     generation.resolve(nextTenue);
     await pending;
 
-    expect(text(screen.render())).toContain("Chemise fictive");
+    expect(nodes(screen.render()).some(node => node.props?.accessibilityLabel === "Voir Chemise fictive")).toBe(true);
     expect(buttons(screen.render()).like.props.disabled).toBe(false);
     await buttons(screen.render()).like.props.onPress();
     expect(api.evaluateTenue).toHaveBeenLastCalledWith(20, true);
@@ -141,7 +141,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     expect(retry.like.props.disabled).toBe(false);
     expect(retry.dislike.props.disabled).toBe(false);
     expect(retry.generate.props.disabled).toBe(false);
-    expect(text(screen.render())).toContain("Pull fictif");
+    expect(nodes(screen.render()).some(node => node.props?.accessibilityLabel === "Voir Pull fictif")).toBe(true);
 
     await retry[action].props.onPress();
     expect(api.evaluateTenue).toHaveBeenCalledTimes(2);
@@ -221,7 +221,7 @@ describe("Évaluation sur l'écran d'accueil (API et hooks simulés)", () => {
     api.generateTenue.mockResolvedValueOnce(nextTenue);
     await buttons(screen.render()).generate.props.onPress();
     expect(api.evaluateTenue).toHaveBeenCalledTimes(1);
-    expect(text(screen.render())).toContain("Chemise fictive");
+    expect(nodes(screen.render()).some(node => node.props?.accessibilityLabel === "Voir Chemise fictive")).toBe(true);
   });
 
   test("conserve les avis disponibles et libère le verrou après une génération manuelle échouée", async () => {
@@ -249,4 +249,47 @@ test('propose une reprise météo sans générer ni enregistrer d’avis', async
   await button(screen.render(), 'Réessayer').props.onPress();
   expect(button(screen.render(), 'Générer ma tenue')).toBeDefined();
   expect(api.generateTenue).not.toHaveBeenCalled(); expect(api.evaluateTenue).not.toHaveBeenCalled();
+});
+
+describe('Actualisation météo au retour sur l’accueil', () => {
+  test('rafraîchit la ville et retire la tenue du contexte précédent', async () => {
+    let focus;
+    const api = { getWeatherForMe: jest.fn().mockResolvedValueOnce({ ville: 'Paris', temperature: 9, icon: '04d' })
+      .mockResolvedValue({ ville: 'Nice', temperature: 24, icon: '01d' }),
+      generateTenue: jest.fn().mockResolvedValue(initialTenue), evaluateTenue: jest.fn(), resolveImageUrl: uri => uri };
+    const navigation = { addListener: jest.fn((event, callback) => { focus = callback; return jest.fn(); }) };
+    const screen = createScreenHarness('home', api, { navigation });
+    screen.render(); screen.effects.forEach(effect => effect()); await flush();
+    await buttons(screen.render()).generate.props.onPress();
+    await focus();
+    expect(api.getWeatherForMe).toHaveBeenCalledTimes(2);
+    expect(text(screen.render())).toContain('Nice');
+    expect(buttons(screen.render()).like).toBeUndefined();
+    await buttons(screen.render()).generate.props.onPress();
+    expect(api.generateTenue).toHaveBeenLastCalledWith(24, '01d');
+  });
+  test('ignore une génération terminée après le changement météo', async () => {
+    let focus;
+    const pending = deferred();
+    const api = { getWeatherForMe: jest.fn().mockResolvedValueOnce({ temperature: 9 }).mockResolvedValue({ temperature: 24 }),
+      generateTenue: jest.fn(() => pending.promise), resolveImageUrl: uri => uri };
+    const screen = createScreenHarness('home', api, { navigation: { addListener: (event, cb) => { focus = cb; return () => {}; } } });
+    screen.render(); screen.effects.forEach(effect => effect()); await flush();
+    const generation = buttons(screen.render()).generate.props.onPress();
+    await focus(); pending.resolve(initialTenue); await generation;
+    expect(buttons(screen.render()).like).toBeUndefined();
+  });
+  test('ignore une réponse météo dépassée et les réponses après démontage', async () => {
+    let focus;
+    const old = deferred();
+    const api = { getWeatherForMe: jest.fn().mockReturnValueOnce(old.promise).mockResolvedValue({ ville: 'Nice', temperature: 24 }) };
+    const screen = createScreenHarness('home', api, { navigation: { addListener: (event, cb) => { focus = cb; return () => {}; } } });
+    screen.render(); const cleanups = screen.effects.map(effect => effect());
+    await focus(); old.resolve({ ville: 'Paris', temperature: 9 }); await flush();
+    expect(text(screen.render())).toContain('Nice');
+    const late = deferred(); api.getWeatherForMe.mockReturnValueOnce(late.promise);
+    const refreshing = focus(); cleanups.forEach(cleanup => cleanup?.());
+    late.resolve({ ville: 'Lyon', temperature: 10 }); await refreshing;
+    expect(text(screen.render())).not.toContain('Lyon');
+  });
 });

@@ -54,7 +54,7 @@ test('création et lien utilisent la même transaction ; une erreur est propagé
   Vetement.create.mockResolvedValue({ id_vetement: 10 });
   Contenir.create.mockRejectedValue(new Error('lien impossible'));
   const next = jest.fn();
-  await controller.create({ user: { id: 1 }, body: { nom: 'T-shirt', couleur: 'bleu' } },
+  await controller.create({ user: { id: 1 }, body: { nom: 'T-shirt', couleur: 'bleu', temperature_min: 0, temperature_max: 30 } },
     response(), next);
   expect(sequelize.transaction).toHaveBeenCalledTimes(1);
   expect(Vetement.create).toHaveBeenCalledWith(expect.any(Object),
@@ -113,7 +113,7 @@ describe('deux couleurs après activation', () => {
   afterAll(() => { if (previous === undefined) delete process.env.FITS_WARDROBE_V3; else process.env.FITS_WARDROBE_V3 = previous; });
   test('persiste deux couleurs distinctes et permet de supprimer la secondaire', async () => {
     Vetement.create.mockImplementation(async data => ({ ...data, id_vetement: 10 }));
-    const req = { user: { id: 1 }, body: { nom: 'Pull', couleur: 'noir', couleur_secondaire: 'blanc' } };
+    const req = { user: { id: 1 }, body: { nom: 'Pull', couleur: 'noir', couleur_secondaire: 'blanc', temperature_min: 0, temperature_max: 30 } };
     const res = response();
     await controller.create(req, res, jest.fn());
     expect(res.status).toHaveBeenCalledWith(201);
@@ -137,4 +137,22 @@ describe('deux couleurs après activation', () => {
     expect(res.status).toHaveBeenCalledWith(409);
     expect(Vetement.create).not.toHaveBeenCalled();
   });
+});
+
+test.each([-5.5, '-5', null, Infinity, 2147483648])('refuse la température non entière SQL %s avant écriture', async value => {
+  const res = response();
+  await controller.create({ user: { id: 1 }, body: { couleur: 'noir', temperature_min: value, temperature_max: 30 } }, res, jest.fn());
+  expect(res.status).toHaveBeenCalledWith(400);
+  expect(Vetement.create).not.toHaveBeenCalled();
+});
+
+test('refuse une modification thermique décimale et un intervalle inversé', async () => {
+  const item = { temperature_min: 0, temperature_max: 30, save: jest.fn() };
+  Vetement.findByPk.mockResolvedValue(item);
+  for (const body of [{ temperature_min: -5.5 }, { temperature_max: -1 }]) {
+    const res = response();
+    await controller.update({ user: { id: 1 }, params: { id: '10' }, body }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+  }
+  expect(item.save).not.toHaveBeenCalled();
 });

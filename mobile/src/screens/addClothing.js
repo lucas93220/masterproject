@@ -131,14 +131,17 @@ export default function AddClothing({ navigation, route }) {
         if (!manualFields.current.has('couleur')) setCouleur('');
         if (!manualFields.current.has('couleur_secondaire')) setSecondaryColor('');
         if (!manualFields.current.has('category')) { setIdSousCategorie(null); setCategoryLabel(''); }
-        await analyzePhoto(result.assets[0]);
+        await analyzePhoto(result.assets[0], {
+          primary: manualFields.current.has('couleur') ? couleur : '',
+          secondary: manualFields.current.has('couleur_secondaire') ? secondaryColor : ''
+        });
       }
     } catch {
       if (mounted.current) setError("Impossible d’ouvrir les photos. Vérifie l’accès à ta photothèque dans les réglages.");
     } finally { pickerBusy.current = false; }
   };
 
-  const analyzePhoto = async (image = pickedImage) => {
+  const analyzePhoto = async (image = pickedImage, currentColors = { primary: couleur, secondary: secondaryColor }) => {
     if (busy.current || !image || !mounted.current) return;
     busy.current = true;
     const request = ++analysisRequest.current;
@@ -147,12 +150,21 @@ export default function AddClothing({ navigation, route }) {
       const suggestion = await analyzeClothingImage(image.uri, image.mimeType);
       if (request !== analysisRequest.current) return;
       let applied = 0;
-      for (const [field, setter] of [['nom', setNom], ['marque', setMarque], ['couleur', setCouleur], ['couleur_secondaire', setSecondaryColor]]) {
+      for (const [field, setter] of [['nom', setNom], ['marque', setMarque]]) {
         const value = suggestion[field];
-        if (!manualFields.current.has(field) && typeof value === 'string' && value.trim() &&
-            (!field.startsWith('couleur') || Object.hasOwn(CLOTHING_COLORS, value))) {
+        if (!manualFields.current.has(field) && typeof value === 'string' && value.trim()) {
           setter(value); applied += 1;
         }
+      }
+      // Valider la paire finale : une couleur principale conservée manuellement
+      // peut être la secondaire renvoyée par l'analyse.
+      let primary = currentColors.primary;
+      if (!manualFields.current.has('couleur') && Object.hasOwn(CLOTHING_COLORS, suggestion.couleur)) {
+        primary = suggestion.couleur; setCouleur(primary); applied += 1;
+      }
+      if (!manualFields.current.has('couleur_secondaire')) {
+        const secondary = suggestion.couleur_secondaire;
+        setSecondaryColor(Object.hasOwn(CLOTHING_COLORS, secondary) && secondary !== primary ? secondary : '');
       }
       if (!manualFields.current.has('category') && Number.isSafeInteger(suggestion.id_sous_categorie) &&
           suggestion.id_sous_categorie > 0 && suggestion.nom_sous_categorie) {
@@ -176,8 +188,8 @@ export default function AddClothing({ navigation, route }) {
     if (secondaryColor && options?.max_colors !== 2) { setError("Impossible de vérifier les deux couleurs. Rouvre le formulaire avec une connexion disponible."); return; }
     const min = thermalMode === "auto" ? thermalMin : tempMin.trim() ? Number(tempMin.replace(",", ".")) : 0;
     const max = thermalMode === "auto" ? thermalMax : tempMax.trim() ? Number(tempMax.replace(",", ".")) : 50;
-    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
-      setError("Indique des températures valides, avec un minimum inférieur ou égal au maximum."); return;
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < -2147483648 || max > 2147483647 || min > max) {
+      setError("Indique des températures valides : des nombres entiers, avec un minimum inférieur ou égal au maximum."); return;
     }
     busy.current = true;
     setSaving(true);
