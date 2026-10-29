@@ -138,29 +138,24 @@ export default function Home({ navigation }) {
           accessibilityRole="button" accessibilityLabel={`Voir ${item.nom}`} onPress={() => setPreview(item)}
           activeOpacity={0.8} style={styles.outfitCard}>
           <ClothingImage uri={item.photo} accessibilityLabel={`Photo : ${item.nom}`} style={styles.outfitImage} />
-          <View style={{ padding: 12, gap: 4 }}>
-            <Text numberOfLines={2} style={{ ...TYPE.body, fontWeight: "600", fontSize: 14 }}>{item.nom}</Text>
-            <Text numberOfLines={1} style={TYPE.caption}>{item.marque || `Pièce ${index + 1}`}</Text>
-          </View>
         </TouchableOpacity>)}
       </View>
       {tenueId ? <View style={styles.feedback}>
-        <Text style={{ ...TYPE.body, fontWeight: "600" }}>Tu porterais cette tenue ?</Text>
-        <Text style={TYPE.caption}>Pense au style et à la météo du jour.</Text>
+        <Text style={{ ...TYPE.body, fontWeight: "600" }}>Tu porterais cette tenue aujourd’hui ?</Text>
         <View style={[layout.row, { marginTop: 6 }]}>
           <TouchableOpacity onPress={() => handleEvaluation(false)} disabled={isBusy}
             accessibilityRole="button" accessibilityLabel="Je n’aime pas cette tenue, en proposer une autre"
             accessibilityState={{ disabled: isBusy }} style={[styles.vote, { opacity: isBusy ? 0.5 : 1 }]}>
-            <Ionicons name="close" size={22} color={COLORS.text} /><Text style={TYPE.body}>Pas pour moi</Text>
+            <Ionicons name="close" size={22} color={COLORS.text} /><Text style={TYPE.body}>Non</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => handleEvaluation(true)} disabled={isBusy}
-            accessibilityRole="button" accessibilityLabel="J’aime cette tenue"
+            accessibilityRole="button" accessibilityLabel="Oui"
             accessibilityState={{ disabled: isBusy }} style={[styles.vote, { backgroundColor: COLORS.primary, opacity: isBusy ? 0.5 : 1 }]}>
             <Ionicons name="heart" size={20} color={COLORS.accent} /><Text style={{ ...TYPE.body, color: "#fff" }}>J’aime</Text>
           </TouchableOpacity>
         </View>
         {evaluating ? <Text accessibilityLiveRegion="polite" style={TYPE.caption}>Enregistrement de ton avis…</Text> : null}
-      </View> : !isBusy ? <Notice message="Ton avis a été enregistré. Tu peux explorer une autre idée." /> : null}
+      </View> : !isBusy ? <Notice message="C'est noté. Tu peux explorer d'autres idées." /> : null}
     </View> : <View style={styles.intro}>
       <View style={styles.introIcon}><Ionicons name="shirt-outline" size={44} color={COLORS.primary} /></View>
       <Text style={[TYPE.display, { fontSize: 28, lineHeight: 34, textAlign: "center" }]}>{"De nouvelles idées.\nTes propres vêtements."}</Text>
