@@ -97,6 +97,36 @@ describe('Analyse de vêtement : HTTP réel, base et fournisseur simulés', () =
       id_sous_categorie: null, nom_sous_categorie: null });
   });
 
+  test('préremplit la marque et le modèle reconnus par le design sans logo', async () => {
+    axios.post.mockResolvedValue(providerResponse({ ...result, nom: 'Baskets grises', marque: 'Adidas',
+      brand_visible: false, brand_basis: 'distinctive_design', model_name: 'Yeezy Boost 350 V2', model_identified: true }));
+    const res = await send();
+    expect(res.status).toBe(200);
+    expect(res.body.suggestion).toMatchObject({ nom: 'Adidas Yeezy Boost 350 V2', marque: 'Adidas' });
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    const payload = axios.post.mock.calls[0][1];
+    expect(payload.generationConfig.responseSchema.required).toEqual(expect.arrayContaining([
+      'brand_basis', 'model_name', 'model_identified'
+    ]));
+    expect(payload.systemInstruction.parts[0].text).toContain('design réellement distinctif');
+  });
+
+  test.each([
+    [{ brand_basis: 'unknown', model_identified: true }, null],
+    [{ brand_basis: 'distinctive_design', model_identified: false }, 'Adidas'],
+    [{ brand_basis: 'invented', model_identified: true }, null],
+    [{ brand_basis: 'distinctive_design', model_identified: 'true' }, 'Adidas']
+  ])('garde un nom descriptif quand le modèle est incertain ou sa marque non identifiée : %j', async (extra, brand) => {
+    axios.post.mockResolvedValue(providerResponse({ ...result, nom: 'Baskets grises', marque: 'Adidas',
+      brand_visible: false, model_name: 'Référence incertaine', ...extra }));
+    expect((await send()).body.suggestion).toMatchObject({ nom: 'Baskets grises', marque: brand });
+  });
+
+  test('ne répète pas la marque si le fournisseur l’inclut dans le modèle', async () => {
+    axios.post.mockResolvedValue(providerResponse({ ...result, model_name: 'Nike Air Force 1', model_identified: true }));
+    expect((await send()).body.suggestion.nom).toBe('Nike Air Force 1');
+  });
+
   test('ne convertit pas un identifiant texte en catégorie et borne les textes', async () => {
     axios.post.mockResolvedValue(providerResponse({ ...result, nom: 'a'.repeat(1000), marque: 'b'.repeat(1000),
       id_sous_categorie: '3' }));

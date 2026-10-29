@@ -501,3 +501,18 @@ test('ne duplique pas une couleur principale conservée manuellement lors du pr�
   expect(api.updateClothing).toHaveBeenCalledWith(7, expect.objectContaining({ couleur: 'noir' }));
   expect(api.updateClothing.mock.calls[0][1].couleur_secondaire).not.toBe('noir');
 });
+
+
+test('la photo préremplit un modèle reconnu sans saisie puis permet sa correction', async () => {
+  const { screen, api } = mount(null, {
+    analyzeClothingImage: jest.fn().mockResolvedValue({ nom: 'Adidas Yeezy Boost 350 V2', marque: 'Adidas',
+      couleur: 'noir', id_sous_categorie: 3, nom_sous_categorie: 'Baskets' })
+  });
+  await button(screen.render(), 'Ajouter une photo').props.onPress();
+  expect(field(screen, 'Nom du vêtement *').props.value).toBe('Adidas Yeezy Boost 350 V2');
+  expect(selectedBrand(screen)).toBe('Adidas');
+  expect(text(screen.render())).toContain('Baskets');
+  field(screen, 'Nom du vêtement *').props.onChangeText('Mes baskets corrigées');
+  await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+  expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Mes baskets corrigées', marque: 'Adidas' }));
+});
