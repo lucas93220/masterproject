@@ -40,6 +40,7 @@ export default function AddClothing({ navigation, route }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisMessage, setAnalysisMessage] = useState(null);
+  const [visualSearch, setVisualSearch] = useState(null);
   // Une reconnaissance ne remplace jamais une saisie manuelle ou une fiche existante.
   const manualFields = useRef(new Set(editingClothing ? [
     editingClothing.nom && 'nom', editingClothing.marque && 'marque',
@@ -146,9 +147,11 @@ export default function AddClothing({ navigation, route }) {
     busy.current = true;
     const request = ++analysisRequest.current;
     setAnalyzing(true); setAnalysisError(null); setAnalysisMessage(null);
+    setVisualSearch(null);
     try {
       const suggestion = await analyzeClothingImage(image.uri, image.mimeType);
       if (request !== analysisRequest.current) return;
+      setVisualSearch(suggestion.visual_search || null);
       let applied = 0;
       for (const [field, setter] of [['nom', setNom], ['marque', setMarque]]) {
         const value = suggestion[field];
@@ -251,7 +254,11 @@ export default function AddClothing({ navigation, route }) {
       <Notice error message={analysisError} />
       <Button title="Réessayer l’analyse" variant="secondary" disabled={disabled} onPress={() => analyzePhoto()} />
     </View> : null}
+    <Text style={TYPE.caption}>La photo est analysée par Google Gemini. Une recherche visuelle via SerpApi peut compléter l’identification.</Text>
     {analysisMessage ? <Notice message={analysisMessage} /> : null}
+    {visualSearch?.status === 'unavailable' ? <Notice message="Recherche visuelle indisponible. Le préremplissage photo reste disponible." /> : null}
+    {visualSearch?.status === 'no_matches' ? <Text style={TYPE.caption}>Aucune correspondance visuelle trouvée. Les champs restent modifiables.</Text> : null}
+
 
     <View style={layout.card}>
       <Text style={layout.sectionLabel}>01 · L’ESSENTIEL</Text>

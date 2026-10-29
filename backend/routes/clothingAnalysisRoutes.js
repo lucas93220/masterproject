@@ -2,7 +2,8 @@ const express = require('express');
 const auth = require('../middlewares/auth');
 const { singleImage, imageType } = require('../middlewares/imageUpload');
 const { createRecognitionLimit } = require('../middlewares/recognitionLimit');
-const { configuration, recognizeClothing, RecognitionError } = require('../services/clothingRecognition');
+const { configuration, RecognitionError } = require('../services/clothingRecognition');
+const { identifyClothing } = require('../services/clothingIdentification');
 const SousCategorie = require('../models/sousCategorie');
 
 const router = express.Router();
@@ -21,9 +22,9 @@ router.post('/', auth, (req, res, next) => {
       attributes: ['id_sous_categorie', 'nom_sous_categorie'], raw: true
     });
     if (!catalog.length) return res.status(503).json({ message: 'Catalogue indisponible. Réessaie plus tard.' });
-    const suggestion = await recognizeClothing(req.file, catalog);
+    const result = await identifyClothing(req.file, catalog);
     res.set('Cache-Control', 'no-store');
-    return res.json({ suggestion });
+    return res.json(result);
   } catch (error) {
     if (error instanceof RecognitionError) return res.status(error.status).json({ message: error.message });
     return res.status(503).json({ message: 'Analyse photo indisponible. Tu peux continuer manuellement.' });

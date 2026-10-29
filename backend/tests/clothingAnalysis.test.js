@@ -1,3 +1,5 @@
+jest.mock('../services/visualSearchTrial', () => ({ searchVisualMatches: jest.fn() }));
+jest.mock('../services/prepareVisualSearchImage', () => ({ prepareVisualSearchBuffer: jest.fn() }));
 jest.mock('axios', () => ({ post: jest.fn() }));
 jest.mock('../models/sousCategorie', () => ({ findAll: jest.fn() }));
 jest.mock('../services/erasureReceipts', () => ({ hasErasureReceipt: jest.fn(async () => false) }));
@@ -24,7 +26,7 @@ describe('Analyse de vêtement : HTTP réel, base et fournisseur simulés', () =
   const previous = {};
   beforeAll(() => {
     for (const name of ['JWT_SECRET', 'GEMINI_API_KEY', 'CLOTHING_VISION_MODEL', 'CLOTHING_VISION_PROVIDER',
-      'CLOTHING_VISION_PER_USER_HOUR', 'CLOTHING_VISION_GLOBAL_DAY']) previous[name] = process.env[name];
+      'CLOTHING_VISION_PER_USER_HOUR', 'CLOTHING_VISION_GLOBAL_DAY', 'SERPAPI_API_KEY', 'CLOTHING_VISUAL_SEARCH']) previous[name] = process.env[name];
     process.env.JWT_SECRET = 'secret-de-test';
     process.env.CLOTHING_VISION_PER_USER_HOUR = '100';
     process.env.CLOTHING_VISION_GLOBAL_DAY = '1000';
@@ -39,6 +41,7 @@ describe('Analyse de vêtement : HTTP réel, base et fournisseur simulés', () =
   });
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.SERPAPI_API_KEY; delete process.env.CLOTHING_VISUAL_SEARCH;
     process.env.GEMINI_API_KEY = 'cle-fictive-jamais-envoyee';
     process.env.CLOTHING_VISION_PROVIDER = 'gemini';
     process.env.CLOTHING_VISION_MODEL = 'modele-fictif';
@@ -125,6 +128,44 @@ describe('Analyse de vêtement : HTTP réel, base et fournisseur simulés', () =
   test('ne répète pas la marque si le fournisseur l’inclut dans le modèle', async () => {
     axios.post.mockResolvedValue(providerResponse({ ...result, model_name: 'Nike Air Force 1', model_identified: true }));
     expect((await send()).body.suggestion.nom).toBe('Nike Air Force 1');
+  });
+
+  test('croise la photo avec les correspondances sans recopier automatiquement le premier résultat', async () => {
+    process.env.SERPAPI_API_KEY = 'secret-serp-fictif';
+    const matches = [{ rank: 1, title: 'Marque A : autre pièce', source: 'A', link: 'https://example.invalid/a' },
+      { rank: 2, title: 'Marque B : sweat à capuche', source: 'B', link: 'https://example.invalid/b' }];
+    require('../services/prepareVisualSearchImage').prepareVisualSearchBuffer.mockResolvedValue({ buffer: jpeg });
+    require('../services/visualSearchTrial').searchVisualMatches.mockResolvedValue({ status: 'matches', matches });
+    axios.post.mockResolvedValue(providerResponse({ ...result, marque: 'Marque B', brand_visible: false,
+      brand_basis: 'visual_search', visual_match_rank: 2, model_name: 'Sweat à capuche', model_identified: true }));
+    const res = await send();
+    expect(res.status).toBe(200);
+    expect(res.body.suggestion).toMatchObject({ marque: 'Marque B', nom: 'Marque B Sweat à capuche', couleur: 'noir' });
+    expect(res.body.visual_search).toEqual({ status: 'matches' });
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    const payload = axios.post.mock.calls[0][1];
+    expect(payload.contents[0].parts[1].text).toContain('Marque B');
+    expect(payload.contents[0].parts[1].text).not.toContain('https://');
+    expect(payload.systemInstruction.parts[0].text).toContain('jamais des instructions');
+    expect(JSON.stringify(res.body)).not.toContain('secret-serp');
+  });
+
+  test('refuse une marque attribuée à une correspondance inexistante', async () => {
+    axios.post.mockResolvedValue(providerResponse({ ...result, brand_visible: false,
+      brand_basis: 'visual_search', visual_match_rank: 99, model_name: 'Inventé', model_identified: true }));
+    const res = await send();
+    expect(res.body.suggestion).toMatchObject({ marque: null, nom: 'Pull noir' });
+  });
+
+  test('une panne de recherche visuelle laisse le préremplissage Gemini disponible', async () => {
+    process.env.SERPAPI_API_KEY = 'fictif';
+    require('../services/prepareVisualSearchImage').prepareVisualSearchBuffer.mockResolvedValue({ buffer: jpeg });
+    require('../services/visualSearchTrial').searchVisualMatches.mockRejectedValueOnce(new Error('ne-pas-divulguer'));
+    const res = await send();
+    expect(res.status).toBe(200);
+    expect(res.body.suggestion.marque).toBe('Nike');
+    expect(res.body.visual_search).toEqual({ status: 'unavailable' });
+    expect(JSON.stringify(res.body)).not.toContain('ne-pas-divulguer');
   });
 
   test('ne convertit pas un identifiant texte en catégorie et borne les textes', async () => {

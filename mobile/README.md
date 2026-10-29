@@ -4,7 +4,7 @@ Le champ **Marque** utilise un catalogue FITS avec recherche locale, tolérance 
 
 Le raccourci **Compléter mon dressing** de l’accueil ouvre le formulaire au-dessus de la collection, y compris lors de la toute première visite. La flèche de retour permet donc de retrouver les vêtements. Changer d’onglet conserve le formulaire en cours ; revenir puis utiliser la flèche revient à la liste.
 
-Le formulaire lance automatiquement le préremplissage après sélection d’une photo : nom (avec modèle commercial si reconnu), catégorie, couleurs et marque, avec vérification avant sauvegarde. La photo est analysée par Google Gemini ; les saisies manuelles sont conservées et une panne laisse le formulaire utilisable. La clé est configurée uniquement côté backend : [activation et limites](../backend/CLOTHING_RECOGNITION.md).
+Le formulaire lance automatiquement le préremplissage après sélection d’une photo : nom (avec modèle commercial si reconnu), catégorie, couleurs et marque, avec vérification avant sauvegarde. La photo est analysée par Google Gemini, avec recherche de références via SerpApi si configurée. Les correspondances servent à l’analyse sans être affichées ; les saisies manuelles sont conservées et une panne laisse le formulaire utilisable. La clé est configurée uniquement côté backend : [activation et limites](../backend/CLOTHING_RECOGNITION.md).
 
 Application React Native/Expo du parcours dressing → génération de tenue → like/dislike. À la création et à la modification d'un vêtement, une couleur principale se choisit dans la palette annoncée par l’API (12 couleurs historiques, ou 18 avec une seconde couleur facultative après activation du catalogue v3) ; les anciennes valeurs libres doivent être remplacées lors d'une modification depuis cet écran.
 

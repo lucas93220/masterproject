@@ -213,7 +213,7 @@ export async function analyzeClothingImage(uri, mimeType) {
   if (!token) throw new Error('Connexion requise pour analyser une photo');
   const formData = await imageFormData(uri, mimeType);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 45000);
+  const timer = setTimeout(() => controller.abort(), 75000);
   try {
     const response = await fetch(`${API_URL}/clothing-analysis`, {
       method: 'POST', body: formData,
@@ -224,7 +224,7 @@ export async function analyzeClothingImage(uri, mimeType) {
     if (!data?.suggestion || typeof data.suggestion !== 'object' || Array.isArray(data.suggestion)) {
       throw new Error('Analyse photo illisible. Continue manuellement.');
     }
-    return data.suggestion;
+    return { ...data.suggestion, ...(data.visual_search ? { visual_search: data.visual_search } : {}) };
   } catch (error) {
     if (error.name === 'AbortError') throw new Error('L’analyse photo prend trop de temps. Réessaie.');
     if (error instanceof TypeError) throw new Error('Connexion impossible pour analyser la photo. Tu peux continuer manuellement.');

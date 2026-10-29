@@ -202,6 +202,13 @@ describe('Analyse photo mobile', () => {
     expect(fetch.mock.calls[0]).toEqual(['blob:http://localhost/fixture']);
     expect(fetch.mock.calls[1][1].body.entries[0]).toEqual(['image', blob, 'photo.jpg']);
   });
+  test('transmet les correspondances visuelles au formulaire sans perdre les champs', async () => {
+    const { api, fetch } = createApi('jeton-fictif');
+    const suggestion = { nom: 'Pièce reconnue', couleur: 'noir' };
+    const visual_search = { status: 'matches', matches: [{ rank: 1, title: 'Référence', link: 'https://example.invalid' }] };
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ suggestion, visual_search }) });
+    await expect(api.analyzeClothingImage('file:///pull.jpg')).resolves.toEqual({ ...suggestion, visual_search });
+  });
   test('refuse une analyse sans session', async () => {
     const { api, fetch } = createApi(null);
     await expect(api.analyzeClothingImage('file:///pull.jpg')).rejects.toThrow('Connexion requise');
@@ -213,7 +220,7 @@ describe('Analyse photo mobile', () => {
     await expect(api.analyzeClothingImage('file:///pull.jpg')).rejects.toThrow('Continue manuellement');
     await expect(api.analyzeClothingImage('file:///pull.jpg')).rejects.toThrow('Analyse photo illisible');
   });
-  test('interrompt une requête qui dépasse 45 secondes', async () => {
+  test('interrompt une requête qui dépasse 75 secondes', async () => {
     jest.useFakeTimers();
     try {
       const { api, fetch } = createApi('jeton-fictif');
@@ -222,7 +229,7 @@ describe('Analyse photo mobile', () => {
       }));
       const pending = api.analyzeClothingImage('file:///pull.jpg');
       const assertion = expect(pending).rejects.toThrow('prend trop de temps');
-      await jest.advanceTimersByTimeAsync(45001);
+      await jest.advanceTimersByTimeAsync(75001);
       await assertion;
       expect(jest.getTimerCount()).toBe(0);
     } finally { jest.useRealTimers(); }

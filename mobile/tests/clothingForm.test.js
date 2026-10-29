@@ -516,3 +516,32 @@ test('la photo préremplit un modèle reconnu sans saisie puis permet sa correct
   await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
   expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Mes baskets corrigées', marque: 'Adidas' }));
 });
+
+
+test('préremplit depuis la recherche visuelle sans afficher de correspondances', async () => {
+  const { screen, api } = mount(null, {
+    analyzeClothingImage: jest.fn().mockResolvedValue({ nom: 'Marque test Sweat', marque: 'Marque test', couleur: 'noir',
+      id_sous_categorie: 3, nom_sous_categorie: 'Sweats', visual_search: { status: 'matches', matches: [
+        { rank: 1, title: 'Référence trouvée', source: 'Catalogue test', link: 'https://example.invalid' }
+      ] } })
+  });
+  await button(screen.render(), 'Ajouter une photo').props.onPress();
+  expect(field(screen, 'Nom du vêtement *').props.value).toBe('Marque test Sweat');
+  expect(selectedBrand(screen)).toBe('Marque test');
+  expect(text(screen.render())).not.toContain('Voir les correspondances');
+  expect(text(screen.render())).not.toContain('Référence trouvée');
+  await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+  expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Marque test Sweat' }));
+});
+
+test('une panne de recherche visuelle laisse les suggestions photo modifiables', async () => {
+  const { screen, api } = mount(null, {
+    analyzeClothingImage: jest.fn().mockResolvedValue({ nom: 'Pull', couleur: 'noir', id_sous_categorie: 3,
+      nom_sous_categorie: 'Pulls', visual_search: { status: 'unavailable', matches: [] } })
+  });
+  await button(screen.render(), 'Ajouter une photo').props.onPress();
+  expect(text(screen.render())).toContain('Recherche visuelle indisponible');
+  field(screen, 'Nom du vêtement *').props.onChangeText('Mon pull');
+  await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+  expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Mon pull' }));
+});
