@@ -274,4 +274,15 @@ describe("Évaluations utilisateur (sans base ni réseau)", () => {
     expect(res.json).not.toHaveBeenCalled();
     expect(axios.post).not.toHaveBeenCalled();
   });
+  test('un avis v3 conserve les identifiants et les deux couleurs sans changer le label', async () => {
+    loadFeatureSchema.mockResolvedValue({ v3: true });
+    snapshotGarment.mockReturnValue({ couleur: 'noir', couleur_secondaire: 'blanc' });
+    await controller.create(req, res, next);
+    expect(Evaluation.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      is_liked: true, feature_snapshot: { version: 3,
+        garments: [{ id_vetement: 101, couleur: 'noir', couleur_secondaire: 'blanc' }] }
+    }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
 });

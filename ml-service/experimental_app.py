@@ -63,7 +63,7 @@ def _directory():
 
 
 @contextmanager
-def _locked_user(user_id):
+def _locked_user(user_id, feature_version='outfit-v2-', deleting=False):
     directory = _directory()
     # File lock also serializes concurrent processes (macOS/Linux).
     with _lock_for(f'experiment-{user_id}'):
@@ -72,13 +72,17 @@ def _locked_user(user_id):
         with os.fdopen(descriptor, 'a') as stream:
             fcntl.flock(stream, fcntl.LOCK_EX)
             try:
-                yield directory / f'user_{user_id}.joblib'
+                # Fixed suffix, never a client-supplied filesystem path.
+                suffix = '_outfit_v3' if feature_version.startswith('outfit-v3-') else ''
+                if not deleting and (directory / f'user_{user_id}.deleted').exists():
+                    raise HTTPException(410, 'Compte ML supprimé')
+                yield directory / f'user_{user_id}{suffix}.joblib'
             finally:
                 fcntl.flock(stream, fcntl.LOCK_UN)
 
 
 def _check_request(feature_version, representation_version):
-    if not feature_version.startswith('outfit-v2-') or representation_version != REPRESENTATION_VERSION:
+    if not feature_version.startswith(('outfit-v2-', 'outfit-v3-')) or representation_version != REPRESENTATION_VERSION:
         raise HTTPException(422, 'Version de représentation invalide')
 
 
@@ -104,7 +108,7 @@ def train(request: TrainingRequest, user_id: int = Depends(_authenticated_user))
     reason = ('empty_dataset' if not rows else 'single_class' if not counts[0] or not counts[1]
               else 'too_few_samples' if len(rows) < _setting('ML_MIN_TRAIN_SAMPLES', 20) or
               min(counts.values()) < _setting('ML_MIN_SAMPLES_PER_CLASS', 5) else None)
-    with _locked_user(user_id) as path:
+    with _locked_user(user_id, request.feature_version) as path:
         _check_deleted(path)
         if reason:
             return {'status': 'insufficient_data', 'reason': reason, **summary}
@@ -143,7 +147,7 @@ def predict_batch(request: PredictionRequest, user_id: int = Depends(_authentica
     def fallback(reason):
         return {'predictions': [_fallback(row, reason) for row in request.candidates]}
 
-    with _locked_user(user_id) as path:
+    with _locked_user(user_id, request.feature_version) as path:
         _check_deleted(path)
         if path.is_symlink():
             return fallback('invalid_model')
@@ -190,8 +194,9 @@ def predict(data: dict, user_id: int = Depends(_authenticated_user)):
 
 @app.post('/delete-model')
 def delete(user_id: int = Depends(_authenticated_user)):
-    with _locked_user(user_id) as path:
+    with _locked_user(user_id, deleting=True) as path:
         descriptor = os.open(path.with_suffix('.deleted'), os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
         os.close(descriptor)
         path.unlink(missing_ok=True)
+        path.with_name(f'user_{user_id}_outfit_v3.joblib').unlink(missing_ok=True)
     return {'status': 'deleted'}

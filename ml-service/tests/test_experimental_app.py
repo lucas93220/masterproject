@@ -197,5 +197,39 @@ class ExperimentalAppTests(unittest.TestCase):
         self.assertFalse((self.directory / 'user_1.joblib').exists())
 
 
+    def test_v3_keeps_v2_model_and_user_isolation_and_deletes_both(self):
+        self.train()
+        legacy = self.directory / 'user_1.joblib'
+        saved = legacy.read_bytes()
+        self.version = 'outfit-v3-fictional'
+        self.assertEqual(self.batch().json()['predictions'][0]['reason'], 'no_model')
+        self.assertEqual(self.train().json()['status'], 'model trained')
+        self.assertEqual(legacy.read_bytes(), saved)
+        self.assertTrue((self.directory / 'user_1_outfit_v3.joblib').exists())
+        self.assertEqual(self.batch().json()['predictions'][0]['model_used'], 'personalized')
+        self.assertEqual(self.batch(user=2).json()['predictions'][0]['reason'], 'no_model')
+        self.assertEqual(self.train(rows=[]).json()['status'], 'insufficient_data')
+        self.assertEqual(self.batch().json()['predictions'][0]['model_used'], 'personalized')
+        self.assertEqual(self.post('/delete-model', {}).status_code, 200)
+        self.assertFalse(legacy.exists())
+        self.assertFalse((self.directory / 'user_1_outfit_v3.joblib').exists())
+        self.assertEqual(self.train().status_code, 410)
+        self.version = 'outfit-v2-fictional'
+        self.assertEqual(self.train().status_code, 410)
+        self.assertEqual(self.post('/delete-model', {}).status_code, 200)
+
+    def test_failed_v3_save_preserves_both_artifacts(self):
+        self.train()
+        legacy = (self.directory / 'user_1.joblib').read_bytes()
+        self.version = 'outfit-v3-fictional'
+        self.train()
+        path = self.directory / 'user_1_outfit_v3.joblib'
+        previous = path.read_bytes()
+        with patch('experimental_app.os.replace', side_effect=OSError('fictitious failure')):
+            self.assertEqual(self.train().status_code, 503)
+        self.assertEqual(path.read_bytes(), previous)
+        self.assertEqual((self.directory / 'user_1.joblib').read_bytes(), legacy)
+
+
 if __name__ == '__main__':
     unittest.main()

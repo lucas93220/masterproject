@@ -12,6 +12,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
+    "dev:v3": "FITS_WARDROBE_V3=1 nodemon app.js",
     "ml:services": "node scripts/startMlServices.js",
     "test": "jest",
     "test:isolated": "node scripts/runIsolatedChecks.js"

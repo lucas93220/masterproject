@@ -79,3 +79,15 @@ describe('Dressing : recherche, filtres et mutations isolées', () => {
     expect(api.deleteClothing).toHaveBeenCalledWith(3); expect(list(screen)).toHaveLength(2);
   });
 });
+
+test('filtre les groupes précis et trouve aussi la couleur secondaire', async () => {
+  const { screen } = await mount({
+    getMyDressing: jest.fn().mockResolvedValue({ vetements: [{ ...items[0], couleur_secondaire: 'bleu marine' }, items[1]] }),
+    getWardrobeOptions: jest.fn().mockResolvedValue({ groups: [{ id_categorie: 'hauts', nom_categorie: 'Hauts',
+      subcategories: [{ id_sous_categorie: 1, nom_sous_categorie: 'Chemise' }] }] })
+  });
+  button(screen.render(), 'Hauts').props.onPress();
+  button(screen.render(), 'Filtres, 1 actifs').props.onPress();
+  button(screen.render(), 'bleu marine').props.onPress();
+  expect(list(screen).map(item => item.id_vetement)).toEqual([1]);
+});

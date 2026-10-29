@@ -123,3 +123,20 @@ test('préfère une chaussure neutre à une troisième couleur vive sans bloquer
   expect(buildRandomTenue([top, pants, blueShoes], zones, 22, () => 0)
     .map(item => item.id_vetement)).toEqual([3, 6, 7]);
 });
+
+test('la seconde couleur compte pour les accents sans interdire une zone obligatoire', () => {
+  const previous = process.env.FITS_WARDROBE_V3;
+  process.env.FITS_WARDROBE_V3 = '1';
+  try {
+    const wardrobe = [
+      { ...garment(20,'torse','T-shirt','Haut bicolore'), couleur:'rouge', couleur_secondaire:'jaune' },
+      { ...garment(21,'jambes','Jean','Jean'), couleur:'noir' },
+      { ...garment(22,'pieds','Baskets','Baskets'), couleur:'blanc' },
+      { ...garment(23,'tete','Casquette','Casquette'), couleur:'bleu' }
+    ];
+    const outfit = buildRandomTenue(wardrobe,zones,22,() => 0);
+    expect(outfit.map(item => item.id_vetement)).toEqual([20,21,22]);
+    delete wardrobe[0].couleur_secondaire;
+    expect(buildRandomTenue(wardrobe,zones,22,() => 0).some(item => item.id_vetement === 23)).toBe(true);
+  } finally { if (previous === undefined) delete process.env.FITS_WARDROBE_V3; else process.env.FITS_WARDROBE_V3 = previous; }
+});

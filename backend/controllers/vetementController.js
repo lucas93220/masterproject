@@ -5,7 +5,7 @@ const SousCategorie = require('../models/sousCategorie');
 const Categorie = require('../models/categorie');
 const Zone = require('../models/zone');
 const { sequelize } = require('../config/db');
-const { canonicalColor } = require('../services/clothingColors');
+const { canonicalColor, colorValues } = require('../services/clothingColors');
 const { validatePhotoAssignment } = require('../services/imageAccess');
 
 const editableFields = ['marque', 'nom', 'photo', 'couleur', 'favori',
@@ -42,6 +42,9 @@ exports.create = async (req, res, next) => {
       return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
     }
 
+    let colors;
+    try { colors = colorValues(req.body); }
+    catch (error) { return res.status(error.status).json({ message: error.message }); }
     await validatePhotoAssignment(photo, req.user.id);
     const vetement = await sequelize.transaction(async transaction => {
       const created = await Vetement.create({
@@ -49,6 +52,7 @@ exports.create = async (req, res, next) => {
         nom,
         photo,
         couleur: selectedColor,
+        ...colors,
         favori: favori ?? false,
         temperature_min,
         temperature_max,
@@ -180,15 +184,10 @@ exports.update = async (req, res, next) => {
       return res.status(404).json({ message: "Vêtement non trouvé" });
 
     await validatePhotoAssignment(req.body.photo, req.user.id, vetement.photo);
-    if (req.body.couleur !== undefined) {
-      const selectedColor = canonicalColor(req.body.couleur);
-      if (!selectedColor) {
-        return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
-      }
-      Object.assign(vetement, { ...editableValues(req.body), couleur: selectedColor });
-    } else {
-      Object.assign(vetement, editableValues(req.body));
-    }
+    let colors;
+    try { colors = colorValues(req.body, vetement); }
+    catch (error) { return res.status(error.status).json({ message: error.message }); }
+    Object.assign(vetement, editableValues(req.body), colors);
     await vetement.save();
 
     res.json(vetement);
@@ -260,15 +259,10 @@ exports.updateById = async (req, res, next) => {
       return res.status(404).json({ message: "Vêtement non trouvé" });
 
     await validatePhotoAssignment(req.body.photo, req.user.id, vetement.photo);
-    if (req.body.couleur !== undefined) {
-      const selectedColor = canonicalColor(req.body.couleur);
-      if (!selectedColor) {
-        return res.status(400).json({ message: 'Choisissez une couleur de la palette' });
-      }
-      Object.assign(vetement, { ...editableValues(req.body), couleur: selectedColor });
-    } else {
-      Object.assign(vetement, editableValues(req.body));
-    }
+    let colors;
+    try { colors = colorValues(req.body, vetement); }
+    catch (error) { return res.status(error.status).json({ message: error.message }); }
+    Object.assign(vetement, editableValues(req.body), colors);
     await vetement.save();
 
     res.json(vetement);

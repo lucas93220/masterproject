@@ -90,6 +90,10 @@ export function getMyDressing() {
 }
 
 
+export function getWardrobeOptions() {
+  return apiRequest("/categorie/options");
+}
+
 export function getCategories() {
   return apiRequest("/categorie");
 }

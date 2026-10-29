@@ -16,6 +16,19 @@ from evaluate_interactions import (_interaction_features, _validated, evaluate,
 
 
 class InteractionEvaluationTests(unittest.TestCase):
+    def test_v3_export_accepts_extended_colors_and_keeps_all_numeric_features(self):
+        payload = synthetic_dataset()
+        payload['feature_version'] = 'outfit-v3-synthetic-only'
+        for row in payload['data']:
+            row['couleur_écru'] = 1
+            row['couleur_bleu marine'] = 1
+            row['sous_categorie_39'] = 1
+        rows, names = _validated(payload)
+        self.assertEqual(len(rows), len(payload['data']))
+        self.assertIn('couleur_écru', names)
+        self.assertIn('sous_categorie_39', names)
+        self.assertIn('couleur_bleu marine', _interaction_features(rows[0], names))
+
     def test_served_candidate_and_offline_logistic_use_exact_same_encoding_and_parameters(self):
         rows, names = _validated(synthetic_dataset())
         train, test = rows[:120], rows[120:]

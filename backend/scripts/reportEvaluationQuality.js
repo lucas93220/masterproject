@@ -39,12 +39,13 @@ async function main() {
           t.temperature IS DISTINCT FROM e.temperature)::int AS temperatures_divergentes,
         count(*) FILTER (WHERE e.feature_snapshot IS NULL)::int AS snapshots_absents,
         count(*) FILTER (WHERE e.feature_snapshot IS NOT NULL AND
-          e.feature_snapshot ->> 'version' IN ('1', '2') AND
+          e.feature_snapshot ->> 'version' IN ('1', '2', '3') AND
           CASE WHEN jsonb_typeof(e.feature_snapshot -> 'garments') = 'array'
             THEN jsonb_array_length(e.feature_snapshot -> 'garments') > 0
             ELSE false END)::int AS snapshots_valides,
         count(*) FILTER (WHERE e.feature_snapshot ->> 'version' = '2')::int
-          AS snapshots_version_2
+          AS snapshots_version_2,
+        count(*) FILTER (WHERE e.feature_snapshot ->> 'version' = '3')::int AS snapshots_version_3
       FROM evaluation e
       LEFT JOIN tenue t ON t.id_tenue = e.id_tenue
     `);

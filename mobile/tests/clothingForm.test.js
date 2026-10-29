@@ -16,7 +16,7 @@ function mount(editing = clothing, overrides = {}) {
     getCategories: jest.fn().mockResolvedValue([{ id_categorie: 2, nom_categorie: 'Vêtements' }]),
     getSousCategoriesByCategorie: jest.fn().mockResolvedValue([{ id_sous_categorie: 4, nom_sous_categorie: 'Chemises' }]), ...overrides };
   const imagePicker = { launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///fixture.png', mimeType: 'image/png' }] }) };
-  const navigation = { goBack: jest.fn() };
+  const navigation = { goBack: jest.fn(), addListener: jest.fn(() => jest.fn()) };
   const screen = createScreenHarness('addClothing', api, { navigation, imagePicker, route: { params: { clothing: editing } } });
   screen.render(); const cleanups = screen.effects.map(effect => effect());
   return { screen, api, navigation, imagePicker, cleanups };
@@ -185,13 +185,12 @@ test('une catégorie inconnue est signalée et reste ajustable manuellement', as
 });
 
 describe('Préremplissage photo', () => {
-  test('attend un appui explicite puis préremplit sans enregistrer le vêtement', async () => {
+  test('préremplit automatiquement à la sélection sans enregistrer le vêtement', async () => {
     const { screen, api } = mount(null);
     await button(screen.render(), 'Ajouter une photo').props.onPress();
-    expect(api.analyzeClothingImage).not.toHaveBeenCalled();
+    expect(api.analyzeClothingImage).toHaveBeenCalledTimes(1);
     expect(api.uploadImage).not.toHaveBeenCalled();
     expect(text(screen.render())).toContain('Google Gemini');
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     expect(api.analyzeClothingImage).toHaveBeenCalledWith('file:///fixture.png', 'image/png');
     expect(field(screen, 'Nom du vêtement *').props.value).toBe('Pull noir');
     expect(selectedBrand(screen)).toBe('Nike');
@@ -205,7 +204,6 @@ describe('Préremplissage photo', () => {
     const { screen, api } = mount(null, { analyzeClothingImage: jest.fn().mockResolvedValue({
       nom: 'Pull', marque: null, couleur: 'inconnue', id_sous_categorie: null }) });
     await button(screen.render(), 'Ajouter une photo').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     expect(selectedBrand(screen)).toBe('Non renseignée');
     await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
     expect(api.addClothing).not.toHaveBeenCalled();
@@ -216,9 +214,8 @@ describe('Préremplissage photo', () => {
     field(screen, 'Nom du vêtement *').props.onChangeText('Mon pull préféré');
     button(screen.render(), 'Couleur bleu').props.onPress();
     await button(screen.render(), 'Ajouter une photo').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     await customBrand(screen, 'Autre marque');
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
     await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
     expect(api.addClothing).toHaveBeenCalledWith(expect.objectContaining({ nom: 'Mon pull préféré',
       marque: 'Autre marque', couleur: 'bleu' }));
@@ -226,40 +223,37 @@ describe('Préremplissage photo', () => {
   test('ne remplace pas les valeurs d’une fiche existante ni ses températures', async () => {
     const { screen, api } = mount();
     await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     await button(screen.render(), 'Enregistrer les modifications').props.onPress();
     expect(api.updateClothing).toHaveBeenCalledWith(7, expect.objectContaining({
       nom: 'Chemise', marque: 'Test', couleur: 'blanc', id_sous_categorie: 4,
       temperature_min: 0, temperature_max: 30
     }));
   });
-  test('bloque les analyses et sauvegardes simultanées', async () => {
+  test('bloque une seconde sélection et la sauvegarde pendant l’analyse automatique', async () => {
     let resolve;
-    const { screen, api } = mount(null, { analyzeClothingImage: jest.fn(() => new Promise(done => { resolve = done; })) });
-    await button(screen.render(), 'Ajouter une photo').props.onPress();
-    const analyze = button(screen.render(), 'Préremplir avec la photo');
-    const pending = analyze.props.onPress();
-    await analyze.props.onPress();
-    expect(button(screen.render(), 'Analyse de la photo…').props.disabled).toBe(true);
+    const { screen, api, imagePicker } = mount(null, { analyzeClothingImage: jest.fn(() => new Promise(done => { resolve = done; })) });
+    const pending = button(screen.render(), 'Ajouter une photo').props.onPress(); await flush();
+    expect(text(screen.render())).toContain('Préremplissage en cours');
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
     await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
     expect(api.addClothing).not.toHaveBeenCalled();
     expect(api.analyzeClothingImage).toHaveBeenCalledTimes(1);
+    expect(imagePicker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
     resolve({ nom: 'Pull' }); await pending;
-    expect(button(screen.render(), 'Préremplir avec la photo').props.disabled).toBe(false);
+    expect(button(screen.render(), 'Ajouter à mon dressing').props.disabled).toBe(false);
   });
   test('signale la panne et permet de poursuivre avec les valeurs manuelles', async () => {
     const { screen, api } = mount(clothing, { analyzeClothingImage: jest.fn().mockRejectedValue(new Error('Service indisponible')) });
     await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     expect(text(screen.render())).toContain('Service indisponible');
     await button(screen.render(), 'Enregistrer les modifications').props.onPress();
     expect(api.updateClothing).toHaveBeenCalledTimes(1);
   });
   test('changer de photo efface les anciennes propositions mais conserve les champs saisis', async () => {
-    const { screen, imagePicker } = mount(null);
+    const { screen, api, imagePicker } = mount(null);
     await button(screen.render(), 'Ajouter une photo').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     field(screen, 'Nom du vêtement *').props.onChangeText('Mon nom');
+    api.analyzeClothingImage.mockResolvedValueOnce({ nom: 'Autre pièce', marque: null, couleur: null });
     imagePicker.launchImageLibraryAsync.mockResolvedValueOnce({ canceled: false,
       assets: [{ uri: 'file:///autre.png', mimeType: 'image/png' }] });
     await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
@@ -267,15 +261,43 @@ describe('Préremplissage photo', () => {
     expect(selectedBrand(screen)).toBe('Non renseignée');
     expect(text(screen.render())).not.toContain('Pulls');
   });
+  test('annuler la photothèque ne déclenche aucune analyse', async () => {
+    const { screen, api, imagePicker } = mount(null);
+    imagePicker.launchImageLibraryAsync.mockResolvedValue({ canceled:true });
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    expect(api.analyzeClothingImage).not.toHaveBeenCalled();
+    expect(api.uploadImage).not.toHaveBeenCalled();
+  });
+  test('une panne ne se relance pas seule ; le bouton de réessai réutilise la photo', async () => {
+    const { screen, api, imagePicker } = mount(null, { analyzeClothingImage: jest.fn()
+      .mockRejectedValueOnce(new Error('Service indisponible')).mockResolvedValue({ nom:'Pull', couleur:'noir' }) });
+    await button(screen.render(), 'Ajouter une photo').props.onPress(); await flush();
+    expect(api.analyzeClothingImage).toHaveBeenCalledTimes(1);
+    await button(screen.render(), 'Réessayer l’analyse').props.onPress();
+    expect(api.analyzeClothingImage).toHaveBeenCalledTimes(2);
+    expect(imagePicker.launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    expect(field(screen, 'Nom du vêtement *').props.value).toBe('Pull');
+    expect(api.addClothing).not.toHaveBeenCalled();
+  });
+  test('fermer la fiche avant le retour de la photothèque empêche l’envoi', async () => {
+    let resolvePicker;
+    const { screen, api, imagePicker, cleanups } = mount(null);
+    imagePicker.launchImageLibraryAsync.mockImplementation(() => new Promise(resolve => { resolvePicker = resolve; }));
+    const pending = button(screen.render(), 'Ajouter une photo').props.onPress();
+    cleanups.forEach(cleanup => cleanup?.());
+    resolvePicker({ canceled:false, assets:[{ uri:'file:///retour-tardif.jpg', mimeType:'image/jpeg' }] });
+    await pending;
+    expect(api.analyzeClothingImage).not.toHaveBeenCalled();
+  });
   test('ignore une réponse d’analyse après fermeture de l’écran', async () => {
     let resolve;
     const { screen, cleanups } = mount(null, { analyzeClothingImage: jest.fn(() => new Promise(done => { resolve = done; })) });
-    await button(screen.render(), 'Ajouter une photo').props.onPress();
-    const pending = button(screen.render(), 'Préremplir avec la photo').props.onPress();
+    const pending = button(screen.render(), 'Ajouter une photo').props.onPress(); await flush();
     cleanups.forEach(cleanup => cleanup?.());
     resolve({ nom: 'Réponse périmée' }); await pending;
     expect(field(screen, 'Nom du vêtement *').props.value).toBe('');
   });
+
 });
 
 describe('Catalogue de marques', () => {
@@ -317,7 +339,6 @@ describe('Catalogue de marques', () => {
     button(screen.render(), 'Sans marque').props.onPress();
     expect(selectedBrand(screen)).toBe('Sans marque');
     await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     expect(selectedBrand(screen)).toBe('Sans marque');
     await button(screen.render(), 'Enregistrer les modifications').props.onPress();
     expect(api.updateClothing.mock.calls[0][1].marque).toBe('');
@@ -325,7 +346,6 @@ describe('Catalogue de marques', () => {
   test('conserve et sélectionne une marque historique ou reconnue absente du catalogue', async () => {
     const { screen, api } = mount(null, { analyzeClothingImage: jest.fn().mockResolvedValue({ marque: 'Atelier photo' }) });
     await button(screen.render(), 'Ajouter une photo').props.onPress();
-    await button(screen.render(), 'Préremplir avec la photo').props.onPress();
     button(screen.render(), 'Choisir une marque').props.onPress(); await flush();
     const current = button(screen.render(), 'Sélectionner la marque Atelier photo');
     expect(current.props.accessibilityState.selected).toBe(true);
@@ -375,4 +395,99 @@ describe('Catalogue de marques', () => {
         node.props.accessibilityLabel?.startsWith('Utiliser «'))).toBe(false);
     }
   });
+});
+
+describe('Catalogue enrichi et deux couleurs', () => {
+  const options = { version: 3, max_colors: 2, colors: ['noir','blanc','bleu','bleu marine','écru'],
+    groups: [{ id_categorie: 'mailles', nom_categorie: 'Pulls et sweats', subcategories: [{ id_sous_categorie: 12, nom_sous_categorie: 'Cardigan' }] }] };
+  test('choisit une famille précise et persiste deux couleurs, températures existantes conservées', async () => {
+    const { screen, api } = mount(clothing, { getWardrobeOptions: jest.fn().mockResolvedValue(options) });
+    await flush();
+    button(screen.render(), 'Choisir une catégorie').props.onPress(); await flush();
+    button(screen.render(), 'Pulls et sweats').props.onPress(); await flush();
+    button(screen.render(), 'Cardigan').props.onPress();
+    button(screen.render(), 'Couleur blanc').props.onPress(); // retire la principale existante
+    button(screen.render(), 'Couleur bleu marine').props.onPress();
+    button(screen.render(), 'Couleur écru').props.onPress();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing).toHaveBeenCalledWith(7, expect.objectContaining({
+      couleur: 'bleu marine', couleur_secondaire: 'écru', id_sous_categorie: 12, temperature_min: 0, temperature_max: 30
+    }));
+    expect(api.getSousCategoriesByCategorie).not.toHaveBeenCalled();
+  });
+  test('préremplit, protège la seconde couleur manuelle et permet de la retirer', async () => {
+    const { screen, api } = mount(null, { getWardrobeOptions: jest.fn().mockResolvedValue(options),
+      analyzeClothingImage: jest.fn().mockResolvedValue({ nom: 'Pull', couleur: 'noir', couleur_secondaire: 'blanc', id_sous_categorie: 12, nom_sous_categorie: 'Cardigan' }) });
+    await flush();
+    await button(screen.render(), 'Ajouter une photo').props.onPress();
+    button(screen.render(), 'Couleur blanc').props.onPress(); // retire la suggestion secondaire
+    button(screen.render(), 'Couleur écru').props.onPress();
+    await button(screen.render(), 'Changer la photo du vêtement').props.onPress();
+    await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+    expect(api.addClothing).toHaveBeenLastCalledWith(expect.objectContaining({ couleur: 'noir', couleur_secondaire: 'écru' }));
+    button(screen.render(), 'Retirer la seconde couleur').props.onPress();
+    await button(screen.render(), 'Ajouter à mon dressing').props.onPress();
+    expect(api.addClothing).toHaveBeenLastCalledWith(expect.objectContaining({ couleur_secondaire: null }));
+  });
+  test('serveur ancien ou indisponible : conserve le contrat à une couleur', async () => {
+    const { screen, api } = mount(clothing, { getWardrobeOptions: jest.fn().mockRejectedValue(new Error('hors ligne')) });
+    await flush();
+    expect(text(screen.render())).not.toContain('Secondaire');
+    expect(nodes(screen.render()).some(node => node.props?.accessibilityLabel === 'Couleur bleu marine')).toBe(false);
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing.mock.calls[0][1]).not.toHaveProperty('couleur_secondaire');
+  });
+  test('une annonce tardive des nouveaux groupes ne bloque pas un catalogue historique déjà ouvert', async () => {
+    let announce;
+    const { screen, api } = mount(null, { getWardrobeOptions: jest.fn(() => new Promise(resolve => { announce = resolve; })) });
+    button(screen.render(), 'Choisir une catégorie').props.onPress(); await flush();
+    announce(options); await flush();
+    button(screen.render(), 'Vêtements').props.onPress(); await flush();
+    expect(api.getSousCategoriesByCategorie).toHaveBeenCalledWith(2);
+    expect(text(screen.render())).toContain('Chemises');
+  });
+
+  test('deux appuis cochent simultanément les deux couleurs et un troisième ne les remplace pas', async () => {
+    const { screen, api } = mount(clothing, { getWardrobeOptions: jest.fn().mockResolvedValue(options) });
+    await flush();
+    button(screen.render(), 'Couleur bleu').props.onPress();
+    expect(button(screen.render(), 'Couleur blanc').props.accessibilityState.selected).toBe(true);
+    expect(button(screen.render(), 'Couleur bleu').props.accessibilityState.selected).toBe(true);
+    button(screen.render(), 'Couleur noir').props.onPress();
+    expect(button(screen.render(), 'Couleur noir').props.accessibilityState.selected).toBe(false);
+    expect(text(screen.render())).toContain('Deux couleurs maximum');
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing).toHaveBeenLastCalledWith(7, expect.objectContaining({ couleur:'blanc', couleur_secondaire:'bleu' }));
+  });
+  test('retirer la principale promeut la seconde et permet de choisir une nouvelle couleur', async () => {
+    const { screen, api } = mount(clothing, { getWardrobeOptions: jest.fn().mockResolvedValue(options) });
+    await flush();
+    button(screen.render(), 'Couleur bleu').props.onPress();
+    button(screen.render(), 'Couleur blanc').props.onPress();
+    button(screen.render(), 'Couleur noir').props.onPress();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing).toHaveBeenLastCalledWith(7, expect.objectContaining({ couleur:'bleu', couleur_secondaire:'noir' }));
+    button(screen.render(), 'Couleur noir').props.onPress();
+    await button(screen.render(), 'Enregistrer les modifications').props.onPress();
+    expect(api.updateClothing).toHaveBeenLastCalledWith(7, expect.objectContaining({ couleur:'bleu', couleur_secondaire:null }));
+  });
+  test('une fiche conservée recharge les capacités au retour, sans appliquer une réponse antérieure', async () => {
+    let resolveInitial;
+    const getWardrobeOptions = jest.fn().mockImplementationOnce(() => new Promise(resolve => { resolveInitial = resolve; }))
+      .mockResolvedValue(options);
+    const { screen, navigation } = mount(clothing, { getWardrobeOptions });
+    const focus = navigation.addListener.mock.calls.find(([event]) => event === 'focus')[1];
+    await focus();
+    resolveInitial({ max_colors:1, colors:['blanc'] }); await flush();
+    button(screen.render(), 'Couleur bleu').props.onPress();
+    expect(button(screen.render(), 'Couleur blanc').props.accessibilityState.selected).toBe(true);
+    expect(button(screen.render(), 'Couleur bleu').props.accessibilityState.selected).toBe(true);
+  });
+  test('une fiche bicolore réouverte montre les deux couleurs sélectionnées', async () => {
+    const { screen } = mount({ ...clothing, couleur_secondaire:'bleu' }, { getWardrobeOptions: jest.fn().mockResolvedValue(options) });
+    await flush();
+    expect(button(screen.render(), 'Couleur blanc').props.accessibilityState.selected).toBe(true);
+    expect(button(screen.render(), 'Couleur bleu').props.accessibilityState.selected).toBe(true);
+  });
+
 });

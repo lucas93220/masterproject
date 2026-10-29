@@ -96,10 +96,14 @@ async function main() {
       // Les lire comme UTC évite que le fuseau macOS décale le vote de deux heures.
       sequelize.query(`SELECT id_tenue, is_liked, temperature,
         date_avis AT TIME ZONE 'UTC' AS date_avis FROM evaluation
-        WHERE id_utilisateur = :userId AND feature_snapshot->>'version' = '2'`,
+        WHERE id_utilisateur = :userId AND feature_snapshot->>'version' IN ('2', '3')`,
         { replacements: { userId }, type: QueryTypes.SELECT })
     ]);
-    console.log(JSON.stringify(reportProspective(traces, evaluations), null, 2));
+    const versions = [...new Set(traces.map(trace => trace.details?.feature_version || 'unknown'))];
+    console.log(JSON.stringify({ ...reportProspective(traces, evaluations),
+      by_feature_version: Object.fromEntries(versions.map(version => [version,
+        reportProspective(traces.filter(trace => (trace.details?.feature_version || 'unknown') === version), evaluations)]))
+    }, null, 2));
   } finally {
     await Promise.allSettled([sequelize.close(), mongoose.disconnect()]);
   }

@@ -1,4 +1,14 @@
 const Categorie = require('../models/categorie');
+const SousCategorie = require('../models/sousCategorie');
+const Zone = require('../models/zone');
+const { catalogue } = require('../services/wardrobeCatalogue');
+exports.options = async (req, res, next) => {
+  try {
+    const rows = await SousCategorie.findAll({ include: [Categorie, Zone] });
+    res.set('Cache-Control', 'private, no-store');
+    res.json(catalogue(rows));
+  } catch (error) { next(error); }
+};
 
 // Lire toutes les catégories
 exports.getAll = async (req, res, next) => {

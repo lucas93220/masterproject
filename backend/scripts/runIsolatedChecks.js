@@ -58,7 +58,7 @@ async function main() {
     try { await client.query(await fs.readFile(path.join(backend, 'tests/fixtures/schema.sql'), 'utf8')); }
     finally { await client.end(); }
 
-    const testEnv = { ...process.env, NODE_ENV: 'test',
+    const testEnv = { ...process.env, NODE_ENV: 'test', FITS_WARDROBE_V3: '0',
       DB_HOST: root, DB_PORT: '55439', DB_NAME: 'fits_isolated', DB_USER: 'fits_test', DB_PASSWORD: '',
       MONGO_URI: '', ML_SERVICE_SECRET: randomUUID(), JWT_SECRET: randomUUID(),
       ML_MODELS_DIR: path.join(root, 'models'),

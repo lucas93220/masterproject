@@ -8,7 +8,7 @@ const { loadFeatureSchema, extractFeatures } = require('./outfitFeatures');
 
 function hasSnapshot(evaluation) {
   const snapshot = evaluation.feature_snapshot;
-  return [1, 2].includes(snapshot?.version) && Array.isArray(snapshot.garments) &&
+  return [1, 2, 3].includes(snapshot?.version) && Array.isArray(snapshot.garments) &&
     snapshot.garments.length > 0;
 }
 
@@ -80,11 +80,15 @@ async function buildTrainingDataset(userId, providedSchema,
       if (!ids?.length || new Set(ids).size !== ids.length) continue;
       clothes = ids.map(id => vetementsById.get(id));
       if (clothes.some(item => !item)) continue;
+      // Une ancienne évaluation ne peut pas acquérir après coup une seconde couleur.
+      if (schema.v3) clothes = clothes.map(item => ({
+        ...(typeof item.get === 'function' ? item.get({ plain: true }) : item), couleur_secondaire: null
+      }));
     }
 
     let interactionMetadata = {};
     if (includeInteractionMetadata) {
-      const snapshotIds = evaluation.feature_snapshot?.version === 2 &&
+      const snapshotIds = [2, 3].includes(evaluation.feature_snapshot?.version) &&
         clothes.map(item => item.id_vetement);
       const currentIds = vetementIdsByTenue.get(evaluation.id_tenue);
       const fromSnapshot = validGarmentIds(snapshotIds, clothes.length);

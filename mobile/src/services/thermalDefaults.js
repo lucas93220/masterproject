@@ -6,10 +6,10 @@ const normalize = value => String(value || "").normalize("NFD")
 
 const profiles = [
   [/\b(doudounes?|manteaux?|parkas?)\b/, -20, 12, "Vêtement d’extérieur chaud"],
-  [/\b(vestes?|blousons?|bombers?|impermeables?|trenchs?)\b/, -5, 18, "Vêtement d’extérieur"],
-  [/\b(pulls?|sweats?|gilets?|polaires?)\b/, -20, 20, "Couche intermédiaire"],
+  [/\b(vestes?|blousons?|bombers?|blazers?|impermeables?|trenchs?)\b/, -5, 18, "Vêtement d’extérieur"],
+  [/\b(pulls?|sweats?|gilets?|cardigans?|polaires?)\b/, -20, 20, "Couche intermédiaire"],
   [/\b(chemises?|chemisiers?)\b/, -20, 28, "Haut compatible avec la superposition"],
-  [/\b(t shirts?|tee shirts?|tshirts?|debardeurs?|hauts?)\b/, -20, 35, "Haut de base, seul ou sous une autre couche"],
+  [/\b(t shirts?|tee shirts?|tshirts?|debardeurs?|polos?|hauts?)\b/, -20, 35, "Haut de base, seul ou sous une autre couche"],
   [/\b(shorts?|bermudas?)\b/, 18, 40, "Bas léger"],
   [/\b(pantalons?|jeans?|joggings?|leggings?)\b/, -10, 28, "Bas couvrant"],
   [/\b(robes?|jupes?)\b/, 12, 35, "Pièce légère ou intermédiaire"],

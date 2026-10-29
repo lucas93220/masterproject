@@ -38,7 +38,7 @@ def _validated(payload):
         raise ValueError('Export interactions FITS attendu')
     if type(payload.get('user_id')) is not int or not 0 < payload['user_id'] <= 2147483647:
         raise ValueError('Identifiant du compte invalide')
-    if not isinstance(payload.get('feature_version'), str) or not payload['feature_version'].startswith('outfit-v2-'):
+    if not isinstance(payload.get('feature_version'), str) or not payload['feature_version'].startswith(('outfit-v2-', 'outfit-v3-')):
         raise ValueError('Version de features invalide')
     rows = payload.get('data')
     if not isinstance(rows, list):

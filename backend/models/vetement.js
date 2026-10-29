@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+const { wardrobeV3 } = require('../services/wardrobeVersion');
 
 const Vetement = sequelize.define('Vetement', {
   id_vetement: {
@@ -14,6 +15,7 @@ const Vetement = sequelize.define('Vetement', {
     },
   photo: DataTypes.STRING,
   couleur: DataTypes.STRING,
+  ...(wardrobeV3() ? { couleur_secondaire: { type: DataTypes.STRING, allowNull: true } } : {}),
   favori: {
     type: DataTypes.BOOLEAN,
     defaultValue: false

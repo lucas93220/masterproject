@@ -1,6 +1,7 @@
 // Règles de composition initiales : elles filtrent les candidats avant le score ML.
 // Les seuils sont des heuristiques de confort, pas des préférences apprises.
-const { colorBucket } = require('./clothingColors');
+const { garmentColors } = require('./clothingColors');
+const { wardrobeV3 } = require('./wardrobeVersion');
 
 const WARM_WEATHER = 20;
 const LAYERING_WEATHER = 15;
@@ -16,12 +17,12 @@ function normalize(value) {
 
 function isWarmTop(item) {
   const description = normalize(`${item.sous_categorie?.nom_sous_categorie || ''} ${item.nom || ''}`);
-  return /\b(pull|pulls|sweat|sweats|polaire|gilet|gilets)\b/.test(description);
+  return /\b(pull|pulls|sweat|sweats|polaire|gilet|gilets|cardigans?)\b/.test(description);
 }
 
 function isBaseTop(item) {
   const description = normalize(`${item.sous_categorie?.nom_sous_categorie || ''} ${item.nom || ''}`);
-  return /\b(t-shirts?|tee-shirts?|debardeurs?)\b/.test(description);
+  return /\b(t-shirts?|tee-shirts?|debardeurs?|polos?)\b/.test(description);
 }
 
 function isShirt(item) {
@@ -30,7 +31,8 @@ function isShirt(item) {
 }
 
 function isHeavyOuter(item) {
-  const name = normalize(item.nom);
+  const type = normalize(item.sous_categorie?.nom_sous_categorie);
+  const name = normalize(item.nom) + (wardrobeV3() && /^(manteaux?|doudounes?|parkas?)$/.test(type) ? ` ${type}` : '');
   return /\b(doudoune|doudounes|manteau|manteaux|parka|parkas|laine)\b/.test(name);
 }
 
@@ -62,8 +64,8 @@ function pick(items, random) {
 }
 
 function keepsColorSimple(outfit, item) {
-  const accents = new Set([...outfit, item].map(clothing => colorBucket(clothing.couleur))
-    .filter(color => !NEUTRAL_COLORS.has(color) && color !== 'autre' && color !== 'inconnu'));
+  const accents = new Set([...outfit, item].flatMap(garmentColors)
+    .filter(color => !NEUTRAL_COLORS.has(color) && !(wardrobeV3() && ['écru', 'bleu marine'].includes(color)) && color !== 'autre' && color !== 'inconnu'));
   return accents.size <= 2;
 }
 

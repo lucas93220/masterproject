@@ -2,12 +2,12 @@ import { View, Text, Alert, Switch, TouchableOpacity, ActivityIndicator, Platfor
 import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { addClothing, updateClothing, deleteClothing, getCategories, getSousCategoriesByCategorie, uploadImage, analyzeClothingImage } from "../services/api";
+import { addClothing, updateClothing, deleteClothing, getCategories, getSousCategoriesByCategorie, uploadImage, analyzeClothingImage, getWardrobeOptions } from "../services/api";
 import ClothingImage from "../components/ClothingImage";
 import BrandSelect from "../components/BrandSelect";
-import { Screen, Heading, Button, Field, Sheet, Notice, layout } from "../components/ui";
+import { Screen, Button, Field, Sheet, Notice, layout } from "../components/ui";
 import { COLORS } from "../styles/colors";
-import { CLOTHING_COLORS } from "../styles/clothingPalette";
+import { CLOTHING_COLORS, LEGACY_COLOR_NAMES } from "../styles/clothingPalette";
 import { TYPE } from "../styles/theme";
 import { thermalDefaults } from "../services/thermalDefaults";
 
@@ -18,6 +18,9 @@ export default function AddClothing({ navigation, route }) {
   const [nom, setNom] = useState(editingClothing?.nom || "");
   const [marque, setMarque] = useState(editingClothing?.marque || "");
   const [couleur, setCouleur] = useState(editingClothing?.couleur || "");
+  const [secondaryColor, setSecondaryColor] = useState(editingClothing?.couleur_secondaire || "");
+  const [colorMessage, setColorMessage] = useState(null);
+  const [options, setOptions] = useState(null);
   const [tempMin, setTempMin] = useState(editingClothing?.temperature_min?.toString() || "");
   const [tempMax, setTempMax] = useState(editingClothing?.temperature_max?.toString() || "");
   const [thermalMode, setThermalMode] = useState(editingClothing ? "manual" : "auto");
@@ -40,13 +43,14 @@ export default function AddClothing({ navigation, route }) {
   // Une reconnaissance ne remplace jamais une saisie manuelle ou une fiche existante.
   const manualFields = useRef(new Set(editingClothing ? [
     editingClothing.nom && 'nom', editingClothing.marque && 'marque',
-    editingClothing.couleur && 'couleur', editingClothing.id_sous_categorie && 'category'
+    editingClothing.couleur && 'couleur', editingClothing.couleur_secondaire && 'couleur_secondaire', editingClothing.id_sous_categorie && 'category'
   ].filter(Boolean) : []));
   const analysisRequest = useRef(0);
   const pickerBusy = useRef(false);
   const mounted = useRef(true);
   const busy = useRef(false);
   const catalogRequest = useRef(0);
+  const optionsRequest = useRef(0);
   const uploaded = useRef(null);
   const estimatedThermal = thermalDefaults(categoryLabel);
   const thermalMin = thermalMode === "auto" ? estimatedThermal.min : tempMin;
@@ -54,11 +58,48 @@ export default function AddClothing({ navigation, route }) {
 
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; catalogRequest.current += 1; analysisRequest.current += 1; };
-  }, []);
+    const refreshOptions = () => {
+      if (!getWardrobeOptions) return;
+      const request = ++optionsRequest.current;
+      return getWardrobeOptions().then(data => {
+        if (mounted.current && request === optionsRequest.current) setOptions(data);
+      }).catch(() => {});
+    };
+    void refreshOptions();
+    const unsubscribe = navigation.addListener?.("focus", refreshOptions);
+    return () => {
+      mounted.current = false; optionsRequest.current += 1;
+      catalogRequest.current += 1; analysisRequest.current += 1;
+      unsubscribe?.();
+    };
+  }, [navigation]);
+
+  const selectColor = name => {
+    if (disabled) return;
+    if (options?.max_colors !== 2) {
+      manualFields.current.add('couleur'); setCouleur(name); return;
+    }
+    if (name !== couleur && name !== secondaryColor && couleur && secondaryColor) {
+      setColorMessage('Deux couleurs maximum. Touche une couleur sélectionnée pour la retirer.');
+      return;
+    }
+    manualFields.current.add('couleur'); manualFields.current.add('couleur_secondaire');
+    setColorMessage(null);
+    if (name === couleur) { setCouleur(secondaryColor); setSecondaryColor(''); }
+    else if (name === secondaryColor) setSecondaryColor('');
+    else if (!couleur) setCouleur(name);
+    else setSecondaryColor(name);
+  };
 
   const loadCatalog = async (categoryId = null) => {
     const request = ++catalogRequest.current;
+    // Un catalogue historique déjà ouvert garde ses identifiants numériques.
+    if (options?.groups?.length && (!categoryId || typeof categoryId === "string")) {
+      setCatalogError(null); setCatalogLoading(false);
+      if (categoryId) { setSousCategories(options.groups.find(group => group.id_categorie === categoryId)?.subcategories || []); setCurrentView("sousCategories"); }
+      else { setCategories(options.groups); setCurrentView("categories"); }
+      return;
+    }
     setCatalogLoading(true);
     setCatalogError(null);
     try {
@@ -79,7 +120,7 @@ export default function AddClothing({ navigation, route }) {
     pickerBusy.current = true;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
-      if (!result.canceled && result.assets?.[0]) {
+      if (mounted.current && !result.canceled && result.assets?.[0]) {
         setPickedImage(result.assets[0]);
         setPhoto(result.assets[0].uri);
         uploaded.current = null;
@@ -88,26 +129,28 @@ export default function AddClothing({ navigation, route }) {
         if (!manualFields.current.has('nom')) setNom('');
         if (!manualFields.current.has('marque')) setMarque('');
         if (!manualFields.current.has('couleur')) setCouleur('');
+        if (!manualFields.current.has('couleur_secondaire')) setSecondaryColor('');
         if (!manualFields.current.has('category')) { setIdSousCategorie(null); setCategoryLabel(''); }
+        await analyzePhoto(result.assets[0]);
       }
     } catch {
-      setError("Impossible d’ouvrir les photos. Vérifie l’accès à ta photothèque dans les réglages.");
+      if (mounted.current) setError("Impossible d’ouvrir les photos. Vérifie l’accès à ta photothèque dans les réglages.");
     } finally { pickerBusy.current = false; }
   };
 
-  const analyzePhoto = async () => {
-    if (busy.current || !pickedImage) return;
+  const analyzePhoto = async (image = pickedImage) => {
+    if (busy.current || !image || !mounted.current) return;
     busy.current = true;
     const request = ++analysisRequest.current;
     setAnalyzing(true); setAnalysisError(null); setAnalysisMessage(null);
     try {
-      const suggestion = await analyzeClothingImage(pickedImage.uri, pickedImage.mimeType);
+      const suggestion = await analyzeClothingImage(image.uri, image.mimeType);
       if (request !== analysisRequest.current) return;
       let applied = 0;
-      for (const [field, setter] of [['nom', setNom], ['marque', setMarque], ['couleur', setCouleur]]) {
+      for (const [field, setter] of [['nom', setNom], ['marque', setMarque], ['couleur', setCouleur], ['couleur_secondaire', setSecondaryColor]]) {
         const value = suggestion[field];
         if (!manualFields.current.has(field) && typeof value === 'string' && value.trim() &&
-            (field !== 'couleur' || Object.hasOwn(CLOTHING_COLORS, value))) {
+            (!field.startsWith('couleur') || Object.hasOwn(CLOTHING_COLORS, value))) {
           setter(value); applied += 1;
         }
       }
@@ -116,9 +159,7 @@ export default function AddClothing({ navigation, route }) {
         setIdSousCategorie(suggestion.id_sous_categorie);
         setCategoryLabel(suggestion.nom_sous_categorie); applied += 1;
       }
-      setAnalysisMessage(applied ? 'Suggestions appliquées. Vérifie les champs avant d’enregistrer ; tes saisies manuelles ont été conservées.' :
-        'Tes saisies ont été conservées. Proposition : ' + [suggestion.nom, suggestion.marque, suggestion.couleur,
-          suggestion.nom_sous_categorie].filter(Boolean).join(' · '));
+      setAnalysisMessage(applied ? 'Champs préremplis. Vérifie les informations.' : 'Tes informations ont été conservées.');
     } catch (err) {
       if (request === analysisRequest.current) setAnalysisError(err.message || 'Impossible d’analyser la photo. Tu peux continuer manuellement.');
     } finally {
@@ -131,6 +172,8 @@ export default function AddClothing({ navigation, route }) {
     if (busy.current) return;
     if (!nom.trim() || !idSousCategorie) { setError("Ajoute un nom et choisis une catégorie de vêtement."); return; }
     if (!Object.keys(CLOTHING_COLORS).includes(couleur)) { setError("Choisis une couleur dans la palette."); return; }
+    if (secondaryColor && secondaryColor === couleur) { setError("Choisis deux couleurs différentes."); return; }
+    if (secondaryColor && options?.max_colors !== 2) { setError("Impossible de vérifier les deux couleurs. Rouvre le formulaire avec une connexion disponible."); return; }
     const min = thermalMode === "auto" ? thermalMin : tempMin.trim() ? Number(tempMin.replace(",", ".")) : 0;
     const max = thermalMode === "auto" ? thermalMax : tempMax.trim() ? Number(tempMax.replace(",", ".")) : 50;
     if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
@@ -148,7 +191,7 @@ export default function AddClothing({ navigation, route }) {
           uploaded.current = { uri: photo, url: imageUrl };
         }
       }
-      const payload = { nom: nom.trim(), marque: marque.trim(), couleur, photo: imageUrl, favori,
+      const payload = { ...(options?.max_colors === 2 ? { couleur_secondaire: secondaryColor || null } : {}), nom: nom.trim(), marque: marque.trim(), couleur, photo: imageUrl, favori,
         temperature_min: min, temperature_max: max, id_sous_categorie: idSousCategorie };
       if (editingClothing) await updateClothing(editingClothing.id_vetement, payload);
       else await addClothing(payload);
@@ -176,9 +219,6 @@ export default function AddClothing({ navigation, route }) {
   const disabled = saving || deleting || analyzing;
 
   return <Screen scroll keyboard edges={["bottom"]}>
-    <Heading eyebrow={editingClothing ? "LES DÉTAILS FONT LE STYLE" : "FAIS DE LA PLACE À TES IDÉES"}
-      title={editingClothing ? "Ta pièce, en détail." : "Une nouvelle pièce."}
-      subtitle="Une photo, quelques détails. Et de nouvelles possibilités." />
     <TouchableOpacity onPress={pickImage} disabled={disabled} accessibilityRole="button"
       accessibilityLabel={photo ? "Changer la photo du vêtement" : "Ajouter une photo"} activeOpacity={0.85}>
       {photo ? <View style={styles.photoBox}>
@@ -192,14 +232,14 @@ export default function AddClothing({ navigation, route }) {
       </View>}
     </TouchableOpacity>
 
-    {pickedImage ? <View style={layout.card}>
-      <Text style={layout.sectionLabel}>UN COUP DE POUCE POUR LES DÉTAILS</Text>
-      <Text style={TYPE.caption}>En appuyant ci-dessous, tu envoies cette photo à Google Gemini pour proposer le type de pièce, la couleur et la marque si elle est visible. Les suggestions restent à vérifier.</Text>
-      <Button title={analyzing ? "Analyse de la photo…" : "Préremplir avec la photo"} icon="sparkles-outline"
-        variant="secondary" loading={analyzing} disabled={disabled} onPress={analyzePhoto} />
-      {analysisError ? <Notice error message={analysisError} /> : null}
-      {analysisMessage ? <Notice message={analysisMessage} /> : null}
+    {analyzing ? <View style={layout.row} accessibilityLiveRegion="polite">
+      <ActivityIndicator color={COLORS.primary} /><Text style={TYPE.caption}>Préremplissage en cours…</Text>
     </View> : null}
+    {analysisError ? <View style={{ gap: 10 }}>
+      <Notice error message={analysisError} />
+      <Button title="Réessayer l’analyse" variant="secondary" disabled={disabled} onPress={() => analyzePhoto()} />
+    </View> : null}
+    {analysisMessage ? <Notice message={analysisMessage} /> : null}
 
     <View style={layout.card}>
       <Text style={layout.sectionLabel}>01 · L’ESSENTIEL</Text>
@@ -216,17 +256,24 @@ export default function AddClothing({ navigation, route }) {
     </View>
 
     <View style={layout.card}>
-      <View style={layout.between}><Text style={layout.sectionLabel}>02 · LA COULEUR *</Text>
-        <Text style={{ ...TYPE.caption, textTransform: "capitalize" }}>{couleur || "À choisir"}</Text></View>
+      <View style={layout.between}><Text style={layout.sectionLabel}>02 · LES COULEURS</Text>
+        <Text style={{ ...TYPE.caption, textTransform: "capitalize" }}>{[couleur, secondaryColor].filter(Boolean).join(" · ") || "À choisir"}</Text></View>
+      {options?.max_colors === 2 ? <>
+        {colorMessage ? <Notice message={colorMessage} /> : null}
+        {secondaryColor ? <Button title="Retirer la seconde couleur" variant="secondary" disabled={disabled}
+          onPress={() => { manualFields.current.add('couleur_secondaire'); setSecondaryColor(''); setColorMessage(null); }} /> : null}
+      </> : null}
       <View style={styles.palette}>
-        {Object.entries(CLOTHING_COLORS).map(([name, hex]) => <TouchableOpacity key={name}
-          onPress={() => { manualFields.current.add('couleur'); setCouleur(name); }} disabled={disabled} accessibilityRole="button"
-          accessibilityLabel={`Couleur ${name}`} accessibilityState={{ selected: couleur === name, disabled }}
+        {Object.entries(CLOTHING_COLORS).filter(([name]) => (options?.colors || LEGACY_COLOR_NAMES).includes(name)).map(([name, hex]) => <TouchableOpacity key={name}
+          onPress={() => selectColor(name)} disabled={disabled} accessibilityRole="button"
+          accessibilityLabel={`Couleur ${name}`}
+          {...(Platform.OS === "web" ? { "aria-pressed": couleur === name || secondaryColor === name } : {})}
+          accessibilityState={{ selected: (couleur === name || secondaryColor === name), disabled }}
           style={{ width: "22%", minHeight: 72, alignItems: "center", gap: 7 }}>
-          <View style={{ padding: 3, borderRadius: 24, borderWidth: 2, borderColor: couleur === name ? COLORS.primary : "transparent" }}>
+          <View style={{ padding: 3, borderRadius: 24, borderWidth: 2, borderColor: (couleur === name || secondaryColor === name) ? COLORS.primary : "transparent" }}>
             <View style={{ backgroundColor: hex, height: 32, width: 32, borderRadius: 16, borderWidth: 1,
               borderColor: COLORS.border, justifyContent: "center", alignItems: "center" }}>
-              {couleur === name ? <Ionicons name="checkmark" size={20} color={["blanc", "jaune", "beige"].includes(name) ? COLORS.text : "#fff"} /> : null}
+              {(couleur === name || secondaryColor === name) ? <Text style={{ fontWeight: "700", color: ["blanc", "jaune", "beige", "écru", "argenté", "doré"].includes(name) ? COLORS.text : "#fff" }}>{couleur === name ? "1" : "2"}</Text> : null}
             </View>
           </View>
           <Text style={{ ...TYPE.caption, fontSize: 12, textTransform: "capitalize" }}>{name}</Text>
@@ -304,6 +351,6 @@ const styles = {
   photoCaption: { ...layout.row, padding: 14, justifyContent: "center", backgroundColor: COLORS.card },
   placeholder: { height: 230, alignItems: "center", justifyContent: "center", gap: 12, borderWidth: 1, borderColor: COLORS.border, borderStyle: "dashed" },
   camera: { width: 66, height: 66, borderRadius: 24, backgroundColor: COLORS.card, alignItems: "center", justifyContent: "center" },
-  palette: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 },
+  palette: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-start", gap: 8 },
   category: { backgroundColor: COLORS.card, padding: 18, borderRadius: 16, minHeight: 60 }
 };

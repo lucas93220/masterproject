@@ -106,3 +106,35 @@ test('une mise à jour ne modifie pas la clé primaire et refuse la photo d’un
   expect(next).toHaveBeenLastCalledWith(expect.objectContaining({ status: 400 }));
   expect(garment.save).not.toHaveBeenCalled();
 });
+
+describe('deux couleurs après activation', () => {
+  const previous = process.env.FITS_WARDROBE_V3;
+  beforeEach(() => { process.env.FITS_WARDROBE_V3 = '1'; });
+  afterAll(() => { if (previous === undefined) delete process.env.FITS_WARDROBE_V3; else process.env.FITS_WARDROBE_V3 = previous; });
+  test('persiste deux couleurs distinctes et permet de supprimer la secondaire', async () => {
+    Vetement.create.mockImplementation(async data => ({ ...data, id_vetement: 10 }));
+    const req = { user: { id: 1 }, body: { nom: 'Pull', couleur: 'noir', couleur_secondaire: 'blanc' } };
+    const res = response();
+    await controller.create(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(Vetement.create).toHaveBeenCalledWith(expect.objectContaining({ couleur_secondaire: 'blanc' }), expect.any(Object));
+    const item = { couleur: 'noir', couleur_secondaire: 'blanc', save: jest.fn() };
+    Vetement.findByPk.mockResolvedValue(item);
+    await controller.update({ user: { id: 1 }, params: { id: '10' }, body: { couleur_secondaire: null } }, response(), jest.fn());
+    expect(item.couleur_secondaire).toBeNull();
+    expect(item.save).toHaveBeenCalledTimes(1);
+  });
+  test.each(['noir', 'ultraviolet', ['blanc','rouge'], 123])('refuse secondaire invalide ou identique : %p', async secondary => {
+    const res = response();
+    await controller.create({ user: { id: 1 }, body: { couleur: 'noir', couleur_secondaire: secondary } }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(Vetement.create).not.toHaveBeenCalled();
+  });
+  test('avant migration, refuse la seconde couleur plutôt que de la perdre silencieusement', async () => {
+    process.env.FITS_WARDROBE_V3 = '0';
+    const res = response();
+    await controller.create({ user: { id: 1 }, body: { couleur: 'noir', couleur_secondaire: 'blanc' } }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(Vetement.create).not.toHaveBeenCalled();
+  });
+});

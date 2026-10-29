@@ -360,4 +360,19 @@ describe("buildTrainingDataset (données fictives, modèles simulés)", () => {
     expect(Object.values(row).every(value => typeof value === "number" && Number.isFinite(value)))
       .toBe(true);
   });
+  test.each([null, 2, 3])('v3 ne réécrit pas les couleurs historiques (snapshot %p)', async version => {
+    const previous = process.env.FITS_WARDROBE_V3;
+    process.env.FITS_WARDROBE_V3 = '1';
+    try {
+      const garments = [{ ...garment(101,zones[0]), couleur_secondaire: 'blanc' }, garment(102,zones[1])];
+      Vetement.findAll.mockResolvedValue(garments);
+      const frozen = { id_vetement:101, couleur:'bleu', zone_name:'torse', category_name:'hauts', subcategory_name:'t-shirt',
+        ...(version === 3 ? { couleur_secondaire:'blanc' } : {}) };
+      Evaluation.findAll.mockResolvedValue([{ id_utilisateur:1, id_tenue:10, is_liked:true, temperature:18,
+        date_avis:'2026-01-01T12:00:00Z', feature_snapshot: version ? { version, garments:[frozen] } : null }]);
+      const [row] = await buildTrainingDataset(1);
+      expect(row.couleur_blanc).toBe(version === 3 ? 1 : 0);
+    } finally { if (previous === undefined) delete process.env.FITS_WARDROBE_V3; else process.env.FITS_WARDROBE_V3 = previous; }
+  });
+
 });

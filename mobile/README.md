@@ -4,9 +4,9 @@ Le champ **Marque** utilise un catalogue FITS avec recherche locale, tolérance 
 
 Le raccourci **Compléter mon dressing** de l’accueil ouvre le formulaire au-dessus de la collection, y compris lors de la toute première visite. La flèche de retour permet donc de retrouver les vêtements. Changer d’onglet conserve le formulaire en cours ; revenir puis utiliser la flèche revient à la liste.
 
-Le formulaire propose maintenant **Préremplir avec la photo** après sélection d’une image : nom, catégorie, couleur et marque visible, avec vérification avant sauvegarde. L’envoi à Google Gemini est explicite, les saisies manuelles sont conservées et une panne laisse le formulaire utilisable. La clé est configurée uniquement côté backend : [activation et limites](../backend/CLOTHING_RECOGNITION.md).
+Le formulaire lance automatiquement le préremplissage après sélection d’une photo : nom, catégorie, couleur et marque visible, avec vérification avant sauvegarde. La mention d’analyse par Google Gemini est visible près de la photo, les saisies manuelles sont conservées et une panne laisse le formulaire utilisable. La clé est configurée uniquement côté backend : [activation et limites](../backend/CLOTHING_RECOGNITION.md).
 
-Application React Native/Expo du parcours dressing → génération de tenue → like/dislike. À la création et à la modification d'un vêtement, une couleur principale se choisit dans une palette de 12 couleurs ; les anciennes valeurs libres doivent être remplacées lors d'une modification depuis cet écran.
+Application React Native/Expo du parcours dressing → génération de tenue → like/dislike. À la création et à la modification d'un vêtement, une couleur principale se choisit dans la palette annoncée par l’API (12 couleurs historiques, ou 18 avec une seconde couleur facultative après activation du catalogue v3) ; les anciennes valeurs libres doivent être remplacées lors d'une modification depuis cet écran.
 
 ```sh
 cd mobile
@@ -39,3 +39,9 @@ node scripts/smokeUi.cjs /private/tmp/fits-ui-web
 Ce parcours démarre un serveur sur loopback et un profil Chrome temporaire, remplace l’API par des fixtures et bloque les requêtes externes de l’application. Il contrôle connexion, génération/avis, aperçu, dressing/filtres, ajout/modification/catégories et profil. Les captures fictives sont écrites dans le dossier temporaire indiqué ; le profil Chrome est supprimé à la fin. Il ne remplace pas l’essai sur appareil : photothèque et permissions, clavier, VoiceOver/TalkBack, grandes polices, images privées réelles et sauvegarde sur un compte de test restent à vérifier.
 
 Le web est exporté comme application monopage React Navigation. L’ancienne configuration Expo Router inutilisée et la référence au favicon vide ont été retirées. Les autres fichiers d’icônes natifs du dépôt sont encore vides : les exports de bundles ne valident pas l’habillage d’un binaire destiné aux stores.
+
+Catalogue enrichi : six groupes précis, recherche par couleur principale ou secondaire, deux pastilles sur les fiches. Les capacités sont négociées avec le backend ; la migration et `FITS_WARDROBE_V3=1` sont nécessaires pour activer deux couleurs. [Procédure et compatibilité](../backend/WARDROBE_CATALOGUE.md).
+
+Le sélecteur de couleurs permet désormais de toucher directement une ou deux pastilles : les deux restent cochées et numérotées (1 principale, 2 secondaire). Toucher une couleur sélectionnée la retire ; une troisième est refusée sans remplacer les choix. Les options sont rechargées au retour sur la fiche. Après application de la migration, démarrer le backend avec `npm run dev:v3` pour activer les deux couleurs.
+
+Le formulaire d’ajout conserve seulement le titre de navigation, sans grand titre ni slogan en doublon. L’analyse démarre à chaque nouvelle photo choisie, avec un indicateur de progression, conservation des saisies et réessai uniquement en cas d’échec. Le texte explicatif permanent des deux couleurs est retiré ; sélection et limite de deux couleurs restent identiques.

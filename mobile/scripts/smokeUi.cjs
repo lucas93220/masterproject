@@ -38,6 +38,14 @@ function fixtures() {
       else if (url.pathname === '/api/meteo/me') value = { ville: 'Ville de démo', temperature: 13.43, icon: '02d', description: 'Quelques nuages' };
       else if (url.pathname === '/api/dressing/me') value = { vetements: pieces };
       else if (url.pathname === '/api/categorie') value = categories;
+      else if (url.pathname === '/api/categorie/options') value = { version: 3, max_colors: 2,
+        colors: ['noir','blanc','gris','bleu','rouge','vert','jaune','orange','rose','violet','marron','beige','bleu marine','kaki','bordeaux','écru','argenté','doré'],
+        groups: [
+          { id_categorie:'hauts', nom_categorie:'Hauts', subcategories:[{ id_sous_categorie:1, nom_sous_categorie:'Chemise' }] },
+          { id_categorie:'chaussures', nom_categorie:'Chaussures', subcategories:[{ id_sous_categorie:2, nom_sous_categorie:'Baskets' }] },
+          { id_categorie:'accessoires', nom_categorie:'Accessoires', subcategories:[{ id_sous_categorie:3, nom_sous_categorie:'Casquettes' }] }
+        ] };
+      else if (url.pathname === '/api/vetement' && options.method === 'POST') value = { id_vetement:99, ...JSON.parse(options.body) };
       else if (url.pathname === '/api/brands') value = { brands: [
         { name: 'Nike', aliases: [], popular: true }, { name: "Levi's", aliases: ['Levis'], popular: true }
       ], personalAvailable: true };
@@ -137,7 +145,7 @@ function fixtures() {
   await click('bleu'); await click('Voir 1 pièce');
   assert.equal(await evaluate(`!!document.querySelector('[aria-label="Modifier Jean droit"]')`), true);
   assert.equal(await evaluate(`!!document.querySelector('[aria-label="Modifier Chemise en lin"]')`), false);
-  await click('Modifier Jean droit'); await waitFor(`document.body.innerText.includes('Ta pièce, en détail.')`);
+  await click('Modifier Jean droit'); await waitFor(`document.body.innerText.includes('Modifier la pièce')`);
   await screenshot('modifier');
   // Le retour de pile est un bouton au libellé issu de React Navigation.
   const back = await evaluate(`Array.from(document.querySelectorAll('button, [role="button"], [role="link"], a')).find(el => /back|retour|DressingMain/i.test(el.getAttribute('aria-label') || ''))?.getAttribute('aria-label')`);
@@ -153,7 +161,20 @@ function fixtures() {
   await waitFor(`Array.from(document.querySelectorAll('[aria-label]')).some(el => el.getAttribute('aria-label') === ${JSON.stringify("Sélectionner la marque Levi's")}) && !document.querySelector('[aria-label="Sélectionner la marque Nike"]')`);
   await screenshot('marques'); await click("Sélectionner la marque Levi's");
   assert.equal(await evaluate(`window.__fitsRequests.filter(r => r.path === '/api/brands').length`), 1);
-  await click('Choisir une catégorie'); await click('Choisir Vêtements'); await screenshot('categories'); await click('Choisir Hauts');
+  await click('Choisir une catégorie'); await click('Choisir Hauts'); await screenshot('categories'); await click('Choisir Chemise');
+  await click('Couleur bleu marine'); await click('Couleur écru');
+  assert.equal(await evaluate(`document.querySelectorAll('[aria-label^="Couleur " ][aria-pressed="true"]').length`), 2);
+  await screenshot('deux-couleurs');
+  await evaluate(`(() => {
+    const input = document.querySelector('[aria-label="Nom du vêtement *"]');
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, 'Pièce bicolore fictive');
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  })()`);
+  await click('Ajouter à mon dressing');
+  await waitFor(`!!document.querySelector('[aria-label="Rechercher dans mon dressing"]')`);
+  const savedPiece = await evaluate(`JSON.parse(window.__fitsRequests.find(r => r.path === '/api/vetement' && r.method === 'POST').body)`);
+  assert.equal(savedPiece.couleur, 'bleu marine'); assert.equal(savedPiece.couleur_secondaire, 'écru');
+  await click('Ajouter un vêtement');
   await click('Profil'); await waitFor(`document.body.innerText.includes('À ton image.')`); await screenshot('profil');
   // Une fiche conservée lors du changement d'onglet doit toujours permettre le retour à la liste.
   await click('Dressing'); await screenshot('retour-dressing');
@@ -161,7 +182,7 @@ function fixtures() {
   await click('Tout');
   await waitFor(`!!document.querySelector('[aria-label="Modifier Chemise en lin"]')`);
   await click('Modifier Veste de saison');
-  await waitFor(`document.body.innerText.includes('Ta pièce, en détail.')`);
+  await waitFor(`document.body.innerText.includes('Modifier la pièce')`);
   await click('Profil'); await click('Dressing');
   await backToDressing();
   await click('Profil');
@@ -176,7 +197,7 @@ function fixtures() {
     if (width === 320) await screenshot('profil-320');
   }
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ status: 'ok', parcours: ['connexion', 'accueil', 'avis', 'photo', 'dressing', 'filtres', 'modification', 'ajout', 'marques', 'catégories', 'retour-dressing', 'profil'], screenshots: temp, browserErrors: errors.length }));
+  console.log(JSON.stringify({ status: 'ok', parcours: ['connexion', 'accueil', 'avis', 'photo', 'dressing', 'filtres', 'modification', 'ajout', 'marques', 'catégories', 'deux-couleurs', 'retour-dressing', 'profil'], screenshots: temp, browserErrors: errors.length }));
 })().catch(error => { console.error(error.message); console.error('Captures : ' + temp); process.exitCode = 1; }).finally(async () => {
   socket?.close();
   if (chrome) {

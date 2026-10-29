@@ -77,6 +77,8 @@ test("les inconnues et valeurs manquantes restent numériques et bornées", asyn
   ], 18, schema);
 
   expect(colorBucket("ultraviolet imaginaire")).toBe("autre");
+  expect(colorBucket("navy")).toBe("autre"); // encodage v2 inchangé
+  expect(colorBucket("écru")).toBe("autre");
   expect(features.couleur_autre).toBe(1);
   expect(features.couleur_inconnu).toBe(1);
   expect(features.categorie_autre).toBe(1);
@@ -122,4 +124,40 @@ test("l'instantané conserve les valeurs du vêtement avant modification", async
   expect(features.couleur_bleu).toBe(1);
   expect(features.couleur_rouge).toBe(0);
   expect(saved.subcategory_name).toBe("t-shirt");
+});
+
+describe('outfit-v3 : deux couleurs et catalogue complet', () => {
+  const previous = process.env.FITS_WARDROBE_V3;
+  beforeEach(() => { process.env.FITS_WARDROBE_V3 = '1'; });
+  afterAll(() => { if (previous === undefined) delete process.env.FITS_WARDROBE_V3; else process.env.FITS_WARDROBE_V3 = previous; });
+  test('fige la seconde couleur, distingue les nuances et conserve les anciens snapshots', async () => {
+    const schema = await loadFeatureSchema();
+    const item = { ...garment(10, 'torse', 'bleu marine'), couleur_secondaire: 'écru' };
+    const snapshot = snapshotGarment(item, schema);
+    item.couleur_secondaire = 'rouge';
+    const features = extractFeatures([snapshot], 18, schema);
+    expect(schema.version).toMatch(/^outfit-v3-/);
+    expect(features['couleur_bleu marine']).toBe(1);
+    expect(features.couleur_écru).toBe(1);
+    expect(features.couleur_rouge).toBe(0);
+    expect(features.couleur_bleu).toBe(0);
+    const legacy = extractFeatures([garment(10, 'torse', 'bleu')], 18, schema);
+    expect(legacy.couleur_inconnu).toBe(0); // secondaire absente != couleur inconnue
+    expect(Object.keys(features)).toEqual(Object.keys(legacy));
+    expect(Object.values(features).every(Number.isFinite)).toBe(true);
+  });
+  test('encode une sous-catégorie au-delà des seize premières', async () => {
+    SousCategorie.findAll.mockResolvedValue(Array.from({ length: 40 }, (_, index) => ({
+      id_sous_categorie: index + 1, id_categorie: 1, nom_sous_categorie: `Type ${String(index).padStart(2, '0')}`
+    })));
+    const schema = await loadFeatureSchema();
+    const result = extractFeatures([{ id_sous_categorie: 40, couleur: 'noir' }], 18, schema);
+    expect(schema.subcategoryVocabulary).toHaveLength(40);
+    expect(result.sous_categorie_39).toBe(1);
+    expect(result.sous_categorie_autre).toBe(0);
+    process.env.FITS_WARDROBE_V3 = '0';
+    const legacy = await loadFeatureSchema();
+    expect(legacy.version).toMatch(/^outfit-v2-/);
+    expect(legacy.subcategoryVocabulary).toHaveLength(16);
+  });
 });

@@ -108,7 +108,7 @@ export default function Home({ navigation }) {
   }
 
   return <Screen scroll>
-    <Heading eyebrow="FITS · TON DRESSING, AUTREMENT" title={"Qu’est-ce qu’on\nporte aujourd’hui ?"} />
+    <Heading title={"Qu’est-ce qu’on\nporte aujourd’hui ?"} />
     <View style={styles.weather}>
       <View style={{ flex: 1, gap: 6 }}>
         <View style={layout.row}>
@@ -130,7 +130,6 @@ export default function Home({ navigation }) {
       <View style={layout.between}>
         <View style={{ gap: 4 }}>
           <Text style={TYPE.eyebrow}>TA SÉLECTION DU JOUR</Text>
-          <Text style={TYPE.title}>À toi de voir.</Text>
         </View>
         <Text style={styles.count}>{tenue.length} pièces</Text>
       </View>

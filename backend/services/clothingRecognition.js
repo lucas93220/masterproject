@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { SELECTABLE_COLORS } = require('./clothingColors');
+const { wardrobeV3 } = require('./wardrobeVersion');
 
 class RecognitionError extends Error {
   constructor(status, message) {
@@ -34,6 +35,8 @@ function validateSuggestion(data, catalog) {
     nom: optionalText(data.nom),
     marque: data.brand_visible === true ? optionalText(data.marque) : null,
     couleur: SELECTABLE_COLORS.includes(data.couleur) ? data.couleur : null,
+    ...(wardrobeV3() ? { couleur_secondaire: SELECTABLE_COLORS.includes(data.couleur_secondaire) &&
+      data.couleur_secondaire !== data.couleur ? data.couleur_secondaire : null } : {}),
     id_sous_categorie: category?.id_sous_categorie || null,
     nom_sous_categorie: category?.nom_sous_categorie || null
   };
@@ -56,9 +59,10 @@ async function recognizeClothing(file, catalog) {
       marque: { type: 'STRING', nullable: true },
       brand_visible: { type: 'BOOLEAN' },
       couleur: { type: 'STRING', enum: SELECTABLE_COLORS, nullable: true },
+      ...(wardrobeV3() ? { couleur_secondaire: { type: 'STRING', enum: SELECTABLE_COLORS, nullable: true } } : {}),
       id_sous_categorie: { type: 'INTEGER', nullable: true }
     },
-    required: ['is_clothing', 'nom', 'marque', 'brand_visible', 'couleur', 'id_sous_categorie']
+    required: ['is_clothing', 'nom', 'marque', 'brand_visible', 'couleur', 'id_sous_categorie', ...(wardrobeV3() ? ['couleur_secondaire'] : [])]
   };
   let response;
   try {
@@ -72,7 +76,9 @@ async function recognizeClothing(file, catalog) {
           '(100 caractères maximum), sans marque supposée. La marque doit être explicitement lisible sur une étiquette ' +
           'ou identifiable par un logo visible sans ambiguïté : sinon marque=null et brand_visible=false. ' +
           'Ne déduis jamais une marque du style ou de la coupe. Choisis la couleur principale du vêtement, pas du fond, ' +
-          'parmi les couleurs autorisées. Choisis un identifiant dans le catalogue fourni. ' +
+          'parmi les couleurs autorisées. ' +
+          (wardrobeV3() ? 'Propose aussi une couleur secondaire seulement si elle est clairement présente, différente de la principale ; sinon null. ' : '') +
+          'Choisis un identifiant dans le catalogue fourni. ' +
           'Si une information est incertaine, renvoie null. Ne déduis pas les températures depuis une photo.' }] },
         contents: [{ role: 'user', parts: [
           { text: `Catalogue autorisé : ${JSON.stringify(categories)}` },

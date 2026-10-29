@@ -1,7 +1,7 @@
 import { View, Text, TextInput, FlatList, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { getMyDressing, deleteClothing, toggleFavorite, getCategories } from "../services/api";
+import { getMyDressing, deleteClothing, toggleFavorite, getCategories, getWardrobeOptions } from "../services/api";
 import { filterWardrobe } from "../services/wardrobeView";
 import ClothingImage from "../components/ClothingImage";
 import { Screen, Heading, Button, IconButton, Chip, Sheet, EmptyState, Notice, layout } from "../components/ui";
@@ -11,6 +11,7 @@ import { TYPE } from "../styles/theme";
 
 export default function Dressing({ navigation }) {
   const [dressing, setDressing] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +43,7 @@ export default function Dressing({ navigation }) {
 
   useEffect(() => {
     let active = true;
+    if (getWardrobeOptions) getWardrobeOptions().then(data => { if (active) setGroups(data.groups || []); }).catch(() => {});
     getCategories().then(data => { if (active) setCategories(data); }).catch(() => {
       // Le catalogue reste filtrable via les catégories des vêtements déjà chargés.
     });
@@ -76,10 +78,10 @@ export default function Dressing({ navigation }) {
       { text: "Retirer", style: "destructive", onPress: () => mutateItem(item, true) }
     ]);
   const clearFilters = () => { setCategory(null); setFavorites(false); setColor(null); setQuery(""); };
-  const filtered = filterWardrobe(dressing, { query, category, favorites, color, sort });
+  const filtered = filterWardrobe(dressing, { query, category, favorites, color, sort, groups });
   const filterCount = Number(!!category) + Number(favorites) + Number(!!color);
   const favoriteCount = dressing.filter(item => item.favori).length;
-  const availableCategories = categories.length ? categories :
+  const availableCategories = groups.length ? groups : categories.length ? categories :
     [...new Map(dressing.filter(item => item.sous_categorie?.categorie)
       .map(item => [item.sous_categorie.categorie.id_categorie, item.sous_categorie.categorie])).values()];
 
@@ -136,6 +138,8 @@ export default function Dressing({ navigation }) {
             <View style={[layout.row, { gap: 6 }]}>
               {CLOTHING_COLORS[item.couleur] ? <View style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1,
                 borderColor: COLORS.border, backgroundColor: CLOTHING_COLORS[item.couleur] }} /> : null}
+              {CLOTHING_COLORS[item.couleur_secondaire] ? <View accessibilityLabel={`Seconde couleur : ${item.couleur_secondaire}`} style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 1,
+                borderColor: COLORS.border, backgroundColor: CLOTHING_COLORS[item.couleur_secondaire] }} /> : null}
               <Text numberOfLines={1} style={[TYPE.caption, { flex: 1 }]}>{item.marque || item.sous_categorie?.nom_sous_categorie || item.couleur}</Text>
             </View>
           </View>
